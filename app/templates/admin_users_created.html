@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head"><div><h1>تم إنشاء {{ made|length }} حساب</h1><p>احفظ هذه القائمة أو اطبعها الآن — لن تظهر كلمات المرور مرة أخرى. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
 <div class="actions"><button class="btn" data-print type="button">طباعة</button><a class="btn primary" href="/admin/users">العودة</a></div></div>
-{% if not made %}<div class="alert info">لا يوجد موظفون نشطون بأرقام وظيفية معتمدة بلا حسابات. (الموظفون بأرقام مؤقتة TMP يُستثنون حتى يُستكمل رقمهم.)</div>{% endif %}
+{% if not made %}<div class="alert info">لم يُنشأ أي حساب جديد: إما أن لكل الموظفين حسابات مسبقاً، أو أُلغي خيار إنشاء الحسابات. (الموظفون بأرقام مؤقتة TMP لا تُنشأ لهم حسابات حتى يُستكمل رقمهم.)</div>{% endif %}
 <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th></tr></thead><tbody>
 {% for n, u, p, r in made %}<tr><td>{{ n }}</td><td class="num">{{ u }}</td><td class="num"><code>{{ p }}</code></td><td>{{ ROLES[r] }}</td></tr>{% endfor %}
 </tbody></table></div>

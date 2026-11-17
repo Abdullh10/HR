@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>سجل أيام بدل الراحة</h1><p>كل يوم في سجل مستقل · الإلغاء يعيد اليوم إلى الرصيد · السنة {{ sel_year.name }}</p></div>
-  <div class="actions">{% if user.role in ('admin','officer','manager') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
+  <div class="actions">{% if user.role in ('admin','officer','manager','viewer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
     {% if user.role in ('admin','officer') or (year and year.employee_can_request and user.employee_id) %}<a class="btn primary" href="/requests/new">+ طلب يوم بدل راحة</a>{% endif %}</div>
 </div>
 <form method="get" class="card filters">
@@ -25,7 +25,7 @@
     <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}</td>
     <td data-label="ملف التوصية">{% if r.attachment_id %}<a href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">فتح الملف</a>{% endif %}</td>
     <td data-label="ملاحظات">{{ r.notes }}{% if r.decision_note %}<div class="hint">{{ r.decision_note }}</div>{% endif %}</td>
-    <td data-label="إجراء">{% if r.status == 'pending' or (r.status == 'approved' and user.role != 'employee') %}
+    <td data-label="إجراء">{% if r.status == 'pending' or (r.status == 'approved' and user.role in ('admin','officer','manager')) %}
       <form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note" value="">
       <button class="btn sm danger" {% if r.status == 'approved' %}data-need-note{% endif %} data-confirm="تأكيد إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
   {% else %}<tr><td colspan="8" class="empty">لا توجد سجلات.</td></tr>{% endfor %}

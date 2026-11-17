@@ -23,8 +23,12 @@ ROLES = {
     "admin": "مدير النظام",
     "officer": "مسؤول الإدخال",
     "manager": "مدير مباشر",
+    "viewer": "متابع",
     "employee": "موظف",
 }
+
+# المناصب التي يمكن إسنادها للموظفين عند الاستيراد (الأدمن يُسند يدوياً فقط)
+ASSIGNABLE_ROLES = ("employee", "officer", "manager", "viewer")
 
 BALANCE_MODES = {
     "fixed": "ثابت (رصيد سنوي محدد)",

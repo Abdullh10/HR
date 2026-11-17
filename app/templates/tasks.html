@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>سجل المهام والساعات</h1><p>كل {{ hours_ar(sel_year.hours_per_day) }} معتمدة = يوم بدل راحة · السنة {{ sel_year.name }}</p></div>
-  <div class="actions">{% if user.role in ('admin','officer','manager') %}<a class="btn" href="/export/tasks.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
+  <div class="actions">{% if user.role in ('admin','officer','manager','viewer') %}<a class="btn" href="/export/tasks.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
     {% if user.role in ('admin','officer') %}<a class="btn primary" href="/tasks/new">+ تسجيل ساعات</a>{% endif %}</div>
 </div>
 <form method="get" class="card filters">

@@ -337,3 +337,67 @@ def audit_page(request: Request, q: str = "", page: int = 1, user: User = Depend
                   has_next=len(rows) > per)
 
 
+
+
+# ================================================================ استيراد الموظفين دفعة واحدة
+@router.get("/import")
+def import_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    return render(request, db, "admin_import.html", user=user)
+
+
+@router.get("/import/template.xlsx")
+def import_template(user: User = Depends(admin_only)):
+    from .bulk import template_workbook
+    from .routes_core import _xlsx_response
+
+    return _xlsx_response(template_workbook(), "نموذج استيراد الموظفين.xlsx")
+
+
+@router.post("/import/preview")
+async def import_preview(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    import json
+
+    from . import bulk
+
+    form = await request.form()
+    upload = form.get("file")
+    data = await upload.read(bulk.MAX_FILE + 1) if getattr(upload, "filename", "") else None
+    try:
+        table = bulk.read_table(getattr(upload, "filename", ""), data, str(form.get("pasted") or ""))
+        if not table:
+            raise ValueError("لم يتم إدخال أي بيانات. ارفع ملفاً أو الصق الأسماء والأرقام.")
+        mapping, body, start = bulk.map_columns(table)
+        rows = bulk.validate(db, bulk.build_rows(mapping, body, start))
+    except ValueError as e:
+        flash(request, str(e), "error")
+        return redirect("/admin/import")
+    counts = {k: sum(1 for r in rows if r.action == k) for k in ("new", "update", "error")}
+    payload = json.dumps([r.to_dict() for r in rows if r.action != "error"], ensure_ascii=False)
+    return render(request, db, "admin_import.html", user=user, rows=rows, counts=counts, payload=payload,
+                  detected=[bulk.HEADERS[k][0] for k in sorted(mapping, key=mapping.get)])
+
+
+@router.post("/import/commit")
+async def import_commit(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    import json
+
+    from . import bulk
+
+    form = await request.form()
+    try:
+        items = json.loads(str(form.get("payload") or "[]"))
+        if not isinstance(items, list) or not items:
+            raise ValueError
+    except ValueError:
+        flash(request, "لا توجد صفوف صالحة للاستيراد.", "error")
+        return redirect("/admin/import")
+    rows = bulk.rows_from_dicts(items)
+    res = bulk.apply(db, rows, create_accounts=bool(form.get("create_accounts")),
+                     update_roles=bool(form.get("update_roles")))
+    audit(db, user, "employees_imported", "employee", None, ip=client_ip(request), created=res.created,
+          updated=res.updated, accounts=len(res.accounts), roles_changed=res.roles_changed, skipped=res.skipped)
+    db.commit()
+    flash(request, f"تمت إضافة {res.created} موظف وتحديث {res.updated}، وإنشاء {len(res.accounts)} حساب"
+                   + (f"، وتغيير منصب {res.roles_changed}" if res.roles_changed else "")
+                   + (f". تُجووز {res.skipped} صف تغيّر وضعه." if res.skipped else "."))
+    return render(request, db, "admin_users_created.html", user=user, made=res.accounts)

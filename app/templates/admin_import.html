@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}استيراد الموظفين{% endblock %}
+{% block heading %}استيراد الموظفين{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>استيراد الموظفين وإنشاء حساباتهم</h1>
+    <p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع المنصب المحدد.</p></div>
+  <a class="btn" href="/admin/import/template.xlsx">تنزيل نموذج Excel</a>
+</div>
+
+{% if not rows %}
+<form method="post" action="/admin/import/preview" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="grid two">
+    <section class="card">
+      <h2>1) رفع ملف Excel أو CSV</h2>
+      <div class="field"><label for="f">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label>
+        <input id="f" type="file" name="file" accept=".xlsx,.xlsm,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+      <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، المنصب، رقم المدير المباشر، المسمى الوظيفي، البريد.</p>
+    </section>
+    <section class="card">
+      <h2>2) أو النسخ واللصق</h2>
+      <div class="field"><label for="p">انسخ الأعمدة من Excel والصقها هنا <span class="hint">(سطر لكل موظف)</span></label>
+        <textarea id="p" name="pasted" rows="8" placeholder="محمد أحمد العتيبي	100500	وحدة الشؤون الإدارية	موظف	100400&#10;سارة علي القحطاني	100400	وحدة الشؤون الإدارية	مدير مباشر"></textarea></div>
+      <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، المنصب، رقم المدير المباشر. يكفي عمودا الاسم والرقم.</p>
+    </section>
+  </div>
+  <section class="card">
+    <h2>المناصب</h2>
+    <div class="grid kpis" style="margin:0">
+      <div class="kpi"><div class="l">موظف</div><div class="s">يتابع رصيده وكشفه ويقدّم طلباته</div></div>
+      <div class="kpi"><div class="l">مسؤول</div><div class="s">يُدخل الساعات والطلبات ويدير بيانات الموظفين</div></div>
+      <div class="kpi"><div class="l">مدير مباشر</div><div class="s">يعتمد ساعات وطلبات فريقه المباشر</div></div>
+      <div class="kpi"><div class="l">متابع</div><div class="s">اطلاع فقط على جميع الأرصدة والتقارير</div></div>
+    </div>
+    <p class="hint mt">إن تُرك المنصب فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p>
+  </section>
+  <button class="btn primary" type="submit">معاينة قبل الحفظ</button>
+</form>
+
+{% else %}
+<div class="grid kpis">
+  <div class="kpi ok"><div class="l">جديد</div><div class="v">{{ counts['new'] }}</div></div>
+  <div class="kpi brand"><div class="l">تحديث موظف موجود</div><div class="v">{{ counts['update'] }}</div></div>
+  <div class="kpi err"><div class="l">أخطاء (لن تُستورد)</div><div class="v">{{ counts['error'] }}</div></div>
+</div>
+<p class="muted">الأعمدة المكتشفة: {{ detected|join('، ') }}</p>
+<div class="card flush"><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>السطر</th><th>الاسم</th><th>الرقم الوظيفي</th><th>القسم</th><th>المنصب</th><th>رقم المدير</th><th>النتيجة</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr class="{{ 'has-err' if r.action == 'error' }}"><td data-label="السطر">{{ r.line }}</td><td data-label="الاسم">{{ r.name }}</td>
+    <td data-label="الرقم" class="num">{{ r.no }}</td><td data-label="القسم">{{ r.dept }}</td>
+    <td data-label="المنصب">{{ ROLES[r.role] if r.role else 'موظف (افتراضي)' }}</td><td data-label="رقم المدير" class="num">{{ r.manager }}</td>
+    <td data-label="النتيجة">{% if r.action == 'error' %}<span class="badge err">⚠ {{ r.errors|join('، ') }}</span>
+      {% elif r.action == 'new' %}<span class="badge ok">جديد</span>{% else %}<span class="badge">تحديث</span>{% endif %}
+      {% if r.note %}<div class="hint">{{ r.note }}</div>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody></table></div></div>
+{% if counts['new'] or counts['update'] %}
+<form method="post" action="/admin/import/commit" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <textarea name="payload" hidden>{{ payload }}</textarea>
+  <label class="check"><input type="checkbox" name="create_accounts" value="1" checked> إنشاء حساب لكل موظف ليس له حساب (اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة)</label>
+  <label class="check"><input type="checkbox" name="update_roles" value="1" checked> تحديث منصب الحسابات الموجودة حسب الملف (لا يمس حسابات مدير النظام)</label>
+  {% if counts['error'] %}<div class="alert warn">ستُتجاوز الصفوف التي فيها أخطاء ({{ counts['error'] }}). يمكنك تصحيحها واستيرادها لاحقاً.</div>{% endif %}
+  <div class="actions"><button class="btn primary" type="submit">استيراد {{ counts['new'] + counts['update'] }} موظف</button><a class="btn" href="/admin/import">رجوع</a></div>
+</form>
+{% else %}
+<div class="actions"><a class="btn" href="/admin/import">رجوع وتصحيح البيانات</a></div>
+{% endif %}
+{% endif %}
+{% endblock %}

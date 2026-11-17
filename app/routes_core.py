@@ -48,7 +48,7 @@ from .web import (
 )
 
 router = APIRouter()
-STAFF = ("admin", "officer", "manager")
+STAFF = ("admin", "officer", "manager", "viewer")
 EDITORS = ("admin", "officer")
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -21,6 +22,18 @@ from .models import (
 )
 
 WEEKDAYS_AR = ["الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
+
+
+_DIAC = re.compile(r"[\u064B-\u065F\u0670\u0640]")
+
+
+def norm_ar(s) -> str:
+    """تطبيع النص العربي للمطابقة: الهمزات، التاء المربوطة، الألف المقصورة، التشكيل، المسافات."""
+    if s is None:
+        return ""
+    s = _DIAC.sub("", str(s))
+    s = re.sub("[أإآٱ]", "ا", s).replace("ة", "ه").replace("ى", "ي")
+    return " ".join(s.split())
 
 
 class RuleError(ValueError):
@@ -185,7 +198,7 @@ def is_direct_manager(user: User, emp: Employee) -> bool:
 
 
 def can_view_employee(user: User, emp: Employee) -> bool:
-    if user.role in ("admin", "officer"):
+    if user.role in ("admin", "officer", "viewer"):
         return True
     if user.employee_id == emp.id:
         return True
@@ -213,7 +226,7 @@ def team_ids(db: Session, user: User) -> list[int]:
 
 def visible_employee_ids(db: Session, user: User) -> list[int] | None:
     """None = الكل."""
-    if user.role in ("admin", "officer"):
+    if user.role in ("admin", "officer", "viewer"):
         return None
     ids = set()
     if user.employee_id:
