@@ -214,7 +214,7 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true">ب</div><div><b>${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <div class="brand"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/></svg></div><div><b>${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
@@ -224,12 +224,12 @@
       <span class="title">${h(title)}</span><span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <span class="who">${h(displayName(u))} · ${ROLES[u.role]}</span>
-      <button class="btn ghost sm" type="button" data-theme-toggle>الوضع</button>
+      <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
       <a class="btn ghost sm hide-sm" href="#/password">كلمة المرور</a>
       <button class="btn sm" type="button" data-act="logout">خروج</button>
     </header>
     <main id="main" class="content" tabindex="-1">${fl}${body}</main>
-    <footer class="footer">${h(s.university)} – ${h(s.college)} · ${h(s.system_title)}${s.credit ? " · " + h(s.credit) : ""}</footer>
+    <footer class="footer">© ${new Date().getFullYear()} ${h(s.university)} – ${h(s.college)} · ${h(s.system_title)}${s.credit ? " · " + h(s.credit) : ""}</footer>
   </div>
 </div>`;
   }
@@ -245,18 +245,48 @@
   V.login = () => {
     const s = DB.settings;
     const accts = [["admin", "مدير النظام"], ["officer", "مسؤول الإدخال"], ["mgr", "مدير مباشر"], ["viewer", "متابع"], ["emp", "موظف"]];
-    return `<main class="auth"><div class="box">
-      <div class="mark" aria-hidden="true">ب</div><h1>${h(s.system_title)}</h1><p class="org">${h(s.university)} – ${h(s.college)}</p>
+    const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+    return `<div class="gate">
+  <div class="gate-strip" aria-hidden="true"></div>
+  <header class="gate-head"><div class="gate-head-in">
+    <a class="gate-org" href="#/login" aria-label="${h(s.university)} – ${h(s.college)}"><span class="emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/></svg></span><span><b>${h(s.university)}</b><small>${h(s.college)}</small></span></a>
+    <span class="gate-sys hide-sm">${h(s.system_title)}</span>
+    <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
+  </div></header>
+  <main class="gate-main"><div class="gate-grid">
+    <section class="gate-card" aria-labelledby="login-title">
+      <span class="demo-tag" role="note">نسخة عرض — ليست النظام الفعلي</span>
+      <h1 id="login-title">تسجيل الدخول</h1>
+      <p class="sub">أدخل بيانات حسابك للوصول إلى ${h(s.system_title)}.</p>
       ${flashQ.splice(0).map(([k, m]) => `<div class="alert ${k}" role="alert">${h(m)}</div>`).join("")}
       <form data-form="login" novalidate>
-        <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label><input id="u" name="username" type="text" autocomplete="username" required autofocus></div>
-        <div class="field"><label for="p">كلمة المرور</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
-        <button class="btn primary" type="submit" style="width:100%">دخول</button>
+        <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label><div class="input-icon">${SV('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/>')}<input id="u" name="username" type="text" autocomplete="username" required autofocus></div></div>
+        <div class="field"><label for="p">كلمة المرور</label><div class="input-icon">${SV('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>')}<input id="p" name="password" type="password" autocomplete="current-password" required></div></div>
+        <button class="btn primary block lg" type="submit">دخول</button>
       </form>
-      <div class="demo-accounts"><b>نسخة عرض</b> — حسابات تجريبية (كلمة المرور <code>${DEMO_PW}</code>):<br>
-        ${accts.map(([u, l]) => `<button class="btn sm" type="button" data-demo-login="${u}">${l}</button>`).join("")}
-        <p class="hint">البيانات وهمية ومحفوظة في هذا المتصفح فقط.</p></div>
-    </div></main>`;
+      <p class="gate-help">${SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>')}<span><b>نسيت كلمة المرور؟</b> تواصل مع مدير النظام في الكلية لإعادة تعيينها.</span></p>
+      <div class="demo-accounts" role="group" aria-labelledby="demo-title">
+        <div class="head"><b id="demo-title">حسابات تجريبية</b><span class="muted">كلمة المرور <code>${DEMO_PW}</code></span></div>
+        <div class="list">${accts.map(([u, l]) => `<button class="btn sm" type="button" data-demo-login="${u}">${l}</button>`).join("")}</div>
+        <p class="hint">البيانات وهمية ومحفوظة في هذا المتصفح فقط.</p>
+      </div>
+    </section>
+    <section class="gate-intro" aria-labelledby="intro-title">
+      <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
+      <h2 id="intro-title">${h(s.system_title)}</h2>
+      <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
+      <ul class="gate-features">
+        <li><span class="ico" aria-hidden="true">${SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>')}</span><div><b>تسجيل المهام والساعات</b><span>توثيق ساعات العمل الإضافية واحتساب الأيام المستحقة آلياً.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${SV('<path d="M12 3l7 3v5c0 4.5-3 8-7 9.5C8 19 5 15.5 5 11V6z"/><path d="M9 12l2 2 4-4"/>')}</span><div><b>اعتماد الطلبات إلكترونياً</b><span>رفع طلبات التمتع واعتمادها من المدير المباشر مع سجل تدقيق.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${SV('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>')}</span><div><b>كشوف أرصدة رسمية</b><span>كشف سنوي لكل موظف جاهز للطباعة والحفظ بصيغة PDF.</span></div></li>
+      </ul>
+    </section>
+  </div></main>
+  <footer class="gate-foot"><div class="gate-foot-in">
+    <span>© ${new Date().getFullYear()} ${h(s.university)} – ${h(s.college)}.${/محفوظة/.test(s.credit || "") ? "" : " جميع الحقوق محفوظة."}${s.credit ? " " + h(s.credit) : ""}</span>
+    <nav aria-label="روابط التذييل"><details><summary>عن النظام</summary><p>${h(s.system_title)}: تسجيل المهام والساعات، احتساب الأيام المستحقة، طلبات التمتع واعتمادها من المدير المباشر، وكشوف الأرصدة السنوية. هذه نسخة عرض تعمل في المتصفح فقط.</p></details></nav>
+  </div></footer>
+</div>`;
   };
 
   V.password = (u) => layout(u, "تغيير كلمة المرور", `<div class="card" style="max-width:480px">
@@ -954,6 +984,7 @@
   });
   document.addEventListener("click", async (ev) => {
     const t = ev.target;
+    const sk = t.closest(".skip"); if (sk) { ev.preventDefault(); const m = document.getElementById("main"); if (m) m.focus(); return; }
     const dl = t.closest("[data-demo-login]"); if (dl) { document.getElementById("u").value = dl.dataset.demoLogin; document.getElementById("p").value = DEMO_PW; document.querySelector('form[data-form="login"]').requestSubmit(); return; }
     const a = t.closest("[data-act]");
     if (a) { try { await ACT[a.dataset.act](a, me()); } catch (e) { if (e instanceof RuleError || e instanceof Forbidden) { flash(e.message, "error"); render(); } else { console.error(e); toast("حدث خطأ غير متوقع.", "error"); } } return; }
