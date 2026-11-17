@@ -42,6 +42,13 @@
 - **الأرصدة الخاصة:** رصيد أساسي مختلف أو تسوية (+/−) لموظف بعينه، مع ذكر سبب إلزامي.
 - **الإقفال السنوي:** لا يتم الإقفال ما دامت هناك حركات معلّقة.
 
+## النشر على Oracle Cloud (مجاني، داخل المملكة)
+دليل خطوة بخطوة: [`deploy/ORACLE.md`](deploy/ORACLE.md). التثبيت على خادم Ubuntu بأمر واحد:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Abdullh10/HR/main/deploy/install.sh | sudo DOMAIN=your.domain EMAIL=you@example.com bash
+```
+
 ## التشغيل المحلي
 
 ```bash
