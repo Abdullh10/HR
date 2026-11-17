@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge, year_select, balance_state %}
+{% from "_macros.html" import ico, status_badge, year_select, balance_state %}
 {% block title %}كشف {{ emp.full_name }}{% endblock %}
 {% block heading %}{{ 'كشف رصيدي' if self_view else 'كشف موظف' }}{% endblock %}
 {% block content %}
@@ -30,12 +30,12 @@
   </div>
 </section>
 <div class="grid kpis">
-  {% if info.mode != 'earned' %}<div class="kpi brand"><div class="l">الرصيد الأساسي</div><div class="v">{{ info.base }}</div></div>{% endif %}
-  {% if info.mode != 'fixed' %}<div class="kpi accent"><div class="l">الأيام المكتسبة من الساعات</div><div class="v">{{ info.earned_days }}</div><div class="s">من {{ info.approved_hours|n }} ساعة معتمدة{% if info.pending_hours %} · {{ info.pending_hours|n }} بانتظار الاعتماد{% endif %}</div></div>{% endif %}
-  {% if info.adjustment %}<div class="kpi"><div class="l">تسوية</div><div class="v">{{ '%+d'|format(info.adjustment) }}</div></div>{% endif %}
-  <div class="kpi ok"><div class="l">الأيام التي تمتع بها/المعتمدة</div><div class="v">{{ info.used_days }}</div></div>
-  <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">{{ info.pending_days }}</div></div>
-  <div class="kpi {{ 'err' if info.remaining < 0 else '' }}"><div class="l">الرصيد المتبقي</div><div class="v">{{ info.remaining }}</div><div class="s">المتاح للطلب: {{ info.available }}</div></div>
+  {% if info.mode != 'earned' %}<div class="kpi brand">{{ ico('calendar') }}<div class="l">الرصيد الأساسي</div><div class="v">{{ info.base }}</div></div>{% endif %}
+  {% if info.mode != 'fixed' %}<div class="kpi accent">{{ ico('clock') }}<div class="l">الأيام المكتسبة من الساعات</div><div class="v">{{ info.earned_days }}</div><div class="s">من {{ info.approved_hours|n }} ساعة معتمدة{% if info.pending_hours %} · {{ info.pending_hours|n }} بانتظار الاعتماد{% endif %}</div></div>{% endif %}
+  {% if info.adjustment %}<div class="kpi">{{ ico('adjust') }}<div class="l">تسوية</div><div class="v">{{ '%+d'|format(info.adjustment) }}</div></div>{% endif %}
+  <div class="kpi ok">{{ ico('cal-check') }}<div class="l">الأيام التي تمتع بها/المعتمدة</div><div class="v">{{ info.used_days }}</div></div>
+  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">طلبات معلّقة</div><div class="v">{{ info.pending_days }}</div></div>
+  <div class="kpi {{ 'err' if info.remaining < 0 else '' }}">{{ ico('pie') }}<div class="l">الرصيد المتبقي</div><div class="v">{{ info.remaining }}</div><div class="s">المتاح للطلب: {{ info.available }}</div></div>
 </div>
 <p class="summary-line">إجمالي الرصيد: {{ days_ar(info.total) }}. الأيام التي تمتع بها: {{ days_ar(info.used_days) }}. الرصيد المتبقي: {{ days_ar(info.remaining) }}.</p>
 

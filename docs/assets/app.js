@@ -196,17 +196,18 @@
   class Forbidden extends Error {}
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
+  const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="assets/icons.svg#i-${n}"/></svg>`;
   function layout(u, title, body) {
     const y = activeYear();
     const p = "#/" + parts().seg.join("/");
-    const item = (href, label) => `<li><a href="${href}" ${p === href ? 'aria-current="page"' : ""}>${label}</a></li>`;
+    const item = (href, label, icon) => `<li><a href="${href}" title="${label}" ${p === href ? 'aria-current="page"' : ""}>${ico(icon)}<span class="lbl">${label}</span></a></li>`;
     const nav = [
-      u.emp ? item("#/me", "كشف رصيدي") : "",
-      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات")}${item("#/employees", "الموظفون والأرصدة")}${["admin", "manager"].includes(u.role) ? item("#/approvals", "الاعتمادات") : ""}${item("#/reports", "التقارير")}` : "",
-      `<li class="sep">الحركات</li>${item("#/tasks", "المهام والساعات")}${item("#/requests", "أيام بدل الراحة")}`,
-      EDITORS.includes(u.role) ? item("#/tasks/new", "+ تسجيل ساعات") : "",
-      EDITORS.includes(u.role) || (y.empCanRequest && u.emp) ? item("#/requests/new", "+ طلب يوم بدل راحة") : "",
-      u.role === "admin" ? `<li class="sep">الإدارة</li>${item("#/admin/years", "السنوات وقواعد الحساب")}${item("#/admin/import", "استيراد الموظفين")}${item("#/admin/users", "المستخدمون والصلاحيات")}${item("#/admin/depts", "الأقسام")}${item("#/admin/holidays", "العطل الرسمية")}${item("#/admin/settings", "هوية الجهة")}${item("#/admin/audit", "سجل التدقيق")}` : "",
+      u.emp ? item("#/me", "كشف رصيدي", "idcard") : "",
+      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${["admin", "manager"].includes(u.role) ? item("#/approvals", "الاعتمادات", "approvals") : ""}${item("#/reports", "التقارير", "reports")}` : "",
+      `<li class="sep">الحركات</li>${item("#/tasks", "المهام والساعات", "clock")}${item("#/requests", "أيام بدل الراحة", "calendar")}`,
+      EDITORS.includes(u.role) ? item("#/tasks/new", "تسجيل ساعات", "clock-plus") : "",
+      EDITORS.includes(u.role) || (y.empCanRequest && u.emp) ? item("#/requests/new", "طلب يوم بدل راحة", "calendar-plus") : "",
+      u.role === "admin" ? `<li class="sep">الإدارة</li>${item("#/admin/years", "السنوات وقواعد الحساب", "gear")}${item("#/admin/import", "استيراد الموظفين", "upload")}${item("#/admin/users", "المستخدمون والصلاحيات", "shield")}${item("#/admin/depts", "الأقسام", "building")}${item("#/admin/holidays", "العطل الرسمية", "holiday")}${item("#/admin/settings", "هوية الجهة", "palette")}${item("#/admin/audit", "سجل التدقيق", "audit")}` : "",
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
     flashQ = [];
@@ -214,19 +215,26 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/></svg></div><div><b>${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <div class="brand"><div class="mark" aria-hidden="true">${ico("logo")}</div><div><b>${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
     <div class="demo-banner" role="note">نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية. <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button></div>
     <header class="topbar">
-      <button class="btn ghost menu-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
+      <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
+      ${ico("logo", "t-logo")}
       <span class="title">${h(title)}</span><span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
-      <span class="who">${h(displayName(u))} · ${ROLES[u.role]}</span>
-      <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
-      <a class="btn ghost sm hide-sm" href="#/password">كلمة المرور</a>
-      <button class="btn sm" type="button" data-act="logout">خروج</button>
+      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
+      <details class="acct">
+        <summary class="btn ghost" aria-label="حساب ${h(displayName(u))}"><span class="avatar" aria-hidden="true">${h(displayName(u).slice(0, 1))}</span><span class="acct-name">${h(displayName(u))}</span></summary>
+        <div class="acct-menu">
+          <div class="who-full"><b>${h(displayName(u))}</b><small>${ROLES[u.role]}</small></div>
+          <button class="btn" type="button" data-theme-toggle>${ico("moon")}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="#/password">${ico("shield")}كلمة المرور</a>
+          <button class="btn logout" type="button" data-act="logout">${ico("logout")}خروج</button>
+        </div>
+      </details>
     </header>
     <main id="main" class="content" tabindex="-1">${fl}${body}</main>
     <footer class="footer">© ${new Date().getFullYear()} ${h(s.university)} – ${h(s.college)} · ${h(s.system_title)}${s.credit ? " · " + h(s.credit) : ""}</footer>
@@ -249,14 +257,14 @@
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
   <header class="gate-head"><div class="gate-head-in">
-    <a class="gate-org" href="#/login" aria-label="${h(s.university)} – ${h(s.college)}"><span class="emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/></svg></span><span><b>${h(s.university)}</b><small>${h(s.college)}</small></span></a>
+    <a class="gate-org" href="#/login" aria-label="${h(s.university)} – ${h(s.college)}"><span class="emblem" aria-hidden="true">${ico("logo")}</span><span><b>${h(s.university)}</b><small>${h(s.college)}</small></span></a>
     <span class="gate-sys hide-sm">${h(s.system_title)}</span>
-    <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
+    <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
   </div></header>
   <main class="gate-main"><div class="gate-grid">
     <section class="gate-card" aria-labelledby="login-title">
       <span class="demo-tag" role="note">نسخة عرض — ليست النظام الفعلي</span>
-      <h1 id="login-title">تسجيل الدخول</h1>
+      <div class="card-mark">${ico("shield")}<h1 id="login-title">تسجيل الدخول</h1></div>
       <p class="sub">أدخل بيانات حسابك للوصول إلى ${h(s.system_title)}.</p>
       ${flashQ.splice(0).map(([k, m]) => `<div class="alert ${k}" role="alert">${h(m)}</div>`).join("")}
       <form data-form="login" novalidate>
@@ -274,11 +282,12 @@
     <section class="gate-intro" aria-labelledby="intro-title">
       <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
       <h2 id="intro-title">${h(s.system_title)}</h2>
+      <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="assets/hero.svg#hero"/></svg>
       <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
       <ul class="gate-features">
-        <li><span class="ico" aria-hidden="true">${SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>')}</span><div><b>تسجيل المهام والساعات</b><span>توثيق ساعات العمل الإضافية واحتساب الأيام المستحقة آلياً.</span></div></li>
-        <li><span class="ico" aria-hidden="true">${SV('<path d="M12 3l7 3v5c0 4.5-3 8-7 9.5C8 19 5 15.5 5 11V6z"/><path d="M9 12l2 2 4-4"/>')}</span><div><b>اعتماد الطلبات إلكترونياً</b><span>رفع طلبات التمتع واعتمادها من المدير المباشر مع سجل تدقيق.</span></div></li>
-        <li><span class="ico" aria-hidden="true">${SV('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>')}</span><div><b>كشوف أرصدة رسمية</b><span>كشف سنوي لكل موظف جاهز للطباعة والحفظ بصيغة PDF.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${ico("clock")}</span><div><b>تسجيل المهام والساعات</b><span>توثيق ساعات العمل الإضافية واحتساب الأيام المستحقة آلياً.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${ico("approvals")}</span><div><b>اعتماد الطلبات إلكترونياً</b><span>رفع طلبات التمتع واعتمادها من المدير المباشر مع سجل تدقيق.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${ico("idcard")}</span><div><b>كشوف أرصدة رسمية</b><span>كشف سنوي لكل موظف جاهز للطباعة والحفظ بصيغة PDF.</span></div></li>
       </ul>
     </section>
   </div></main>
@@ -330,11 +339,11 @@
         <form class="filters no-print">${yearSelect(y)}</form></div>
       ${pt || pr ? `<div class="alert warn" role="status">لديك ${pt} مهمة و${pr} طلب بانتظار اعتمادك. <a href="#/approvals">اذهب إلى الاعتمادات</a></div>` : ""}
       <div class="grid kpis">
-        <div class="kpi brand"><div class="l">إجمالي الموظفين</div><div class="v">${T.employees}</div>${T.tmp ? `<div class="s">${T.tmp} برقم وظيفي مؤقت</div>` : ""}</div>
-        <div class="kpi accent"><div class="l">إجمالي أيام البدل</div><div class="v">${T.total}</div><div class="s">منها ${T.earned} مكتسبة من ${n(T.hours)} ساعة</div></div>
-        <div class="kpi ok"><div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">${T.used}</div></div>
-        <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">${T.pending}</div></div>
-        <div class="kpi"><div class="l">إجمالي الأيام المتبقية</div><div class="v">${T.remaining}</div><div class="s">${T.exhausted} موظف نفد رصيده</div></div>
+        <div class="kpi brand">${ico("users")}<div class="l">إجمالي الموظفين</div><div class="v">${T.employees}</div>${T.tmp ? `<div class="s">${T.tmp} برقم وظيفي مؤقت</div>` : ""}</div>
+        <div class="kpi accent">${ico("calendar")}<div class="l">إجمالي أيام البدل</div><div class="v">${T.total}</div><div class="s">منها ${T.earned} مكتسبة من ${n(T.hours)} ساعة</div></div>
+        <div class="kpi ok">${ico("cal-check")}<div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">${T.used}</div></div>
+        <div class="kpi warn">${ico("hourglass")}<div class="l">طلبات معلّقة</div><div class="v">${T.pending}</div></div>
+        <div class="kpi">${ico("pie")}<div class="l">إجمالي الأيام المتبقية</div><div class="v">${T.remaining}</div><div class="s">${T.exhausted} موظف نفد رصيده</div></div>
       </div>
       <div class="grid two">
         <section class="card"><h2>الأيام المعتمدة حسب الشهر</h2>
@@ -369,12 +378,12 @@
         ${b.mode !== "fixed" ? `<div style="min-width:240px"><div class="muted">التقدم نحو اليوم التالي</div><div class="meter"><div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><span class="num">${n(b.rem)}/${n(b.hpd)}</span></div><div class="hint">متبقٍ ${hoursAr(b.hpd - b.rem)} لاستحقاق يوم جديد</div></div>` : ""}
       </div></section>
       <div class="grid kpis">
-        ${b.mode !== "earned" ? `<div class="kpi brand"><div class="l">الرصيد الأساسي</div><div class="v">${b.base}</div></div>` : ""}
-        ${b.mode !== "fixed" ? `<div class="kpi accent"><div class="l">الأيام المكتسبة من الساعات</div><div class="v">${b.earned}</div><div class="s">من ${n(b.ah)} ساعة معتمدة${b.ph ? " · " + n(b.ph) + " بانتظار الاعتماد" : ""}</div></div>` : ""}
-        ${b.adj ? `<div class="kpi"><div class="l">تسوية</div><div class="v">${b.adj > 0 ? "+" : ""}${b.adj}</div></div>` : ""}
-        <div class="kpi ok"><div class="l">الأيام التي تمتع بها/المعتمدة</div><div class="v">${b.used}</div></div>
-        <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">${b.pend}</div></div>
-        <div class="kpi ${b.remaining < 0 ? "err" : ""}"><div class="l">الرصيد المتبقي</div><div class="v">${b.remaining}</div><div class="s">المتاح للطلب: ${b.available}</div></div>
+        ${b.mode !== "earned" ? `<div class="kpi brand">${ico("calendar")}<div class="l">الرصيد الأساسي</div><div class="v">${b.base}</div></div>` : ""}
+        ${b.mode !== "fixed" ? `<div class="kpi accent">${ico("clock")}<div class="l">الأيام المكتسبة من الساعات</div><div class="v">${b.earned}</div><div class="s">من ${n(b.ah)} ساعة معتمدة${b.ph ? " · " + n(b.ph) + " بانتظار الاعتماد" : ""}</div></div>` : ""}
+        ${b.adj ? `<div class="kpi">${ico("adjust")}<div class="l">تسوية</div><div class="v">${b.adj > 0 ? "+" : ""}${b.adj}</div></div>` : ""}
+        <div class="kpi ok">${ico("cal-check")}<div class="l">الأيام التي تمتع بها/المعتمدة</div><div class="v">${b.used}</div></div>
+        <div class="kpi warn">${ico("hourglass")}<div class="l">طلبات معلّقة</div><div class="v">${b.pend}</div></div>
+        <div class="kpi ${b.remaining < 0 ? "err" : ""}">${ico("pie")}<div class="l">الرصيد المتبقي</div><div class="v">${b.remaining}</div><div class="s">المتاح للطلب: ${b.available}</div></div>
       </div>
       <p class="summary-line">إجمالي الرصيد: ${daysAr(b.total)}. الأيام التي تمتع بها: ${daysAr(b.used)}. الرصيد المتبقي: ${daysAr(b.remaining)}.</p>
       <section class="card flush mt"><h2>أيام بدل الراحة</h2>${reqTable(u, reqs, false)}</section>
@@ -496,10 +505,10 @@
   };
 
   function taskRow(i, r, emps) {
-    return `<tr class="${r.error ? "has-err" : ""}"><td class="idx">${i + 1}</td><td><select name="emp" aria-label="الموظف">${empOptions(emps, r.emp)}</select></td>
-      <td><input type="date" name="date" value="${h(r.date)}" aria-label="تاريخ المهمة"></td><td><input type="text" name="desc" value="${h(r.desc)}" aria-label="وصف المهمة"></td>
-      <td style="width:90px"><input type="number" step="0.25" min="0" name="hours" value="${h(r.hours)}" aria-label="الساعات"></td><td><input type="text" name="notes" value="${h(r.notes)}" aria-label="ملاحظات"></td>
-      <td><input type="file" name="file" accept="application/pdf" aria-label="مرفق PDF"></td><td><span class="chk ${r.error ? "bad" : ""}" aria-live="polite">${h(r.error || "")}</span></td></tr>`;
+    return `<tr class="${r.error ? "has-err" : ""}"><td class="idx" data-label="صف">${i + 1}</td><td data-label="اسم الموظف"><select name="emp" aria-label="الموظف">${empOptions(emps, r.emp)}</select></td>
+      <td data-label="تاريخ المهمة"><input type="date" name="date" value="${h(r.date)}" aria-label="تاريخ المهمة"></td><td data-label="وصف المهمة"><input type="text" name="desc" value="${h(r.desc)}" aria-label="وصف المهمة"></td>
+      <td style="width:90px" data-label="الساعات"><input type="number" step="0.25" min="0" name="hours" value="${h(r.hours)}" aria-label="الساعات"></td><td data-label="ملاحظات"><input type="text" name="notes" value="${h(r.notes)}" aria-label="ملاحظات"></td>
+      <td data-label="مرفق (PDF)"><input type="file" name="file" accept="application/pdf" aria-label="مرفق PDF"></td><td data-label="التحقق"><span class="chk ${r.error ? "bad" : ""}" aria-live="polite">${h(r.error || "")}</span></td></tr>`;
   }
   let taskDraft = null;
   function taskForm(u, q) {
@@ -992,6 +1001,7 @@
     const mb = t.closest("[data-menu]"); const sb = document.getElementById("sidebar");
     if (mb && sb) { const o = sb.classList.toggle("open"); mb.setAttribute("aria-expanded", o ? "true" : "false"); return; }
     if (sb && sb.classList.contains("open") && !t.closest("#sidebar")) sb.classList.remove("open");
+    document.querySelectorAll("details.acct[open]").forEach((d) => { if (!d.contains(t)) d.removeAttribute("open"); });
     if (t.closest("[data-print]")) { ev.preventDefault(); window.print(); return; }
     const all = t.closest("[data-check-all]"); if (all) document.querySelectorAll(`input[name="${all.dataset.checkAll}"]`).forEach((c) => (c.checked = all.checked));
     if (t.closest("[data-add-row]")) { const tb = document.querySelector("#entry tbody"), tpl = document.getElementById("row-tpl"); tb.insertAdjacentHTML("beforeend", tpl.innerHTML); tb.querySelectorAll(".idx").forEach((c, i) => (c.textContent = i + 1)); }

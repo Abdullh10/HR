@@ -17,3 +17,6 @@
   {%- elif b.remaining == 0 -%}<span class="badge muted">نفد الرصيد</span>
   {%- else -%}<span class="badge ok">متبقي رصيد</span>{%- endif -%}
 {%- endmacro %}
+{% macro ico(name, cls='') -%}
+<svg class="i3d {{ cls }}" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-{{ name }}"/></svg>
+{%- endmacro %}

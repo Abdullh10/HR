@@ -10,58 +10,66 @@
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/app.js"></script>
 </head>
+{% from "_macros.html" import ico %}
 <body class="{% block body_class %}{% endblock %}">
 {% block body %}
 <a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
     <div class="brand">
-      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/></svg></div>
+      <div class="mark" aria-hidden="true">{{ ico('logo') }}</div>
       <div><b>{{ org.system_title or "بدل الراحة" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
     </div>
-    {% macro item(href, label, badge=None) -%}
-      <li><a href="{{ href }}" {% if path == href or (href in ('/employees',) and path.startswith(href + '/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ label }}{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
+    {% macro item(href, label, icon, badge=None) -%}
+      <li><a href="{{ href }}" title="{{ label }}" {% if path == href or (href in ('/employees',) and path.startswith(href + '/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ ico(icon) }}<span class="lbl">{{ label }}</span>{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
     {%- endmacro %}
     <ul class="nav">
-      {% if user.employee_id %}{{ item('/me', 'كشف رصيدي') }}{% endif %}
+      {% if user.employee_id %}{{ item('/me', 'كشف رصيدي', 'idcard') }}{% endif %}
       {% if user.role in ('admin','officer','manager','viewer') %}
         <li class="sep">المتابعة</li>
-        {{ item('/dashboard', 'لوحة المؤشرات') }}
-        {{ item('/employees', 'الموظفون والأرصدة') }}
-        {% if user.role in ('admin','manager') %}{{ item('/approvals', 'الاعتمادات') }}{% endif %}
-        {{ item('/reports', 'التقارير') }}
+        {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
+        {{ item('/employees', 'الموظفون والأرصدة', 'users') }}
+        {% if user.role in ('admin','manager') %}{{ item('/approvals', 'الاعتمادات', 'approvals') }}{% endif %}
+        {{ item('/reports', 'التقارير', 'reports') }}
       {% endif %}
       <li class="sep">الحركات</li>
-      {{ item('/tasks', 'المهام والساعات') }}
-      {{ item('/requests', 'أيام بدل الراحة') }}
+      {{ item('/tasks', 'المهام والساعات', 'clock') }}
+      {{ item('/requests', 'أيام بدل الراحة', 'calendar') }}
       {% if user.role in ('admin','officer') %}
-        {{ item('/tasks/new', '+ تسجيل ساعات') }}
+        {{ item('/tasks/new', 'تسجيل ساعات', 'clock-plus') }}
       {% endif %}
       {% if user.role in ('admin','officer') or (year and year.employee_can_request and user.employee_id) %}
-        {{ item('/requests/new', '+ طلب يوم بدل راحة') }}
+        {{ item('/requests/new', 'طلب يوم بدل راحة', 'calendar-plus') }}
       {% endif %}
       {% if user.role == 'admin' %}
         <li class="sep">الإدارة</li>
-        {{ item('/admin/years', 'السنوات وقواعد الحساب') }}
-        {{ item('/admin/import', 'استيراد الموظفين') }}
-        {{ item('/admin/users', 'المستخدمون والصلاحيات') }}
-        {{ item('/admin/departments', 'الأقسام') }}
-        {{ item('/admin/holidays', 'العطل الرسمية') }}
-        {{ item('/admin/settings', 'هوية الجهة') }}
-        {{ item('/admin/audit', 'سجل التدقيق') }}
+        {{ item('/admin/years', 'السنوات وقواعد الحساب', 'gear') }}
+        {{ item('/admin/import', 'استيراد الموظفين', 'upload') }}
+        {{ item('/admin/users', 'المستخدمون والصلاحيات', 'shield') }}
+        {{ item('/admin/departments', 'الأقسام', 'building') }}
+        {{ item('/admin/holidays', 'العطل الرسمية', 'holiday') }}
+        {{ item('/admin/settings', 'هوية الجهة', 'palette') }}
+        {{ item('/admin/audit', 'سجل التدقيق', 'audit') }}
       {% endif %}
     </ul>
   </aside>
   <div class="main">
     <header class="topbar">
-      <button class="btn ghost menu-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
+      <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
+      {{ ico('logo', 't-logo') }}
       <span class="title">{% block heading %}{% endblock %}</span>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
-      <span class="who">{{ user.display_name }} · {{ user.role_label }}</span>
-      <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
-      <a class="btn ghost sm hide-sm" href="/change-password">كلمة المرور</a>
-      <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" type="submit">خروج</button></form>
+      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon') }}<span class="sr-only">الوضع</span></button>
+      <details class="acct">
+        <summary class="btn ghost" aria-label="حساب {{ user.display_name }}"><span class="avatar" aria-hidden="true">{{ user.display_name[:1] }}</span><span class="acct-name">{{ user.display_name }}</span></summary>
+        <div class="acct-menu">
+          <div class="who-full"><b>{{ user.display_name }}</b><small>{{ user.role_label }}</small></div>
+          <button class="btn" type="button" data-theme-toggle>{{ ico('moon') }}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="/change-password">{{ ico('shield') }}كلمة المرور</a>
+          <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn logout" type="submit">{{ ico('logout') }}خروج</button></form>
+        </div>
+      </details>
     </header>
     <main id="main" class="content" tabindex="-1">
       {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}

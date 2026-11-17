@@ -4,14 +4,14 @@
 {% macro emp_options(sel) %}<option value="">— اختر الموظف —</option>{% for e in employees %}<option value="{{ e.id }}" {% if sel|string == e.id|string %}selected{% endif %}>{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}{% endmacro %}
 {% macro row(i, r) %}
 <tr class="{{ 'has-err' if r.error }}">
-  <td class="idx">{{ i + 1 }}</td>
-  <td><select name="emp" aria-label="الموظف">{{ emp_options(r.emp) }}</select></td>
-  <td><input type="date" name="date" value="{{ r.date }}" aria-label="تاريخ المهمة"></td>
-  <td><input type="text" name="desc" value="{{ r.desc }}" aria-label="وصف المهمة"></td>
-  <td style="width:90px"><input type="number" step="0.25" min="0" name="hours" value="{{ r.hours }}" aria-label="الساعات"></td>
-  <td><input type="text" name="notes" value="{{ r.notes }}" aria-label="ملاحظات"></td>
-  <td><input type="file" name="file_{{ i }}" accept="application/pdf" aria-label="مرفق PDF"></td>
-  <td><span class="chk {{ 'bad' if r.error }}" aria-live="polite">{{ r.error }}</span></td>
+  <td class="idx" data-label="صف">{{ i + 1 }}</td>
+  <td data-label="اسم الموظف"><select name="emp" aria-label="الموظف">{{ emp_options(r.emp) }}</select></td>
+  <td data-label="تاريخ المهمة"><input type="date" name="date" value="{{ r.date }}" aria-label="تاريخ المهمة"></td>
+  <td data-label="وصف المهمة"><input type="text" name="desc" value="{{ r.desc }}" aria-label="وصف المهمة"></td>
+  <td style="width:90px" data-label="الساعات"><input type="number" step="0.25" min="0" name="hours" value="{{ r.hours }}" aria-label="الساعات"></td>
+  <td data-label="ملاحظات"><input type="text" name="notes" value="{{ r.notes }}" aria-label="ملاحظات"></td>
+  <td data-label="مرفق (PDF)"><input type="file" name="file_{{ i }}" accept="application/pdf" aria-label="مرفق PDF"></td>
+  <td data-label="التحقق"><span class="chk {{ 'bad' if r.error }}" aria-live="polite">{{ r.error }}</span></td>
 </tr>
 {% endmacro %}
 {% block content %}

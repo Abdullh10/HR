@@ -24,6 +24,8 @@
       var s = document.getElementById("sidebar");
       if (s && s.classList.contains("open")) s.classList.remove("open");
     }
+    // إغلاق قائمة الحساب عند النقر خارجها
+    document.querySelectorAll("details.acct[open]").forEach(function (d) { if (!d.contains(ev.target)) d.removeAttribute("open"); });
     var pr = ev.target.closest("[data-print]");
     if (pr) { ev.preventDefault(); window.print(); }
     // تحديد الكل
@@ -32,6 +34,13 @@
       var name = all.getAttribute("data-check-all");
       document.querySelectorAll('input[name="' + name + '"]').forEach(function (c) { c.checked = all.checked; });
     }
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    document.querySelectorAll("details.acct[open]").forEach(function (d) { d.removeAttribute("open"); });
+    var s = document.getElementById("sidebar");
+    if (s && s.classList.contains("open")) { s.classList.remove("open"); var b = document.querySelector("[data-menu]"); if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); } }
   });
 
   // تأكيد قبل الإجراءات الحساسة + إلزام السبب

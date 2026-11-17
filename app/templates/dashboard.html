@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import year_select %}
+{% from "_macros.html" import ico, year_select %}
 {% block title %}لوحة المؤشرات{% endblock %}
 {% block heading %}لوحة المؤشرات{% endblock %}
 {% block content %}
@@ -11,11 +11,11 @@
 <div class="alert warn" role="status">لديك {{ pending_tasks }} مهمة و{{ pending_reqs }} طلب بانتظار اعتمادك. <a href="/approvals">اذهب إلى الاعتمادات</a></div>
 {% endif %}
 <div class="grid kpis">
-  <div class="kpi brand"><div class="l">إجمالي الموظفين</div><div class="v">{{ totals.employees }}</div>{% if totals.no_number %}<div class="s">{{ totals.no_number }} برقم وظيفي مؤقت</div>{% endif %}</div>
-  <div class="kpi accent"><div class="l">إجمالي أيام البدل</div><div class="v">{{ totals.total }}</div><div class="s">منها {{ totals.earned }} مكتسبة من {{ totals.hours|n }} ساعة</div></div>
-  <div class="kpi ok"><div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">{{ totals.used }}</div></div>
-  <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">{{ totals.pending }}</div></div>
-  <div class="kpi"><div class="l">إجمالي الأيام المتبقية</div><div class="v">{{ totals.remaining }}</div><div class="s">{{ totals.exhausted }} موظف نفد رصيده</div></div>
+  <div class="kpi brand">{{ ico('users') }}<div class="l">إجمالي الموظفين</div><div class="v">{{ totals.employees }}</div>{% if totals.no_number %}<div class="s">{{ totals.no_number }} برقم وظيفي مؤقت</div>{% endif %}</div>
+  <div class="kpi accent">{{ ico('calendar') }}<div class="l">إجمالي أيام البدل</div><div class="v">{{ totals.total }}</div><div class="s">منها {{ totals.earned }} مكتسبة من {{ totals.hours|n }} ساعة</div></div>
+  <div class="kpi ok">{{ ico('cal-check') }}<div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">{{ totals.used }}</div></div>
+  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">طلبات معلّقة</div><div class="v">{{ totals.pending }}</div></div>
+  <div class="kpi">{{ ico('pie') }}<div class="l">إجمالي الأيام المتبقية</div><div class="v">{{ totals.remaining }}</div><div class="s">{{ totals.exhausted }} موظف نفد رصيده</div></div>
 </div>
 <div class="grid two">
   <section class="card">
