@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import year_select %}
+{% block title %}لوحة المؤشرات{% endblock %}
+{% block heading %}لوحة المؤشرات{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>لوحة المؤشرات</h1><p>{% if user.role == 'manager' %}فريقك المباشر{% else %}جميع الموظفين{% endif %} · السنة {{ sel_year.name }} · طريقة الاحتساب: {{ {'fixed':'ثابت','earned':'مكتسب','mixed':'مختلط'}[sel_year.balance_mode] }}</p></div>
+  {{ year_select(years, sel_year) }}
+</div>
+{% if pending_tasks or pending_reqs %}
+<div class="alert warn" role="status">لديك {{ pending_tasks }} مهمة و{{ pending_reqs }} طلب بانتظار اعتمادك. <a href="/approvals">اذهب إلى الاعتمادات</a></div>
+{% endif %}
+<div class="grid kpis">
+  <div class="kpi brand"><div class="l">إجمالي الموظفين</div><div class="v">{{ totals.employees }}</div>{% if totals.no_number %}<div class="s">{{ totals.no_number }} برقم وظيفي مؤقت</div>{% endif %}</div>
+  <div class="kpi accent"><div class="l">إجمالي أيام البدل</div><div class="v">{{ totals.total }}</div><div class="s">منها {{ totals.earned }} مكتسبة من {{ totals.hours|n }} ساعة</div></div>
+  <div class="kpi ok"><div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">{{ totals.used }}</div></div>
+  <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">{{ totals.pending }}</div></div>
+  <div class="kpi"><div class="l">إجمالي الأيام المتبقية</div><div class="v">{{ totals.remaining }}</div><div class="s">{{ totals.exhausted }} موظف نفد رصيده</div></div>
+</div>
+<div class="grid two">
+  <section class="card">
+    <h2>الأيام المعتمدة حسب الشهر</h2>
+    <div class="bars" role="img" aria-label="رسم الأيام المعتمدة لكل شهر">
+      {% set months = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'] %}
+      {% for v in monthly %}<div class="bar"><b>{{ v if v else '' }}</b><span style="height: {{ (v / monthly_max * 100)|round(0) }}%"></span><small>{{ months[loop.index0] }}</small></div>{% endfor %}
+    </div>
+  </section>
+  <section class="card flush">
+    <h2>حسب القسم</h2>
+    <div class="table-wrap"><table class="responsive">
+      <thead><tr><th>القسم</th><th class="n">موظفون</th><th class="n">الرصيد</th><th class="n">مستهلك</th><th class="n">متبقٍ</th></tr></thead>
+      <tbody>
+      {% for name, d in dept_rows[:12] %}<tr><td data-label="القسم">{{ name }}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="الرصيد">{{ d.total }}</td><td class="n" data-label="مستهلك">{{ d.used }}</td><td class="n" data-label="متبقٍ">{{ d.remaining }}</td></tr>
+      {% else %}<tr><td colspan="5" class="empty">لا توجد بيانات.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </section>
+</div>
+{% if alerts %}
+<section class="card"><h2>تنبيهات</h2><ul>{% for e, m in alerts %}<li><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a> — {{ m }}</li>{% endfor %}</ul></section>
+{% endif %}
+<section class="card">
+  <h2>بحث سريع عن موظف</h2>
+  <form method="get" action="/employees" class="filters">
+    <div class="field grow"><label for="q">الاسم أو جزء منه، أو الرقم الوظيفي</label><input id="q" type="search" name="q"></div>
+    <button class="btn primary" type="submit">بحث</button>
+  </form>
+</section>
+{% endblock %}

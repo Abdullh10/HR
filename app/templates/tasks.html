@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+{% block title %}المهام والساعات{% endblock %}
+{% block heading %}المهام والساعات{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>سجل المهام والساعات</h1><p>كل {{ hours_ar(sel_year.hours_per_day) }} معتمدة = يوم بدل راحة · السنة {{ sel_year.name }}</p></div>
+  <div class="actions">{% if user.role in ('admin','officer','manager') %}<a class="btn" href="/export/tasks.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
+    {% if user.role in ('admin','officer') %}<a class="btn primary" href="/tasks/new">+ تسجيل ساعات</a>{% endif %}</div>
+</div>
+<form method="get" class="card filters">
+  {% if employees|length > 1 %}<div class="field grow"><label for="emp">الموظف</label><select id="emp" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="st">الحالة</label><select id="st" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
+  <button class="btn primary" type="submit">عرض</button>
+</form>
+<div class="card flush"><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>م</th><th>اسم الموظف</th><th>التاريخ</th><th>وصف المهمة</th><th class="n">الساعات</th><th>الحالة</th><th>مرفق</th><th>إجراء</th></tr></thead>
+  <tbody>
+  {% for t in rows %}
+  <tr class="{{ 'muted' if t.status == 'rejected' }}"><td data-label="م">{{ loop.index }}</td>
+    <td data-label="الموظف"><a href="/employees/{{ t.employee_id }}">{{ t.employee.full_name }}</a></td>
+    <td data-label="التاريخ" class="num">{{ t.task_date|d }}</td><td data-label="الوصف">{{ t.description }}{% if t.notes %}<div class="hint">{{ t.notes }}</div>{% endif %}{% if t.decision_note %}<div class="hint">القرار: {{ t.decision_note }}</div>{% endif %}</td>
+    <td class="n" data-label="الساعات">{{ t.hours|n }}</td><td data-label="الحالة">{{ status_badge(t.status, t.status_label) }}</td>
+    <td data-label="مرفق">{% if t.attachment_id %}<a href="/files/{{ t.attachment_id }}" target="_blank" rel="noopener">فتح</a>{% endif %}</td>
+    <td data-label="إجراء">{% if t.status == 'pending' and user.role in ('admin','officer') %}
+      <form method="post" action="/tasks/{{ t.id }}/delete" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm danger" data-confirm="سحب هذه المهمة؟">سحب</button></form>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="empty">لا توجد مهام.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

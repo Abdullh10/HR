@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}السنوات وقواعد الحساب{% endblock %}
+{% block heading %}السنوات وقواعد الحساب{% endblock %}
+{% macro year_form(y) %}
+<form method="post" action="/admin/years/save">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">{% if y %}<input type="hidden" name="year_id" value="{{ y.id }}">{% endif %}
+  {% set p = 'y' ~ (y.id if y else 'new') %}
+  <fieldset {% if y and y.is_locked %}disabled{% endif %}><legend>الفترة</legend>
+  <div class="form-grid">
+    <div class="field"><label for="{{p}}n">اسم السنة</label><input id="{{p}}n" name="name" value="{{ y.name if y else '' }}" required></div>
+    <div class="field"><label for="{{p}}s">من</label><input id="{{p}}s" type="date" name="start_date" value="{{ y.start_date|d if y else '' }}" required></div>
+    <div class="field"><label for="{{p}}e">إلى</label><input id="{{p}}e" type="date" name="end_date" value="{{ y.end_date|d if y else '' }}" required></div>
+  </div></fieldset>
+  <fieldset {% if y and y.is_locked %}disabled{% endif %}><legend>احتساب الرصيد (سنوي)</legend>
+  <div class="form-grid">
+    <div class="field"><label for="{{p}}m">طريقة الاحتساب</label><select id="{{p}}m" name="balance_mode">{% for k, v in modes.items() %}<option value="{{ k }}" {% if (y.balance_mode if y else 'mixed') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="{{p}}b">الرصيد الأساسي لكل موظف (يوم)</label><input id="{{p}}b" type="number" min="0" name="base_days" value="{{ y.base_days if y else 20 }}"></div>
+    <div class="field"><label for="{{p}}h">ساعات اليوم الواحد</label><input id="{{p}}h" type="number" step="0.25" min="0.25" name="hours_per_day" value="{{ y.hours_per_day|n if y else 7 }}"></div>
+    <div class="field"><label for="{{p}}x">الحد الأقصى لساعات المهمة</label><input id="{{p}}x" type="number" step="0.25" min="0.25" name="max_hours_per_task" value="{{ y.max_hours_per_task|n if y else 12 }}"></div>
+  </div></fieldset>
+  <fieldset {% if y and y.is_locked %}disabled{% endif %}><legend>المرفقات والقواعد</legend>
+    {% macro chk(name, label, default=False) %}<label class="check"><input type="checkbox" name="{{ name }}" value="1" {% if (y[name] if y else default) %}checked{% endif %}> {{ label }}</label>{% endmacro %}
+    {{ chk('require_task_attachment', 'إرفاق PDF إلزامي لكل مهمة/ساعات') }}
+    {{ chk('require_request_attachment', 'إرفاق ملف التوصية (PDF) إلزامي لطلب يوم بدل الراحة') }}
+    {{ chk('employee_can_request', 'السماح للموظف بتقديم طلباته بنفسه', True) }}
+    {{ chk('block_weekends', 'منع الطلب في أيام عطلة نهاية الأسبوع', True) }}
+    <div class="actions" style="margin:-.2rem 0 .6rem 1.6rem">{% for i in range(7) %}<label class="check" style="margin:0"><input type="checkbox" name="weekend_days" value="{{ i }}" {% if i in (y.weekend_set if y else [4,5]) %}checked{% endif %}> {{ WEEKDAYS_AR[i] }}</label>{% endfor %}</div>
+    {{ chk('allow_future_tasks', 'السماح بتسجيل مهام بتاريخ مستقبلي') }}
+    {{ chk('allow_late_cancel', 'السماح بإلغاء يوم معتمد بعد مرور تاريخه (لغير الأدمن)') }}
+  </fieldset>
+  {% if not (y and y.is_locked) %}<button class="btn primary">{{ 'حفظ الإعدادات' if y else 'إنشاء السنة' }}</button>{% endif %}
+</form>
+{% endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>السنوات وقواعد الحساب</h1><p>الرصيد سنوي: لكل سنة إعداداتها، ولا يُرحَّل رصيد من سنة لأخرى إلا بتسوية يعتمدها الأدمن.</p></div></div>
+<div class="alert info">تغيير ساعات اليوم أو طريقة الاحتساب يعيد حساب أرصدة تلك السنة فوراً (الرصيد يُحسب من الحركات). يُسجَّل كل تغيير في سجل التدقيق.</div>
+{% for y in rows %}
+<section class="card">
+  <div class="page-head" style="margin-bottom:.5rem">
+    <h2>السنة {{ y.name }} {% if y.is_active %}<span class="badge ok">النشطة</span>{% endif %}{% if y.is_locked %} <span class="badge muted">مقفلة</span>{% endif %}</h2>
+    <div class="actions">
+      {% if not y.is_active %}<form method="post" action="/admin/years/{{ y.id }}/activate" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm">تعيينها السنة النشطة</button></form>{% endif %}
+      <form method="post" action="/admin/years/{{ y.id }}/lock" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="lock" value="{{ 0 if y.is_locked else 1 }}">
+        <button class="btn sm {{ '' if y.is_locked else 'danger' }}" data-confirm="{{ 'فتح السنة للتعديل؟' if y.is_locked else 'إقفال السنة؟ لن تُقبل أي حركات جديدة عليها.' }}">{{ 'فتح القفل' if y.is_locked else 'إقفال السنة' }}</button></form>
+    </div>
+  </div>
+  {{ year_form(y) }}
+</section>
+{% endfor %}
+<section class="card"><details class="disclose"><summary>+ إنشاء سنة جديدة</summary><div class="mt">{{ year_form(None) }}</div></details></section>
+{% endblock %}

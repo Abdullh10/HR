@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ org.system_title or "نظام بدل الراحة" }}{% endblock %} — {{ org.college }}</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js"></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% block body %}
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<div class="layout">
+  <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">ب</div>
+      <div><b>{{ org.system_title or "بدل الراحة" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
+    </div>
+    {% macro item(href, label, badge=None) -%}
+      <li><a href="{{ href }}" {% if path == href or (href in ('/employees',) and path.startswith(href + '/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ label }}{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
+    {%- endmacro %}
+    <ul class="nav">
+      {% if user.employee_id %}{{ item('/me', 'كشف رصيدي') }}{% endif %}
+      {% if user.role in ('admin','officer','manager') %}
+        <li class="sep">المتابعة</li>
+        {{ item('/dashboard', 'لوحة المؤشرات') }}
+        {{ item('/employees', 'الموظفون والأرصدة') }}
+        {% if user.role in ('admin','manager') %}{{ item('/approvals', 'الاعتمادات') }}{% endif %}
+        {{ item('/reports', 'التقارير') }}
+      {% endif %}
+      <li class="sep">الحركات</li>
+      {{ item('/tasks', 'المهام والساعات') }}
+      {{ item('/requests', 'أيام بدل الراحة') }}
+      {% if user.role in ('admin','officer') %}
+        {{ item('/tasks/new', '+ تسجيل ساعات') }}
+      {% endif %}
+      {% if user.role in ('admin','officer') or (year and year.employee_can_request and user.employee_id) %}
+        {{ item('/requests/new', '+ طلب يوم بدل راحة') }}
+      {% endif %}
+      {% if user.role == 'admin' %}
+        <li class="sep">الإدارة</li>
+        {{ item('/admin/years', 'السنوات وقواعد الحساب') }}
+        {{ item('/admin/users', 'المستخدمون والصلاحيات') }}
+        {{ item('/admin/departments', 'الأقسام') }}
+        {{ item('/admin/holidays', 'العطل الرسمية') }}
+        {{ item('/admin/settings', 'هوية الجهة') }}
+        {{ item('/admin/audit', 'سجل التدقيق') }}
+      {% endif %}
+    </ul>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="btn ghost menu-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
+      <span class="title">{% block heading %}{% endblock %}</span>
+      <span class="spacer"></span>
+      {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
+      <span class="who">{{ user.display_name }} · {{ user.role_label }}</span>
+      <button class="btn ghost sm" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">الوضع</button>
+      <a class="btn ghost sm hide-sm" href="/change-password">كلمة المرور</a>
+      <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" type="submit">خروج</button></form>
+    </header>
+    <main id="main" class="content" tabindex="-1">
+      {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="footer">{{ org.university }} – {{ org.college }} · {{ org.system_title }}{% if org.credit %} · {{ org.credit }}{% endif %} · <a href="/about">عن النظام</a></footer>
+  </div>
+</div>
+{% endblock %}
+</body>
+</html>

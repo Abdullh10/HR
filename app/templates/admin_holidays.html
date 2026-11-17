@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}العطل الرسمية{% endblock %}
+{% block heading %}العطل الرسمية{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>العطل الرسمية</h1><p>لا تُقبل طلبات بدل الراحة في هذه الأيام.</p></div></div>
+<section class="card"><form method="post" action="/admin/holidays/add" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة عيد الفطر"></div>
+  <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div>
+  <div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div>
+  <button class="btn primary">إضافة</button></form></section>
+<div class="card flush"><table class="responsive"><thead><tr><th>التاريخ</th><th>اليوم</th><th>العطلة</th><th></th></tr></thead><tbody>
+{% for h in rows %}<tr><td class="num" data-label="التاريخ">{{ h.day|d }}</td><td data-label="اليوم">{{ WEEKDAYS_AR[h.day.weekday()] }}</td><td data-label="العطلة">{{ h.name }}</td>
+<td><form method="post" action="/admin/holidays/{{ h.id }}/delete" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm danger" data-confirm="حذف هذا اليوم؟">حذف</button></form></td></tr>
+{% else %}<tr><td colspan="4" class="empty">لا توجد عطل مسجلة.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

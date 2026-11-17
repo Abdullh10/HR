@@ -1,0 +1,116 @@
+"""نقطة تشغيل التطبيق: نظام إدارة أيام بدل الراحة."""
+from __future__ import annotations
+
+import os
+import secrets
+from datetime import date
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
+from starlette.middleware.sessions import SessionMiddleware
+
+from .db import DATA_DIR, Base, SessionLocal, engine
+from .models import AppSetting, FiscalYear, User
+from .security import hash_password, secret_key, verify_csrf
+from .web import LoginRequired, MustChangePassword, redirect, render
+
+app = FastAPI(title="نظام بدل الراحة", docs_url=None, redoc_url=None, openapi_url=None,
+              dependencies=[Depends(verify_csrf)])
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=secret_key(),
+    session_cookie="hr_session",
+    same_site="lax",
+    https_only=os.environ.get("HR_HTTPS") == "1",  # فعّلها عند النشر خلف HTTPS
+    max_age=8 * 3600,
+)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "same-origin"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+        "frame-ancestors 'none'; form-action 'self'"
+    )
+    if request.url.path.startswith(("/me", "/employees", "/requests", "/tasks", "/admin", "/files")):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.exception_handler(LoginRequired)
+async def _login_required(request: Request, exc: LoginRequired):
+    return redirect("/login")
+
+
+@app.exception_handler(MustChangePassword)
+async def _must_change(request: Request, exc: MustChangePassword):
+    return redirect("/change-password")
+
+
+@app.exception_handler(HTTPException)
+async def _http_error(request: Request, exc: HTTPException):
+    db = SessionLocal()
+    try:
+        from .web import _load_user
+
+        user = _load_user(request, db)
+        return render(request, db, "error.html", user=user, status_code=exc.status_code,
+                      code=exc.status_code, message=exc.detail)
+    finally:
+        db.close()
+
+
+def init_db() -> None:
+    Base.metadata.create_all(engine)
+    with SessionLocal() as db:
+        defaults = {
+            "university": "جامعة الملك سعود",
+            "college": "كلية التمريض",
+            "system_title": "إدارة أيام بدل الراحة للموظفين",
+            "credit": "",
+        }
+        for k, v in defaults.items():
+            if not db.get(AppSetting, k):
+                db.add(AppSetting(key=k, value=v))
+        if not db.scalar(select(FiscalYear)):
+            db.add(FiscalYear(name="2027", start_date=date(2027, 1, 1), end_date=date(2027, 12, 31),
+                              is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7))
+        if not db.scalar(select(User)):
+            pw = os.environ.get("HR_ADMIN_PASSWORD") or secrets.token_urlsafe(10)
+            db.add(User(username="admin", password_hash=hash_password(pw), role="admin",
+                        must_change_password=True))
+            p = DATA_DIR / "initial_admin_password.txt"
+            p.write_text(f"username: admin\npassword: {pw}\n")
+            os.chmod(p, 0o600)
+            print(f"[HR] تم إنشاء حساب الأدمن: admin / {pw}  (محفوظ في {p})")
+        db.commit()
+
+
+init_db()
+
+from . import routes_admin, routes_auth, routes_core  # noqa: E402
+
+app.include_router(routes_auth.router)
+app.include_router(routes_core.router)
+app.include_router(routes_admin.router)
+
+
+@app.get("/healthz", response_class=PlainTextResponse)
+def healthz():
+    return "ok"
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about(request: Request):
+    with SessionLocal() as db:
+        from .web import _load_user
+
+        return render(request, db, "about.html", user=_load_user(request, db))

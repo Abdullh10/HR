@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}هوية الجهة{% endblock %}
+{% block heading %}هوية الجهة{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
+<form method="post" class="card" style="max-width:720px"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="field"><label for="u">الجامعة</label><input id="u" name="university" value="{{ org.university }}"></div>
+  <div class="field"><label for="c">الكلية / الجهة</label><input id="c" name="college" value="{{ org.college }}"></div>
+  <div class="field"><label for="t">اسم النظام</label><input id="t" name="system_title" value="{{ org.system_title }}"></div>
+  <div class="field"><label for="cr">سطر الحقوق <span class="hint">(اختياري، يظهر في التذييل)</span></label><input id="cr" name="credit" value="{{ org.credit }}"></div>
+  <button class="btn primary">حفظ</button></form>
+{% endblock %}

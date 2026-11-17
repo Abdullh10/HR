@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}الأقسام{% endblock %}
+{% block heading %}الأقسام{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>الأقسام والوحدات</h1><p>وحّد الأسماء المتشابهة بالدمج.</p></div></div>
+<div class="grid two">
+<section class="card"><h2>إضافة قسم</h2>
+  <form method="post" action="/admin/departments/save" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field grow"><label for="dn">اسم القسم</label><input id="dn" name="name" required></div><button class="btn primary">إضافة</button></form></section>
+<section class="card"><h2>دمج قسمين</h2>
+  <form method="post" action="/admin/departments/merge" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="s">القسم المكرر</label><select id="s" name="source">{% for d, c in rows %}<option value="{{ d.id }}">{{ d.name }} ({{ c }})</option>{% endfor %}</select></div>
+    <div class="field"><label for="t">يُدمج في</label><select id="t" name="target">{% for d, c in rows %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select></div>
+    <button class="btn" data-confirm="دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟">دمج</button></form></section>
+</div>
+<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>القسم</th><th class="n">الموظفون</th><th>تعديل</th></tr></thead><tbody>
+{% for d, c in rows %}<tr class="{{ 'muted' if not d.is_active }}"><td data-label="القسم">{{ d.name }}</td><td class="n" data-label="الموظفون">{{ c }}</td>
+<td data-label="تعديل"><form method="post" action="/admin/departments/save" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="dept_id" value="{{ d.id }}">
+<div class="field grow"><label class="sr-only" for="n{{ d.id }}">الاسم</label><input id="n{{ d.id }}" name="name" value="{{ d.name }}"></div>
+<label class="check" style="margin:0"><input type="checkbox" name="is_active" value="1" {% if d.is_active %}checked{% endif %}> نشط</label><button class="btn sm">حفظ</button></form></td></tr>
+{% else %}<tr><td colspan="3" class="empty">لا توجد أقسام.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

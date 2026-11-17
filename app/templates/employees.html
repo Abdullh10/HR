@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import balance_state %}
+{% block title %}الموظفون والأرصدة{% endblock %}
+{% block heading %}الموظفون والأرصدة{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>الموظفون والأرصدة</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف</p></div>
+  <div class="actions">
+    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>
+    {% if user.role in ('admin','officer') %}<a class="btn primary" href="/employees/new/form">+ إضافة موظف</a>{% endif %}
+  </div>
+</div>
+<form method="get" class="card filters" role="search">
+  <div class="field grow"><label for="q">بحث بالاسم أو جزء منه أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="{{ q }}"></div>
+  <div class="field"><label for="dept">القسم</label><select id="dept" name="dept"><option value="">الكل</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="state">تصفية</label><select id="state" name="state">
+    <option value="">النشطون</option><option value="exhausted" {% if state=='exhausted' %}selected{% endif %}>نفد رصيدهم</option>
+    <option value="tmp" {% if state=='tmp' %}selected{% endif %}>رقم وظيفي مؤقت</option><option value="inactive" {% if state=='inactive' %}selected{% endif %}>غير النشطين</option></select></div>
+  <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
+  <button class="btn primary" type="submit">عرض</button>
+</form>
+<div class="card flush"><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th><th>القسم</th><th class="n">الرصيد</th><th class="n">مكتسب</th><th class="n">تمتع</th><th class="n">معلّق</th><th class="n">المتبقي</th><th>الحالة</th></tr></thead>
+  <tbody>
+  {% for e, b in rows %}
+  <tr><td data-label="م">{{ loop.index }}</td>
+    <td data-label="الاسم"><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a></td>
+    <td data-label="الرقم" class="num">{{ e.employee_no }}{% if e.is_temp_no %} <span class="badge warn">مؤقت</span>{% endif %}</td>
+    <td data-label="القسم">{{ e.department.name if e.department else '' }}</td>
+    <td class="n" data-label="الرصيد">{{ b.total }}</td><td class="n" data-label="مكتسب">{{ b.earned_days }}</td>
+    <td class="n" data-label="تمتع">{{ b.used_days }}</td><td class="n" data-label="معلّق">{{ b.pending_days }}</td>
+    <td class="n" data-label="المتبقي"><b>{{ b.remaining }}</b></td><td data-label="الحالة">{{ balance_state(b) }}</td></tr>
+  {% else %}<tr><td colspan="10" class="empty">لا توجد نتيجة.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

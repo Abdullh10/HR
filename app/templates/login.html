@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}تسجيل الدخول{% endblock %}
+{% block body %}
+<main class="auth">
+  <div class="box">
+    <div class="mark" aria-hidden="true">ب</div>
+    <h1>{{ org.system_title }}</h1>
+    <p class="org">{{ org.university }} – {{ org.college }}</p>
+    {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+    {% for kind, msg in flashes %}<div class="alert {{ kind }}">{{ msg }}</div>{% endfor %}
+    <form method="post" action="/login" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label>
+        <input id="u" name="username" type="text" autocomplete="username" required value="{{ username or '' }}" autofocus></div>
+      <div class="field"><label for="p">كلمة المرور</label>
+        <input id="p" name="password" type="password" autocomplete="current-password" required></div>
+      <button class="btn primary" type="submit" style="width:100%">دخول</button>
+    </form>
+    <p class="hint mt">لنسيان كلمة المرور تواصل مع مدير النظام لإعادة تعيينها.</p>
+  </div>
+</main>
+{% endblock %}

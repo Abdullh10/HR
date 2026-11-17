@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}المستخدمون والصلاحيات{% endblock %}
+{% block heading %}المستخدمون والصلاحيات{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>{{ rows|length }} حساب</p></div>
+  <form method="post" action="/admin/users/bulk-create" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button class="btn" data-confirm="إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟">إنشاء حسابات الموظفين دفعة واحدة</button></form></div>
+<div class="grid two">
+<section class="card">
+  <h2>الأدوار</h2>
+  <ul>
+    <li><b>مدير النظام:</b> كل الصلاحيات، الإعدادات وقواعد الحساب، المستخدمون، التسويات، سجل التدقيق.</li>
+    <li><b>مسؤول الإدخال:</b> إدارة بيانات الموظفين، تسجيل الساعات والطلبات نيابة عن الموظفين، التقارير.</li>
+    <li><b>مدير مباشر:</b> متابعة فريقه المباشر واعتماد/رفض ساعاتهم وطلباتهم.</li>
+    <li><b>موظف:</b> متابعة رصيده وكشفه وتقديم طلباته (إن سمحت الإعدادات).</li>
+  </ul>
+  <p class="hint">لا يعتمد أحد سجلاً أدخله بنفسه أو يخصه. طلبات المدير يعتمدها مديره المباشر.</p>
+</section>
+<section class="card">
+  <h2>إضافة حساب</h2>
+  <form method="post" action="/admin/users/save">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="form-grid">
+      <div class="field"><label for="un">اسم المستخدم</label><input id="un" name="username" required></div>
+      <div class="field"><label for="rl">الدور</label><select id="rl" name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == 'employee' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="ei">سجل الموظف المرتبط</label><select id="ei" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked %}<option value="{{ e.id }}">{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}</select></div>
+      <div class="field"><label for="pw">كلمة مرور مؤقتة <span class="hint">(فارغ = توليد تلقائي)</span></label><input id="pw" name="password" type="text" autocomplete="off"></div>
+    </div>
+    <button class="btn primary">إنشاء الحساب</button>
+  </form>
+</section>
+</div>
+<div class="card flush"><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>اسم المستخدم</th><th>الدور</th><th>الموظف</th><th>الحالة</th><th>آخر دخول</th><th>تعديل</th><th></th></tr></thead>
+  <tbody>
+  {% for u in rows %}
+  <tr><td data-label="المستخدم"><b>{{ u.username }}</b></td>
+    <td colspan="4" data-label="تعديل">
+      <form method="post" action="/admin/users/save" class="filters">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="user_id" value="{{ u.id }}"><input type="hidden" name="username" value="{{ u.username }}">
+        <div class="field"><label class="sr-only" for="r{{ u.id }}">الدور</label><select id="r{{ u.id }}" name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == u.role %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+        <div class="field grow"><label class="sr-only" for="e{{ u.id }}">الموظف</label><select id="e{{ u.id }}" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked or e.id == u.employee_id %}<option value="{{ e.id }}" {% if e.id == u.employee_id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>
+        <label class="check" style="margin:0"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> نشط</label>
+        <span class="hint">{{ u.last_login|d if u.last_login else 'لم يدخل' }}{% if u.must_change_password %} · بانتظار تغيير كلمة المرور{% endif %}</span>
+        <button class="btn sm">حفظ</button>
+      </form></td>
+    <td colspan="2"><form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إعادة تعيين كلمة مرور {{ u.username }}؟">إعادة تعيين كلمة المرور</button></form></td></tr>
+  {% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

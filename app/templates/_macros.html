@@ -1,0 +1,19 @@
+{% macro status_badge(s, label) -%}
+  {%- set cls = {'approved':'ok','pending':'warn','rejected':'err','cancelled':'muted'}.get(s, '') -%}
+  <span class="badge {{ cls }}">{{ label }}</span>
+{%- endmacro %}
+{% macro year_select(years, sel_year, extra={}) -%}
+  <form method="get" class="filters no-print" aria-label="اختيار السنة">
+    {% for k, v in extra.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+    <div class="field"><label for="year_id">السنة</label>
+      <select id="year_id" name="year_id" data-autosubmit>
+        {% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}{% if y.is_active %} (النشطة){% endif %}{% if y.is_locked %} – مقفلة{% endif %}</option>{% endfor %}
+      </select></div>
+  </form>
+{%- endmacro %}
+{% macro csrf_field(csrf) %}<input type="hidden" name="csrf_token" value="{{ csrf }}">{% endmacro %}
+{% macro balance_state(b) -%}
+  {%- if b.remaining < 0 -%}<span class="badge err">⚠ تجاوز الرصيد</span>
+  {%- elif b.remaining == 0 -%}<span class="badge muted">نفد الرصيد</span>
+  {%- else -%}<span class="badge ok">متبقي رصيد</span>{%- endif -%}
+{%- endmacro %}

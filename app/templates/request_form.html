@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}طلب يوم بدل راحة{% endblock %}
+{% block heading %}طلب يوم بدل راحة{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>طلب يوم بدل راحة</h1><p>يُرسل الطلب إلى المدير المباشر للاعتماد، ويُحجز اليوم من الرصيد حتى البت فيه.</p></div></div>
+{% if not year %}<div class="alert error">لا توجد سنة نشطة.</div>{% endif %}
+<form method="post" enctype="multipart/form-data" class="card" style="max-width:720px">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if user.role in ('admin','officer') %}
+  <div class="field"><label for="emp">الموظف *</label>
+    <select id="emp" name="emp" required>
+      <option value="">— اختر الموظف —</option>{% for e in employees %}<option value="{{ e.id }}" {% if sel == e.id %}selected{% endif %}>{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}
+    </select>
+    <span class="hint">يُسجَّل أن الطلب مقدَّم نيابةً عن الموظف.</span></div>
+  {% else %}<input type="hidden" name="emp" value="{{ user.employee_id }}">{% endif %}
+  {% if info %}
+  <div class="alert {{ 'ok' if info.available > 0 else 'error' }}" role="status">الرصيد المتبقي: <b>{{ info.remaining }}</b> · المعلّق: {{ info.pending_days }} · <b>المتاح للطلب: {{ info.available }}</b></div>
+  {% endif %}
+  <div class="field" id="dates"><label for="rd">تاريخ يوم بدل الراحة *</label><input id="rd" type="date" name="rest_date" required></div>
+  <button class="btn sm" type="button" data-add-date>+ يوم آخر</button>
+  <div class="field mt"><label for="f">ملف التوصية (PDF){% if year and year.require_request_attachment %} *{% else %} <span class="hint">اختياري</span>{% endif %}</label><input id="f" type="file" name="file" accept="application/pdf" {% if year and year.require_request_attachment %}required{% endif %}><span class="hint">بحد أقصى 5 ميجابايت.</span></div>
+  <div class="field"><label for="n">ملاحظات</label><textarea id="n" name="notes"></textarea></div>
+  <div class="hint">لا يُقبل: تاريخ خارج السنة، {% if year and year.block_weekends %}عطلة نهاية الأسبوع، {% endif %}العطل الرسمية، أو تاريخ مكرر للموظف نفسه.</div>
+  <div class="actions mt"><button class="btn primary" type="submit">إرسال الطلب</button><a class="btn" href="/requests">إلغاء</a></div>
+</form>
+{% if user.role in ('admin','officer') %}
+<form method="get" class="no-print card filters" style="max-width:720px"><div class="field grow"><label for="e2">عرض رصيد موظف قبل الطلب</label><select id="e2" name="emp" data-autosubmit><option value="">—</option>{% for e in employees %}<option value="{{ e.id }}" {% if sel == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div></form>
+{% endif %}
+{% endblock %}

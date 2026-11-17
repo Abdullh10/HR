@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, year_select, balance_state %}
+{% block title %}كشف {{ emp.full_name }}{% endblock %}
+{% block heading %}{{ 'كشف رصيدي' if self_view else 'كشف موظف' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ emp.full_name }}</h1><p>{{ emp.department.name if emp.department else 'بدون قسم' }}{% if emp.job_title %} · {{ emp.job_title }}{% endif %}</p></div>
+  <div class="actions no-print">
+    {{ year_select(years, sel_year) }}
+    <a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة كشف رسمي</a>
+    {% if user.role in ('admin','officer') %}<a class="btn" href="/employees/{{ emp.id }}/edit">تعديل البيانات</a>
+      <a class="btn" href="/tasks/new?emp={{ emp.id }}">تسجيل ساعات</a>{% endif %}
+    {% if user.role in ('admin','officer') or (self_view and sel_year.employee_can_request) %}<a class="btn primary" href="/requests/new?emp={{ emp.id }}">طلب يوم بدل راحة</a>{% endif %}
+  </div>
+</div>
+<section class="card">
+  <div class="stmt-head">
+    <dl>
+      <dt>الرقم الوظيفي</dt><dd>{{ emp.employee_no }}{% if emp.is_temp_no %} <span class="badge warn">مؤقت</span>{% endif %}</dd>
+      <dt>المدير المباشر</dt><dd>{{ emp.manager.full_name if emp.manager else '— غير محدد —' }}</dd>
+      <dt>حالة الرصيد</dt><dd>{{ balance_state(info) }}</dd>
+    </dl>
+    {% if info.mode != 'fixed' %}
+    <div style="min-width:240px">
+      <div class="l muted">التقدم نحو اليوم التالي</div>
+      <div class="meter"><div class="progress" role="progressbar" aria-valuenow="{{ info.progress_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ info.progress_pct }}%"></span></div><span class="num">{{ info.remainder_hours|n }}/{{ info.hours_per_day|n }}</span></div>
+      <div class="hint">متبقٍ {{ hours_ar(info.hours_to_next_day) }} لاستحقاق يوم جديد</div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+<div class="grid kpis">
+  {% if info.mode != 'earned' %}<div class="kpi brand"><div class="l">الرصيد الأساسي</div><div class="v">{{ info.base }}</div></div>{% endif %}
+  {% if info.mode != 'fixed' %}<div class="kpi accent"><div class="l">الأيام المكتسبة من الساعات</div><div class="v">{{ info.earned_days }}</div><div class="s">من {{ info.approved_hours|n }} ساعة معتمدة{% if info.pending_hours %} · {{ info.pending_hours|n }} بانتظار الاعتماد{% endif %}</div></div>{% endif %}
+  {% if info.adjustment %}<div class="kpi"><div class="l">تسوية</div><div class="v">{{ '%+d'|format(info.adjustment) }}</div></div>{% endif %}
+  <div class="kpi ok"><div class="l">الأيام التي تمتع بها/المعتمدة</div><div class="v">{{ info.used_days }}</div></div>
+  <div class="kpi warn"><div class="l">طلبات معلّقة</div><div class="v">{{ info.pending_days }}</div></div>
+  <div class="kpi {{ 'err' if info.remaining < 0 else '' }}"><div class="l">الرصيد المتبقي</div><div class="v">{{ info.remaining }}</div><div class="s">المتاح للطلب: {{ info.available }}</div></div>
+</div>
+<p class="summary-line">إجمالي الرصيد: {{ days_ar(info.total) }}. الأيام التي تمتع بها: {{ days_ar(info.used_days) }}. الرصيد المتبقي: {{ days_ar(info.remaining) }}.</p>
+
+<section class="card flush mt">
+  <h2>أيام بدل الراحة</h2>
+  <div class="table-wrap"><table class="responsive">
+    <thead><tr><th>م</th><th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>ملاحظات</th><th>ملف التوصية</th><th class="no-print">إجراء</th></tr></thead>
+    <tbody>
+    {% for r in reqs %}
+      <tr class="{{ 'muted' if r.status in ('cancelled','rejected') }}">
+        <td data-label="م">{{ loop.index }}</td><td data-label="التاريخ" class="num">{{ r.rest_date|d }}</td>
+        <td data-label="اليوم">{{ WEEKDAYS_AR[r.rest_date.weekday()] }}</td>
+        <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}</td>
+        <td data-label="ملاحظات">{{ r.notes }}{% if r.decision_note %}<div class="hint">{{ r.decision_note }}</div>{% endif %}</td>
+        <td data-label="ملف التوصية">{% if r.attachment_id %}<a href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">فتح الملف</a>{% endif %}</td>
+        <td data-label="إجراء" class="no-print">
+          {% if r.status == 'pending' or (r.status == 'approved' and user.role in ('admin','officer','manager') and not self_view) %}
+          <form method="post" action="/requests/{{ r.id }}/cancel" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note" value="">
+            <button class="btn sm danger" type="submit" {% if r.status == 'approved' %}data-need-note{% endif %} data-confirm="تأكيد إلغاء الطلب؟">إلغاء</button>
+          </form>{% endif %}
+        </td>
+      </tr>
+    {% else %}<tr><td colspan="7" class="empty">لا توجد طلبات في هذه السنة.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+
+{% if info.mode != 'fixed' or tasks %}
+<section class="card flush">
+  <h2>المهام والساعات</h2>
+  <div class="table-wrap"><table class="responsive">
+    <thead><tr><th>م</th><th>التاريخ</th><th>وصف المهمة</th><th class="n">الساعات</th><th>الحالة</th><th>مرفق</th></tr></thead>
+    <tbody>
+    {% for t in tasks %}
+      <tr class="{{ 'muted' if t.status == 'rejected' }}"><td data-label="م">{{ loop.index }}</td><td data-label="التاريخ" class="num">{{ t.task_date|d }}</td><td data-label="الوصف">{{ t.description }}{% if t.decision_note %}<div class="hint">{{ t.decision_note }}</div>{% endif %}</td>
+      <td class="n" data-label="الساعات">{{ t.hours|n }}</td><td data-label="الحالة">{{ status_badge(t.status, t.status_label) }}</td>
+      <td data-label="مرفق">{% if t.attachment_id %}<a href="/files/{{ t.attachment_id }}" target="_blank" rel="noopener">فتح</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">لا توجد مهام مسجلة.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if user.role == 'admin' and not sel_year.is_locked %}
+<section class="card no-print">
+  <details class="disclose"><summary>رصيد خاص / تسوية لهذه السنة (الأدمن)</summary>
+  <form method="post" action="/employees/{{ emp.id }}/balance" class="mt">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="year_id" value="{{ sel_year.id }}">
+    <div class="form-grid">
+      <div class="field"><label for="bo">رصيد أساسي خاص <span class="hint">(فارغ = الافتراضي {{ sel_year.base_days }})</span></label><input id="bo" type="number" name="base_override" value="{{ bal.base_override if bal and bal.base_override is not none else '' }}"></div>
+      <div class="field"><label for="ad">تسوية (+/− أيام)</label><input id="ad" type="number" name="adjustment_days" value="{{ bal.adjustment_days if bal else 0 }}"></div>
+      <div class="field"><label for="ar">السبب (إلزامي)</label><input id="ar" type="text" name="adjustment_reason" value="{{ bal.adjustment_reason if bal else '' }}"></div>
+    </div>
+    <button class="btn" type="submit">حفظ الرصيد</button>
+  </form></details>
+</section>
+{% endif %}
+{% endblock %}

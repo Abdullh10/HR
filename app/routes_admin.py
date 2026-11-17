@@ -1,0 +1,339 @@
+"""شاشات الأدمن: المستخدمون، السنوات والإعدادات، الأقسام، العطل، الهوية، سجل التدقيق."""
+from __future__ import annotations
+
+import secrets
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+
+from .db import get_db
+from .models import (
+    BALANCE_MODES,
+    ROLES,
+    AppSetting,
+    AuditLog,
+    Department,
+    Employee,
+    FiscalYear,
+    Holiday,
+    RestDayRequest,
+    Task,
+    User,
+)
+from .security import hash_password, password_problem
+from .services import audit
+from .web import back, client_ip, flash, parse_date, parse_float, redirect, render, require
+
+router = APIRouter(prefix="/admin")
+admin_only = require("admin")
+
+
+# ================================================================ المستخدمون
+@router.get("/users")
+def users(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    rows = list(db.scalars(select(User).order_by(User.role, User.username)))
+    linked = {u.employee_id for u in rows if u.employee_id}
+    emps = list(db.scalars(select(Employee).where(Employee.is_active.is_(True)).order_by(Employee.full_name)))
+    return render(request, db, "admin_users.html", user=user, rows=rows, emps=emps, linked=linked)
+
+
+@router.post("/users/save")
+def user_save(request: Request, user_id: int | None = Form(None), username: str = Form(...), role: str = Form(...),
+              employee_id: int | None = Form(None), password: str = Form(""), is_active: str = Form(""),
+              user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    username = username.strip().lower()
+    if role not in ROLES:
+        flash(request, "دور غير معروف.", "error")
+        return redirect("/admin/users")
+    if role in ("employee", "manager") and not employee_id:
+        flash(request, "يجب ربط حساب الموظف/المدير بسجل موظف.", "error")
+        return redirect("/admin/users")
+    dup = db.scalar(select(User).where(func.lower(User.username) == username, User.id != (user_id or 0)))
+    if dup or not username:
+        flash(request, "اسم المستخدم فارغ أو مستخدم مسبقاً.", "error")
+        return redirect("/admin/users")
+    if employee_id:
+        dupe = db.scalar(select(User).where(User.employee_id == employee_id, User.id != (user_id or 0)))
+        if dupe:
+            flash(request, f"هذا الموظف مرتبط مسبقاً بالحساب {dupe.username}.", "error")
+            return redirect("/admin/users")
+    u = db.get(User, user_id) if user_id else None
+    generated = None
+    if u is None:
+        pw = password.strip() or secrets.token_urlsafe(8)
+        if password.strip() and (p := password_problem(pw)):
+            flash(request, p, "error")
+            return redirect("/admin/users")
+        generated = pw
+        u = User(username=username, password_hash=hash_password(pw), must_change_password=True)
+        db.add(u)
+    if u.id == user.id and (role != "admin" or not is_active):
+        flash(request, "لا يمكنك إزالة صلاحية الأدمن أو تعطيل حسابك بنفسك.", "error")
+        return redirect("/admin/users")
+    u.username, u.role, u.employee_id = username, role, employee_id or None
+    u.is_active = bool(is_active) if user_id else True
+    db.flush()
+    audit(db, user, "user_saved", "user", u.id, ip=client_ip(request), username=username, role=role,
+          employee_id=employee_id, active=u.is_active)
+    db.commit()
+    if generated:
+        flash(request, f"تم إنشاء الحساب {username}. كلمة المرور المؤقتة: {generated} (سيُطلب تغييرها عند أول دخول).")
+    else:
+        flash(request, "تم حفظ الحساب.")
+    return redirect("/admin/users")
+
+
+@router.post("/users/{uid}/reset")
+def user_reset(request: Request, uid: int, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    u = db.get(User, uid)
+    if not u:
+        raise HTTPException(404, "غير موجود")
+    pw = secrets.token_urlsafe(8)
+    u.password_hash = hash_password(pw)
+    u.must_change_password = True
+    u.failed_logins, u.locked_until = 0, None
+    audit(db, user, "password_reset", "user", u.id, ip=client_ip(request))
+    db.commit()
+    flash(request, f"كلمة المرور المؤقتة للحساب {u.username}: {pw}")
+    return redirect("/admin/users")
+
+
+@router.post("/users/bulk-create")
+def users_bulk(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    """إنشاء حساب موظف لكل موظف نشط بلا حساب (اسم المستخدم = الرقم الوظيفي)."""
+    linked = {u.employee_id for u in db.scalars(select(User)) if u.employee_id}
+    made = []
+    for e in db.scalars(select(Employee).where(Employee.is_active.is_(True))):
+        if e.id in linked or e.is_temp_no:
+            continue
+        uname = e.employee_no.lower()
+        if db.scalar(select(User).where(func.lower(User.username) == uname)):
+            continue
+        pw = secrets.token_urlsafe(8)
+        role = "manager" if db.scalar(select(Employee.id).where(Employee.manager_id == e.id)) else "employee"
+        db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=e.id))
+        made.append((e.full_name, uname, pw, role))
+    audit(db, user, "users_bulk_created", "user", None, ip=client_ip(request), count=len(made))
+    db.commit()
+    return render(request, db, "admin_users_created.html", user=user, made=made)
+
+
+# ================================================================ السنوات والإعدادات
+@router.get("/years")
+def years_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    rows = list(db.scalars(select(FiscalYear).order_by(FiscalYear.start_date.desc())))
+    return render(request, db, "admin_years.html", user=user, rows=rows, modes=BALANCE_MODES)
+
+
+@router.post("/years/save")
+async def year_save(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    f = await request.form()
+    yid = f.get("year_id")
+    y = db.get(FiscalYear, int(yid)) if yid else FiscalYear()
+    if yid and y is None:
+        raise HTTPException(404, "غير موجود")
+    sd, ed = parse_date(f.get("start_date")), parse_date(f.get("end_date"))
+    name = str(f.get("name") or "").strip()
+    hpd, base = parse_float(f.get("hours_per_day")), parse_float(f.get("base_days"))
+    mx = parse_float(f.get("max_hours_per_task"))
+    mode = str(f.get("balance_mode"))
+    err = None
+    if not name or not sd or not ed or ed < sd:
+        err = "أدخل اسم السنة وتاريخي بداية ونهاية صحيحين."
+    elif mode not in BALANCE_MODES:
+        err = "طريقة احتساب غير معروفة."
+    elif not hpd or hpd <= 0 or base is None or base < 0 or not mx or mx <= 0:
+        err = "قيم الإعدادات الرقمية غير صحيحة."
+    else:
+        overlap = db.scalar(select(FiscalYear).where(FiscalYear.id != (y.id or 0), FiscalYear.start_date <= ed,
+                                                     FiscalYear.end_date >= sd))
+        if overlap:
+            err = f"الفترة تتداخل مع السنة {overlap.name}."
+        if not err and db.scalar(select(FiscalYear).where(FiscalYear.name == name, FiscalYear.id != (y.id or 0))):
+            err = "اسم السنة مستخدم."
+    if not err and y.id:
+        has_moves = db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == y.id)) or \
+            db.scalar(select(func.count(RestDayRequest.id)).where(RestDayRequest.fiscal_year_id == y.id))
+        if has_moves:
+            outside = db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == y.id,
+                                (Task.task_date < sd) | (Task.task_date > ed))) or \
+                db.scalar(select(func.count(RestDayRequest.id)).where(RestDayRequest.fiscal_year_id == y.id,
+                          (RestDayRequest.rest_date < sd) | (RestDayRequest.rest_date > ed)))
+            if outside:
+                err = "توجد حركات خارج الفترة الجديدة، لا يمكن تضييق السنة."
+    if err:
+        flash(request, err, "error")
+        return redirect("/admin/years")
+    if y.id and y.is_locked:
+        flash(request, "السنة مقفلة. افتح القفل أولاً لتعديل إعداداتها.", "error")
+        return redirect("/admin/years")
+    before = {k: getattr(y, k, None) for k in ("balance_mode", "base_days", "hours_per_day")} if y.id else {}
+    y.name, y.start_date, y.end_date = name, sd, ed
+    y.balance_mode, y.base_days, y.hours_per_day, y.max_hours_per_task = mode, int(base), hpd, mx
+    for flag in ("require_task_attachment", "require_request_attachment", "block_weekends", "allow_future_tasks",
+                 "allow_late_cancel", "employee_can_request"):
+        setattr(y, flag, bool(f.get(flag)))
+    y.weekend_days = ",".join(str(x) for x in f.getlist("weekend_days")) or "4,5"
+    if not y.id:
+        db.add(y)
+    db.flush()
+    audit(db, user, "year_saved", "fiscal_year", y.id, ip=client_ip(request), before=before,
+          after=dict(balance_mode=mode, base_days=int(base), hours_per_day=hpd))
+    db.commit()
+    flash(request, f"تم حفظ إعدادات السنة {name}.")
+    return redirect("/admin/years")
+
+
+@router.post("/years/{yid}/activate")
+def year_activate(request: Request, yid: int, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    y = db.get(FiscalYear, yid)
+    if not y:
+        raise HTTPException(404, "غير موجود")
+    db.execute(update(FiscalYear).values(is_active=False))
+    y.is_active = True
+    audit(db, user, "year_activated", "fiscal_year", y.id, ip=client_ip(request))
+    db.commit()
+    flash(request, f"السنة النشطة الآن: {y.name}.")
+    return redirect("/admin/years")
+
+
+@router.post("/years/{yid}/lock")
+def year_lock(request: Request, yid: int, lock: int = Form(...), user: User = Depends(admin_only),
+              db: Session = Depends(get_db)):
+    y = db.get(FiscalYear, yid)
+    if not y:
+        raise HTTPException(404, "غير موجود")
+    if lock:
+        pend = (db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == yid, Task.status == "pending"))
+                or 0) + (db.scalar(select(func.count(RestDayRequest.id)).where(
+                    RestDayRequest.fiscal_year_id == yid, RestDayRequest.status == "pending")) or 0)
+        if pend:
+            flash(request, f"لا يمكن الإقفال: توجد {pend} حركة بانتظار الاعتماد.", "error")
+            return redirect("/admin/years")
+    y.is_locked = bool(lock)
+    audit(db, user, "year_locked" if lock else "year_unlocked", "fiscal_year", y.id, ip=client_ip(request))
+    db.commit()
+    flash(request, f"تم {'إقفال' if lock else 'فتح'} السنة {y.name}.")
+    return redirect("/admin/years")
+
+
+# ================================================================ الأقسام
+@router.get("/departments")
+def departments(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(Department, func.count(Employee.id)).outerjoin(Employee, Employee.department_id == Department.id)
+        .group_by(Department.id).order_by(Department.name)
+    ).all()
+    return render(request, db, "admin_departments.html", user=user, rows=rows)
+
+
+@router.post("/departments/save")
+def dept_save(request: Request, dept_id: int | None = Form(None), name: str = Form(...), is_active: str = Form(""),
+              user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    name = " ".join(name.split())
+    if not name or db.scalar(select(Department).where(Department.name == name, Department.id != (dept_id or 0))):
+        flash(request, "اسم القسم فارغ أو مكرر.", "error")
+        return redirect("/admin/departments")
+    d = db.get(Department, dept_id) if dept_id else Department()
+    d.name = name
+    d.is_active = bool(is_active) if dept_id else True
+    if not dept_id:
+        db.add(d)
+    db.flush()
+    audit(db, user, "department_saved", "department", d.id, ip=client_ip(request), name=name)
+    db.commit()
+    flash(request, "تم حفظ القسم.")
+    return redirect("/admin/departments")
+
+
+@router.post("/departments/merge")
+def dept_merge(request: Request, source: int = Form(...), target: int = Form(...), user: User = Depends(admin_only),
+               db: Session = Depends(get_db)):
+    if source == target:
+        flash(request, "اختر قسمين مختلفين.", "error")
+        return redirect("/admin/departments")
+    s, t = db.get(Department, source), db.get(Department, target)
+    if not s or not t:
+        raise HTTPException(404, "غير موجود")
+    n = db.execute(update(Employee).where(Employee.department_id == source).values(department_id=target)).rowcount
+    db.delete(s)
+    audit(db, user, "department_merged", "department", target, ip=client_ip(request), source=s.name,
+          target=t.name, moved=n)
+    db.commit()
+    flash(request, f"تم دمج «{s.name}» في «{t.name}» ونقل {n} موظف.")
+    return redirect("/admin/departments")
+
+
+# ================================================================ العطل الرسمية
+@router.get("/holidays")
+def holidays(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    rows = list(db.scalars(select(Holiday).order_by(Holiday.day.desc())))
+    return render(request, db, "admin_holidays.html", user=user, rows=rows)
+
+
+@router.post("/holidays/add")
+def holiday_add(request: Request, start: str = Form(...), end: str = Form(""), name: str = Form(...),
+                user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    sd, ed = parse_date(start), parse_date(end) or parse_date(start)
+    if not sd or not ed or ed < sd or (ed - sd).days > 60 or not name.strip():
+        flash(request, "بيانات العطلة غير صحيحة.", "error")
+        return redirect("/admin/holidays")
+
+    n, d = 0, sd
+    while d <= ed:
+        if not db.scalar(select(Holiday).where(Holiday.day == d)):
+            db.add(Holiday(day=d, name=name.strip()))
+            n += 1
+        d += timedelta(days=1)
+    audit(db, user, "holiday_added", "holiday", None, ip=client_ip(request), name=name, start=sd, end=ed)
+    db.commit()
+    flash(request, f"تمت إضافة {n} يوم عطلة.")
+    return redirect("/admin/holidays")
+
+
+@router.post("/holidays/{hid}/delete")
+def holiday_delete(request: Request, hid: int, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    h = db.get(Holiday, hid)
+    if h:
+        audit(db, user, "holiday_deleted", "holiday", hid, ip=client_ip(request), day=h.day, name=h.name)
+        db.delete(h)
+        db.commit()
+    return back(request, "/admin/holidays")
+
+
+# ================================================================ الهوية العامة
+@router.get("/settings")
+def settings(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    return render(request, db, "admin_settings.html", user=user)
+
+
+@router.post("/settings")
+def settings_save(request: Request, university: str = Form(""), college: str = Form(""), system_title: str = Form(""),
+                  credit: str = Form(""), user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    for k, v in dict(university=university, college=college, system_title=system_title, credit=credit).items():
+        s = db.get(AppSetting, k) or AppSetting(key=k)
+        s.value = v.strip()
+        db.merge(s)
+    audit(db, user, "settings_saved", "settings", None, ip=client_ip(request))
+    db.commit()
+    flash(request, "تم حفظ الإعدادات.")
+    return redirect("/admin/settings")
+
+
+# ================================================================ سجل التدقيق
+@router.get("/audit")
+def audit_page(request: Request, q: str = "", page: int = 1, user: User = Depends(admin_only),
+               db: Session = Depends(get_db)):
+    per = 100
+    stmt = select(AuditLog).order_by(AuditLog.id.desc())
+    if q.strip():
+        like = f"%{q.strip()}%"
+        stmt = stmt.where((AuditLog.username.like(like)) | (AuditLog.action.like(like)) |
+                          (AuditLog.entity.like(like)) | (AuditLog.details.like(like)))
+    rows = list(db.scalars(stmt.offset((max(page, 1) - 1) * per).limit(per + 1)))
+    return render(request, db, "admin_audit.html", user=user, rows=rows[:per], q=q, page=page,
+                  has_next=len(rows) > per)
+
+

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import year_select %}
+{% block title %}التقارير{% endblock %}
+{% block heading %}التقارير{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>التقارير والمؤشرات</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
+<div class="grid kpis">
+  <div class="kpi"><div class="l">إجمالي الطلبات</div><div class="v">{{ stats.requests }}</div></div>
+  <div class="kpi ok"><div class="l">معتمدة</div><div class="v">{{ stats.approved }}</div></div>
+  <div class="kpi warn"><div class="l">معلّقة</div><div class="v">{{ stats.pending }}</div></div>
+  <div class="kpi err"><div class="l">مرفوضة</div><div class="v">{{ stats.rejected }}</div></div>
+  <div class="kpi"><div class="l">نسبة الإلغاء</div><div class="v">{{ stats.cancel_rate }}%</div></div>
+  <div class="kpi"><div class="l">متوسط زمن الاعتماد</div><div class="v">{{ stats.avg_lead }}</div><div class="s">يوم</div></div>
+  <div class="kpi accent"><div class="l">ساعات معتمدة</div><div class="v">{{ stats.hours|n }}</div><div class="s">{{ stats.pending_hours|n }} ساعة معلّقة · {{ stats.tasks }} مهمة</div></div>
+  <div class="kpi warn"><div class="l">أيام معتمدة بلا ملف توصية</div><div class="v">{{ stats.no_attachment }}</div></div>
+</div>
+<section class="card"><h2>تصدير البيانات (Excel)</h2>
+  <div class="actions">
+    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">أرصدة الموظفين</a>
+    <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">سجل أيام التمتع</a>
+    <a class="btn" href="/export/tasks.xlsx?year_id={{ sel_year.id }}">سجل المهام والساعات</a>
+  </div>
+  <p class="hint mt">الملفات بنفس أعمدة ملفات الإكسل السابقة لتسهيل المطابقة.</p>
+</section>
+{% endblock %}

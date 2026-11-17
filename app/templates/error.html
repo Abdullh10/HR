@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}خطأ {{ code }}{% endblock %}
+{% block body %}
+{% if user %}{{ super() }}{% else %}
+<main class="auth"><div class="box"><h1>{{ 'غير مصرح' if code == 403 else ('غير موجود' if code == 404 else 'خطأ') }}</h1><p>{{ message }}</p><a class="btn primary" href="/">العودة</a></div></main>
+{% endif %}
+{% endblock %}
+{% block heading %}خطأ{% endblock %}
+{% block content %}
+<div class="card"><h2>{{ 'غير مصرح' if code == 403 else ('غير موجود' if code == 404 else 'تعذّر تنفيذ الطلب') }}</h2><p>{{ message }}</p><a class="btn" href="/">العودة إلى الرئيسية</a></div>
+{% endblock %}
