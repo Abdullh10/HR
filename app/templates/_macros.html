@@ -18,5 +18,5 @@
   {%- else -%}<span class="badge ok">متبقي رصيد</span>{%- endif -%}
 {%- endmacro %}
 {% macro ico(name, cls='') -%}
-<svg class="i3d {{ cls }}" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-{{ name }}"/></svg>
+<svg class="i3d {{ cls }}" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
 {%- endmacro %}

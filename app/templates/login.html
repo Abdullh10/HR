@@ -9,7 +9,7 @@
   <header class="gate-head">
     <div class="gate-head-in">
       <a class="gate-org" href="/login" aria-label="{{ org.system_title }} – {{ org.tagline }}">
-        <span class="emblem" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v=3" alt="" width="40" height="40"></span>
+        <span class="emblem" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="40" height="40"></span>
         <span><b class="wordmark">{{ org.system_title }}</b><small>{{ org.tagline }}</small></span>
       </a>
       <span class="gate-sys hide-sm">{{ org.university }} · {{ org.college }}</span>
@@ -47,7 +47,7 @@
       <section class="gate-intro" aria-labelledby="intro-title">
         <span class="eyebrow">نظام داخلي · {{ org.college }}</span>
         <h2 id="intro-title">{{ org.tagline }}</h2>
-        <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="/static/hero.svg#hero"/></svg>
+        <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="#hero"/></svg>{{ HERO_SPRITE }}
         <p class="lead">منصة داخلية لمنسوبي {{ org.college }} في {{ org.university }} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
         <ul class="gate-features">
           <li><span class="ico" aria-hidden="true">{{ ico('clock') }}</span>

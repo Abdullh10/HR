@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -39,6 +40,25 @@ templates.env.globals["days_ar"] = days_ar
 templates.env.globals["hours_ar"] = hours_ar
 templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
+
+# رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
+ASSET_V = "4"
+templates.env.globals["ASSET_V"] = ASSET_V
+
+_STATIC = Path(__file__).parent / "static"
+
+
+def _inline_sprite(name: str) -> Markup:
+    """يضمّن ملف SVG في الصفحة مخفياً ليُشار إلى رموزه داخلياً (#id).
+    مراجع <use> الخارجية لا تحلّ التدرجات اللونية في بعض المتصفحات (Safari/iOS)
+    فتختفي رموز الأيقونات؛ التضمين الداخلي يعمل في كل المتصفحات."""
+    svg = (_STATIC / name).read_text(encoding="utf-8")
+    svg = svg.replace("<svg ", '<svg class="svg-sprite" aria-hidden="true" focusable="false" ', 1)
+    return Markup(svg)
+
+
+templates.env.globals["ICON_SPRITE"] = _inline_sprite("icons.svg")
+templates.env.globals["HERO_SPRITE"] = _inline_sprite("hero.svg")
 
 
 class LoginRequired(Exception):

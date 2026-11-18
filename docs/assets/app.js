@@ -197,10 +197,26 @@
   class Forbidden extends Error {}
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
-  const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="assets/icons.svg#i-${n}"/></svg>`;
+  // الأيقونات تُضمَّن في الصفحة (inline sprite): مراجع <use> لملف خارجي لا تحلّ التدرجات في Safari/iOS فتختفي الرموز.
+  const ASSET_V = "4";
+  let SPRITE_INLINE = false, HERO_INLINE = false;
+  const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="${SPRITE_INLINE ? "" : "assets/icons.svg?v=" + ASSET_V}#i-${n}"/></svg>`;
+  async function inlineSprite(file) {
+    try {
+      const r = await fetch("assets/" + file + "?v=" + ASSET_V, { cache: "no-cache" });
+      if (!r.ok) return false;
+      const doc = new DOMParser().parseFromString(await r.text(), "image/svg+xml");
+      const svg = doc.documentElement;
+      if (!svg || svg.nodeName !== "svg" || doc.getElementsByTagName("parsererror").length) return false;
+      svg.setAttribute("class", "svg-sprite"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("focusable", "false");
+      document.body.insertBefore(document.importNode(svg, true), document.body.firstChild);
+      return true;
+    } catch (e) { return false; }
+  }
   function layout(u, title, body) {
     const y = activeYear();
-    const p = "#/" + parts().seg.join("/");
+    const sg = parts().seg;
+    const p = "#/" + (!sg.length || sg[0] === "login" ? (u.role === "employee" ? "me" : "dashboard") : sg.join("/"));
     const item = (href, label, icon) => `<li><a href="${href}" title="${label}" ${p === href ? 'aria-current="page"' : ""}>${ico(icon)}<span class="lbl">${label}</span></a></li>`;
     const nav = [
       u.emp ? item("#/me", "كشف رصيدي", "idcard") : "",
@@ -216,14 +232,14 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=3" alt="" width="40" height="40"></div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <div class="brand"><div class="mark" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="40" height="40"></div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
     <div class="demo-banner" role="note">نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية. <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button></div>
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
-      <span class="t-logo" aria-hidden="true"><img src="assets/logo.svg?v=3" alt="" width="30" height="30"><b>${h(DB.settings.system_title)}</b></span>
+      <span class="t-logo" aria-hidden="true"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(DB.settings.system_title)}</b></span>
       <span class="title">${h(title)}</span><span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
@@ -258,7 +274,7 @@
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
   <header class="gate-head"><div class="gate-head-in">
-    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=3" alt="" width="40" height="40"></span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
+    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="40" height="40"></span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
     <span class="gate-sys hide-sm">${h(s.university)} · ${h(s.college)}</span>
     <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
   </div></header>
@@ -283,7 +299,7 @@
     <section class="gate-intro" aria-labelledby="intro-title">
       <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
       <h2 id="intro-title">${h(s.tagline)}</h2>
-      <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="assets/hero.svg#hero"/></svg>
+      <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="${HERO_INLINE ? "" : "assets/hero.svg?v=" + ASSET_V}#hero"/></svg>
       <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
       <ul class="gate-features">
         <li><span class="ico" aria-hidden="true">${ico("clock")}</span><div><b>تسجيل المهام والساعات</b><span>توثيق ساعات العمل الإضافية واحتساب الأيام المستحقة آلياً.</span></div></li>
@@ -1051,6 +1067,7 @@
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null) DB.settings.tagline = TAGLINE;
+    [SPRITE_INLINE, HERO_INLINE] = await Promise.all([inlineSprite("icons.svg"), inlineSprite("hero.svg")]);
     render();
   })();
 })();
