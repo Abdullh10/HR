@@ -311,8 +311,8 @@ def settings(request: Request, user: User = Depends(admin_only), db: Session = D
 
 @router.post("/settings")
 def settings_save(request: Request, university: str = Form(""), college: str = Form(""), system_title: str = Form(""),
-                  credit: str = Form(""), user: User = Depends(admin_only), db: Session = Depends(get_db)):
-    for k, v in dict(university=university, college=college, system_title=system_title, credit=credit).items():
+                  tagline: str = Form(""), credit: str = Form(""), user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    for k, v in dict(university=university, college=college, system_title=system_title, tagline=tagline, credit=credit).items():
         s = db.get(AppSetting, k) or AppSetting(key=k)
         s.value = v.strip()
         db.merge(s)

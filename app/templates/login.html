@@ -8,11 +8,11 @@
   <div class="gate-strip" aria-hidden="true"></div>
   <header class="gate-head">
     <div class="gate-head-in">
-      <a class="gate-org" href="/login" aria-label="{{ org.university }} – {{ org.college }}">
+      <a class="gate-org" href="/login" aria-label="{{ org.system_title }} – {{ org.tagline }}">
         <span class="emblem" aria-hidden="true">{{ ico('logo') }}</span>
-        <span><b>{{ org.university }}</b><small>{{ org.college }}</small></span>
+        <span><b class="wordmark">{{ org.system_title }}</b><small>{{ org.tagline }}</small></span>
       </a>
-      <span class="gate-sys hide-sm">{{ org.system_title }}</span>
+      <span class="gate-sys hide-sm">{{ org.university }} · {{ org.college }}</span>
       <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon') }}<span class="sr-only">الوضع</span></button>
     </div>
   </header>
@@ -21,7 +21,7 @@
     <div class="gate-grid">
       <section class="gate-card" aria-labelledby="login-title">
         <div class="card-mark">{{ ico('shield') }}<h1 id="login-title">تسجيل الدخول</h1></div>
-        <p class="sub">أدخل بيانات حسابك للوصول إلى {{ org.system_title }}.</p>
+        <p class="sub">أدخل بيانات حسابك للوصول إلى نظام {{ org.system_title }}.</p>
         {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
         {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
         <form method="post" action="/login" novalidate>
@@ -46,7 +46,7 @@
 
       <section class="gate-intro" aria-labelledby="intro-title">
         <span class="eyebrow">نظام داخلي · {{ org.college }}</span>
-        <h2 id="intro-title">{{ org.system_title }}</h2>
+        <h2 id="intro-title">{{ org.tagline }}</h2>
         <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="/static/hero.svg#hero"/></svg>
         <p class="lead">منصة داخلية لمنسوبي {{ org.college }} في {{ org.university }} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
         <ul class="gate-features">

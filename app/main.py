@@ -75,12 +75,17 @@ def init_db() -> None:
         defaults = {
             "university": "جامعة الملك سعود",
             "college": "كلية التمريض",
-            "system_title": "إدارة أيام بدل الراحة للموظفين",
+            "system_title": "إتمام",
+            "tagline": "إدارة أيام بدل الراحة بكفاءة واحتراف",
             "credit": "",
         }
         for k, v in defaults.items():
             if not db.get(AppSetting, k):
                 db.add(AppSetting(key=k, value=v))
+        # الاسم القديم الافتراضي يُستبدل بهوية «إتمام» (لا يمس اسماً غيّره الأدمن)
+        old = db.get(AppSetting, "system_title")
+        if old and old.value == "إدارة أيام بدل الراحة للموظفين":
+            old.value = "إتمام"
         if not db.scalar(select(FiscalYear)):
             db.add(FiscalYear(name="2027", start_date=date(2027, 1, 1), end_date=date(2027, 12, 31),
                               is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7))

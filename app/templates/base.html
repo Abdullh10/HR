@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#008dc3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0c1418" media="(prefers-color-scheme: dark)">
-<title>{% block title %}{{ org.system_title or "نظام بدل الراحة" }}{% endblock %} — {{ org.college }}</title>
+<meta name="theme-color" content="#009fe3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08131f" media="(prefers-color-scheme: dark)">
+<title>{% block title %}{{ org.tagline or "إدارة أيام بدل الراحة" }}{% endblock %} — {{ org.system_title or "إتمام" }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/app.js"></script>
 </head>
@@ -20,7 +21,7 @@
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
     <div class="brand">
       <div class="mark" aria-hidden="true">{{ ico('logo') }}</div>
-      <div><b>{{ org.system_title or "بدل الراحة" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
+      <div><b class="wordmark">{{ org.system_title or "إتمام" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
     </div>
     {% macro item(href, label, icon, badge=None) -%}
       <li><a href="{{ href }}" title="{{ label }}" {% if path == href or (href in ('/employees',) and path.startswith(href + '/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ ico(icon) }}<span class="lbl">{{ label }}</span>{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>

@@ -4,6 +4,7 @@
 
   // ============================================================ أدوات
   const KEY = "hr_demo_v1";
+  const TAGLINE = "إدارة أيام بدل الراحة بكفاءة واحتراف";
   const $app = document.getElementById("app");
   const ROLES = { admin: "مدير النظام", officer: "مسؤول الإدخال", manager: "مدير مباشر", viewer: "متابع", employee: "موظف" };
   const ASSIGNABLE = ["employee", "officer", "manager", "viewer"];
@@ -47,7 +48,7 @@
 
   async function seed() {
     const pw = await sha(DEMO_PW);
-    const db = { seq: 0, settings: { university: "جامعة الملك سعود", college: "كلية التمريض", system_title: "إدارة أيام بدل الراحة للموظفين", credit: "" },
+    const db = { seq: 0, settings: { university: "جامعة الملك سعود", college: "كلية التمريض", system_title: "إتمام", tagline: TAGLINE, credit: "" },
       years: [], depts: [], emps: [], users: [], balances: [], tasks: [], reqs: [], holidays: [], audit: [] };
     DB = db;
     db.years.push({ id: nid(), name: "2027", start: "2027-01-01", end: "2027-12-31", active: true, locked: false, mode: "mixed", base: 20, hpd: 7, maxh: 12,
@@ -215,7 +216,7 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true">${ico("logo")}</div><div><b>${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <div class="brand"><div class="mark" aria-hidden="true">${ico("logo")}</div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
@@ -257,15 +258,15 @@
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
   <header class="gate-head"><div class="gate-head-in">
-    <a class="gate-org" href="#/login" aria-label="${h(s.university)} – ${h(s.college)}"><span class="emblem" aria-hidden="true">${ico("logo")}</span><span><b>${h(s.university)}</b><small>${h(s.college)}</small></span></a>
-    <span class="gate-sys hide-sm">${h(s.system_title)}</span>
+    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true">${ico("logo")}</span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
+    <span class="gate-sys hide-sm">${h(s.university)} · ${h(s.college)}</span>
     <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
   </div></header>
   <main class="gate-main"><div class="gate-grid">
     <section class="gate-card" aria-labelledby="login-title">
       <span class="demo-tag" role="note">نسخة عرض — ليست النظام الفعلي</span>
       <div class="card-mark">${ico("shield")}<h1 id="login-title">تسجيل الدخول</h1></div>
-      <p class="sub">أدخل بيانات حسابك للوصول إلى ${h(s.system_title)}.</p>
+      <p class="sub">أدخل بيانات حسابك للوصول إلى نظام ${h(s.system_title)}.</p>
       ${flashQ.splice(0).map(([k, m]) => `<div class="alert ${k}" role="alert">${h(m)}</div>`).join("")}
       <form data-form="login" novalidate>
         <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label><div class="input-icon">${SV('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/>')}<input id="u" name="username" type="text" autocomplete="username" required autofocus></div></div>
@@ -281,7 +282,7 @@
     </section>
     <section class="gate-intro" aria-labelledby="intro-title">
       <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
-      <h2 id="intro-title">${h(s.system_title)}</h2>
+      <h2 id="intro-title">${h(s.tagline)}</h2>
       <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="assets/hero.svg#hero"/></svg>
       <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
       <ul class="gate-features">
@@ -722,6 +723,7 @@
       <div class="field"><label for="s1">الجامعة</label><input id="s1" name="university" value="${h(s.university)}"></div>
       <div class="field"><label for="s2">الكلية / الجهة</label><input id="s2" name="college" value="${h(s.college)}"></div>
       <div class="field"><label for="s3">اسم النظام</label><input id="s3" name="system_title" value="${h(s.system_title)}"></div>
+      <div class="field"><label for="s5">الشعار النصي <span class="hint">(يظهر تحت اسم النظام)</span></label><input id="s5" name="tagline" value="${h(s.tagline || "")}"></div>
       <div class="field"><label for="s4">سطر الحقوق <span class="hint">(اختياري)</span></label><input id="s4" name="credit" value="${h(s.credit)}"></div>
       <button class="btn primary">حفظ</button></form>`); };
 
@@ -956,7 +958,7 @@
   F["dept-edit"] = (form) => { const d = fd(form), x = byId("depts", form.dataset.id), nm = String(d.get("name")).trim(); if (!nm || DB.depts.some((y) => y.id !== x.id && norm(y.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); x.name = nm; x.active = !!d.get("active"); save(); flash("تم حفظ القسم."); render(); };
   F["dept-merge"] = (form) => { const d = fd(form), s = Number(d.get("src")), t = Number(d.get("dst")); if (s === t) throw new RuleError("اختر قسمين مختلفين."); if (!confirm("دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟")) return; let c = 0; DB.emps.forEach((e) => { if (e.dept === s) { e.dept = t; c++; } }); const src = byId("depts", s); DB.depts = DB.depts.filter((x) => x.id !== s); audit("department_merged", "department", t, { source: src.name, moved: c }); save(); flash("تم الدمج ونقل " + c + " موظف."); render(); };
   F.holiday = (form) => { const d = fd(form), s = parseISO(d.get("start")), e = parseISO(d.get("end") || d.get("start")), nm = String(d.get("name")).trim(); if (!s || !e || e < s || (e - s) / 864e5 > 60 || !nm) throw new RuleError("بيانات العطلة غير صحيحة."); let c = 0; for (let x = new Date(s); x <= e; x.setDate(x.getDate() + 1)) { const k = iso(x); if (!DB.holidays.some((y) => y.day === k)) { DB.holidays.push({ id: nid(), day: k, name: nm }); c++; } } audit("holiday_added", "holiday", null, { name: nm }); save(); flash("تمت إضافة " + c + " يوم عطلة."); render(); };
-  F.settings = (form) => { const d = fd(form); ["university", "college", "system_title", "credit"].forEach((k) => (DB.settings[k] = String(d.get(k) || "").trim())); audit("settings_saved", "settings"); save(); flash("تم حفظ الإعدادات."); render(); };
+  F.settings = (form) => { const d = fd(form); ["university", "college", "system_title", "tagline", "credit"].forEach((k) => (DB.settings[k] = String(d.get(k) || "").trim())); audit("settings_saved", "settings"); save(); flash("تم حفظ الإعدادات."); render(); };
 
   // ============================================================ الإجراءات
   const ACT = {};
@@ -1046,6 +1048,9 @@
   (async function start() {
     DB = load();
     if (!DB || !DB.years) await seed();
+    // ترقية بيانات العرض القديمة إلى هوية «إتمام»
+    if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
+    if (DB.settings.tagline == null) DB.settings.tagline = TAGLINE;
     render();
   })();
 })();

@@ -1,71 +1,69 @@
-/* نظام بدل الراحة — نظام التصميم */
-/* الألوان مأخوذة من لوحة ألوان الدليل الإرشادي لهوية جامعة الملك سعود (2.10):
-     أساسية: أزرق الجامعة #008DC3 (PMS 640c) · كريمي الجامعة #E3E0D2 (PMS 9143c)
-     ثانوية: رمادي الجامعة #748995 (PMS 7544c) · الأسود #000000 (بتدرجات 10%)
-   الأزرق هو اللون المهيمن، والكريمي خلفية هادئة، والرمادي/الأسود للتسلسل الهرمي.
-   لأن الأزرق والرمادي الأصليين ≈3.7:1 على الأبيض، تُستخدم درجات أعمق من نفس اللون للنصوص والأزرار
-   (≥ 4.5:1 وفق WCAG AA)، ويبقى اللون الأصلي للمساحات والشرائط والأيقونات. */
+/* «إتمام» — نظام التصميم */
+/* الألوان من لوحة هوية «إتمام» (إدارة أيام بدل الراحة بكفاءة واحتراف):
+     #009FE3 أزرق فاتح · #006BB6 أزرق أساسي · #00427A أزرق داكن · #E6F2FB أزرق ناعم · #F5F7FA خلفية
+   الأزرق الفاتح للمساحات والشرائط والأيقونات، والأساسي للأزرار والروابط (أبيض عليه ≥ 5.5:1)،
+   والداكن للعناوين والقائمة الجانبية. */
 :root {
-  --brand: #00719c;        /* أزرق الجامعة بعمق 80% — نص الشارات والروابط */
-  --brand-2: #00719c;      /* الأزرار والروابط — أبيض عليه 5.5:1 */
-  --brand-soft: #e5f3f9;   /* تدرّج 10% من أزرق الجامعة */
-  --brand-ink: #0b3448;    /* حبر العناوين: أزرق شبه أسود 13.1:1 */
-  --brand-solid: #008dc3;  /* أزرق الجامعة الأصلي: الشريط العلوي والعناصر الكبيرة */
-  --sidebar: #00435e;      /* ظل عميق من أزرق الجامعة — أبيض عليه 10.7:1 */
-  --sidebar-accent: #e3e0d2; /* كريمي الجامعة */
-  --accent: #576770;       /* رمادي الجامعة بعمق 75% — أبيض عليه 5.9:1 */
-  --accent-soft: #eef1f3;
-  --bg: #f4f3ed;           /* كريمي الجامعة بتدرج 40% */
+  --brand: #006bb6;        /* الأزرق الأساسي — نص الشارات والروابط */
+  --brand-2: #006bb6;      /* الأزرار والروابط */
+  --brand-soft: #e6f2fb;   /* الأزرق الناعم */
+  --brand-ink: #00427a;    /* الأزرق الداكن — العناوين */
+  --brand-solid: #009fe3;  /* الأزرق الفاتح — الشريط العلوي والعناصر الكبيرة */
+  --sidebar: #00427a;      /* الأزرق الداكن */
+  --sidebar-accent: #3fb6ec;
+  --accent: #4b6179;
+  --accent-soft: #eef3f8;
+  --bg: #f5f7fa;
   --surface: #ffffff;
-  --surface-2: #f9f8f4;    /* كريمي 20% */
-  --text: #172228;
-  --muted: #576770;        /* على الأبيض 5.9:1 · على الخلفية 5.3:1 */
-  --border: #dedbcf;
+  --surface-2: #f8fafc;
+  --text: #10233a;
+  --muted: #4f6378;
+  --border: #dbe4ee;
   --ok: #157a3a;
   --ok-soft: #e6f4ea;
   --warn: #9a5800;
   --warn-soft: #fdf1df;
   --err: #b42318;
   --err-soft: #fdecea;
-  --focus: #008dc3;
+  --focus: #0b8fd4;
   --radius: 10px;
   --shadow: 0 1px 1px rgba(16, 24, 40, .04), 0 2px 4px rgba(16, 24, 40, .04), 0 8px 18px -6px rgba(16, 24, 40, .1), inset 0 1px 0 rgba(255, 255, 255, .85);
-  --shadow-hover: 0 2px 2px rgba(16, 24, 40, .04), 0 6px 10px rgba(16, 24, 40, .06), 0 18px 34px -10px rgba(0, 60, 90, .2), inset 0 1px 0 rgba(255, 255, 255, .9);
-  --shadow-lg: 0 1px 1px rgba(16, 24, 40, .04), 0 4px 8px rgba(16, 24, 40, .05), 0 24px 48px -12px rgba(0, 67, 94, .2), inset 0 1px 0 rgba(255, 255, 255, .9);
-  --ic-brand: #008dc3; --ic-accent: #748995; --ic-ok: #1c8a46; --ic-warn: #c27a12; --ic-err: #c43a2f; --ic-neutral: #4f626d;
+  --shadow-hover: 0 2px 2px rgba(16, 24, 40, .04), 0 6px 10px rgba(16, 24, 40, .06), 0 18px 34px -10px rgba(0, 66, 122, .22), inset 0 1px 0 rgba(255, 255, 255, .9);
+  --shadow-lg: 0 1px 1px rgba(16, 24, 40, .04), 0 4px 8px rgba(16, 24, 40, .05), 0 24px 48px -12px rgba(0, 66, 122, .22), inset 0 1px 0 rgba(255, 255, 255, .9);
+  --ic-brand: #0b8fd4; --ic-accent: #006bb6; --ic-ok: #1c8a46; --ic-warn: #c27a12; --ic-err: #c43a2f; --ic-neutral: #4b6179;
   --hero-glow: 1;
   --font: "IBM Plex Sans Arabic", Tahoma, "Segoe UI", "Noto Sans Arabic", sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #45bdea; --brand-2: #45bdea; --brand-soft: #12303d; --brand-ink: #ece9df;
-    --brand-solid: #008dc3; --sidebar: #0a1a22; --sidebar-accent: #e3e0d2;
-    --accent: #a3b2bb; --accent-soft: #1d2a31;
-    --bg: #0c1418; --surface: #131d23; --surface-2: #18242b;
-    --text: #e6eaec; --muted: #a3b2bb; --border: #283841;
+    --brand: #4db8f0; --brand-2: #4db8f0; --brand-soft: #0d2a45; --brand-ink: #e6f2fb;
+    --brand-solid: #009fe3; --sidebar: #061a30; --sidebar-accent: #3fb6ec;
+    --accent: #9fb4c9; --accent-soft: #15283c;
+    --bg: #08131f; --surface: #0e1d2d; --surface-2: #132539;
+    --text: #e6edf5; --muted: #9fb4c9; --border: #223a53;
     --ok: #5fcf86; --ok-soft: #13301f; --warn: #f0b45a; --warn-soft: #33270f;
-    --err: #ff8a80; --err-soft: #3a1714; --focus: #6fd0f5;
+    --err: #ff8a80; --err-soft: #3a1714; --focus: #5cc8f5;
     --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 4px 10px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .05);
     --shadow-hover: 0 2px 2px rgba(0, 0, 0, .3), 0 14px 30px -8px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .07);
     --shadow-lg: 0 2px 4px rgba(0, 0, 0, .3), 0 24px 48px -12px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
-    --ic-brand: #0a98cf; --ic-accent: #7d929e; --ic-neutral: #5a6e7a;
+    --ic-brand: #0a8fd0; --ic-accent: #2f78c0; --ic-neutral: #4a6884;
     --hero-glow: .14;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --brand: #45bdea; --brand-2: #45bdea; --brand-soft: #12303d; --brand-ink: #ece9df;
-  --brand-solid: #008dc3; --sidebar: #0a1a22; --sidebar-accent: #e3e0d2;
-  --accent: #a3b2bb; --accent-soft: #1d2a31;
-  --bg: #0c1418; --surface: #131d23; --surface-2: #18242b;
-  --text: #e6eaec; --muted: #a3b2bb; --border: #283841;
+  --brand: #4db8f0; --brand-2: #4db8f0; --brand-soft: #0d2a45; --brand-ink: #e6f2fb;
+  --brand-solid: #009fe3; --sidebar: #061a30; --sidebar-accent: #3fb6ec;
+  --accent: #9fb4c9; --accent-soft: #15283c;
+  --bg: #08131f; --surface: #0e1d2d; --surface-2: #132539;
+  --text: #e6edf5; --muted: #9fb4c9; --border: #223a53;
   --ok: #5fcf86; --ok-soft: #13301f; --warn: #f0b45a; --warn-soft: #33270f;
-  --err: #ff8a80; --err-soft: #3a1714; --focus: #6fd0f5;
+  --err: #ff8a80; --err-soft: #3a1714; --focus: #5cc8f5;
   --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 4px 10px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .05);
   --shadow-hover: 0 2px 2px rgba(0, 0, 0, .3), 0 14px 30px -8px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .07);
   --shadow-lg: 0 2px 4px rgba(0, 0, 0, .3), 0 24px 48px -12px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
-  --ic-brand: #0a98cf; --ic-accent: #7d929e; --ic-neutral: #5a6e7a;
+  --ic-brand: #0a8fd0; --ic-accent: #2f78c0; --ic-neutral: #4a6884;
   --hero-glow: .14;
   color-scheme: dark;
 }
@@ -98,7 +96,7 @@ a { color: var(--brand-2); }
 .brand small { display: block; opacity: .78; font-size: .76rem; margin-top: .1rem; }
 .nav { list-style: none; margin: 0; padding: 0; }
 .nav li a {
-  display: flex; gap: .6rem; align-items: center; color: #e3eef3; text-decoration: none;
+  display: flex; gap: .6rem; align-items: center; color: #e3eef8; text-decoration: none;
   padding: .52rem .75rem; border-radius: 8px; margin-bottom: 2px; font-size: .92rem;
   border-inline-start: 3px solid transparent;
 }
@@ -337,14 +335,14 @@ details.disclose summary { cursor: pointer; color: var(--brand-2); font-weight: 
   table.responsive thead { display: table-header-group; }
 }
 .official { max-width: 800px; margin: 0 auto; background: #fff; color: #000; padding: 2rem; }
-.official header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #008dc3; padding-bottom: .75rem; margin-bottom: 1rem; }
-.official h1 { font-size: 1.25rem; margin: 0; color: #0b3448; }
-.official table th { background: #e5f3f9; color: #0b3448; }
-.official table, .official th, .official td { border: 1px solid #c4ccd1; }
+.official header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #009fe3; padding-bottom: .75rem; margin-bottom: 1rem; }
+.official h1 { font-size: 1.25rem; margin: 0; color: #00427a; }
+.official table th { background: #e6f2fb; color: #00427a; }
+.official table, .official th, .official td { border: 1px solid #c3d0dd; }
 .official .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2.5rem; text-align: center; }
 .official .sign div { border-top: 1px solid #555; padding-top: .4rem; font-size: .9rem; }
 .official .meta { font-size: .82rem; color: #333; text-align: end; }
-body.print-page { background: #ecebe4; }
+body.print-page { background: #e9eef4; }
 @media print { body.print-page { background: #fff; } .official { padding: 0; } }
 
 /* =====================================================================
@@ -365,13 +363,14 @@ body.print-page { background: #ecebe4; }
   box-shadow: inset -1px 0 0 rgba(255,255,255,.06), 4px 0 24px -12px rgba(0,0,0,.4);
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent;
 }
-.brand .mark { width: 46px; height: 46px; background: none; border: 0; border-radius: 0; }
-.brand .mark .i3d { width: 46px; height: 46px; }
+.brand .mark { width: 48px; height: 48px; background: #fff; border: 0; border-radius: 13px; box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .45), inset 0 -2px 0 rgba(0, 66, 122, .12); }
+.brand .mark .i3d { width: 40px; height: 40px; }
+.brand b.wordmark { font-size: 1.55rem; font-weight: 800; line-height: 1.15; letter-spacing: 0; }
 .nav li a { position: relative; min-height: 44px; padding: .35rem .6rem; gap: .65rem; border-radius: 10px; transition: background .15s, transform .15s; }
-.nav li a .i3d { width: 30px; height: 30px; color: #008dc3; transition: transform .2s; }
+.nav li a .i3d { width: 30px; height: 30px; color: #0b8fd4; transition: transform .2s; }
 .nav li a:hover .i3d { transform: translateY(-1px) scale(1.04); }
 .nav li a[aria-current="page"] { background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.08)); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 14px -8px rgba(0,0,0,.5); }
-.nav li a[aria-current="page"] .i3d { color: #2fb0e4; }
+.nav li a[aria-current="page"] .i3d { color: #3fb6ec; }
 .nav .lbl { flex: 1; min-width: 0; }
 .sidebar-close { display: none; }
 
@@ -394,7 +393,7 @@ body.print-page { background: #ecebe4; }
 .acct > summary::after { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-2px); opacity: .55; }
 .avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem; color: #fff; flex: none;
-  background: radial-gradient(circle at 35% 30%, #4fc0ea, #008dc3 55%, #00435e);
+  background: radial-gradient(circle at 35% 30%, #4fc3f3, #009fe3 50%, #00427a);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.45), inset 0 -2px 3px rgba(0,0,0,.25), 0 2px 5px rgba(0,67,94,.3);
 }
 .acct-name { font-size: .88rem; color: var(--text); font-weight: 600; max-width: 14em; overflow: hidden; text-overflow: ellipsis; }
@@ -471,8 +470,9 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]):focus, select:focu
 
 /* ---------- بوابة الدخول */
 .gate-head { background: color-mix(in srgb, var(--surface) 90%, transparent); box-shadow: 0 6px 18px -14px rgba(16,24,40,.3); position: relative; z-index: 2; }
-.emblem { background: none; width: 48px; height: 48px; }
-.emblem .i3d { width: 48px; height: 48px; }
+.emblem { background: #fff; width: 52px; height: 52px; border-radius: 14px; border: 1px solid var(--border); box-shadow: 0 6px 16px -8px rgba(0, 66, 122, .35); }
+.emblem .i3d { width: 42px; height: 42px; }
+.gate-org b.wordmark { font-size: 1.6rem; font-weight: 800; line-height: 1.15; color: var(--brand-2); }
 .gate-main { position: relative; isolation: isolate; overflow: hidden; }
 .gate-main::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
