@@ -1,5 +1,9 @@
 {% extends "base.html" %}
-{% block title %}تسجيل الدخول{% endblock %}
+{% block title %}تسجيل الدخول<dialog id="about-dlg" class="about-dlg" aria-labelledby="about-title">
+  <form method="dialog" class="about-head"><h2 id="about-title">عن نظام «{{ org.system_title }}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
+  {% include "_about.html" %}
+</dialog>
+{% endblock %}
 {% block body_class %}gate-page{% endblock %}
 {% from "_macros.html" import ico %}
 {% block body %}
@@ -36,6 +40,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
           <span><b>نسيت كلمة المرور؟</b> تواصل مع مدير النظام في الكلية لإعادة تعيينها.</span>
         </p>
+        <div class="card-foot">
+          <button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>عن النظام</button>
+          <p class="card-credit"><span>جميع الحقوق محفوظة © {{ today.year }}</span>{% if org.credit %}<span>{{ org.credit }}</span>{% endif %}</p>
+        </div>
       </section>
 
       <section class="gate-intro" aria-labelledby="intro-title">
@@ -55,11 +64,5 @@
     </div>
   </main>
 
-  <footer class="gate-foot">
-    <div class="gate-foot-in">
-      <span>© {{ today.year }} جميع الحقوق محفوظة{% if org.credit %} · {{ org.credit }}{% endif %}</span>
-      <nav aria-label="روابط التذييل"><a href="/about">عن النظام</a></nav>
-    </div>
-  </footer>
 </div>
 {% endblock %}

@@ -4,7 +4,7 @@
 
   // ============================================================ أدوات
   const KEY = "hr_demo_v1";
-  const CREDIT = "تطوير مريم حمدي";
+  const CREDIT = "تصميم وتطوير: مريم حمدي";
   const TAGLINE = "إدارة أيام بدل الراحة بكفاءة واحتراف";
   const $app = document.getElementById("app");
   const ROLES = { admin: "مدير النظام", officer: "مسؤول الإدخال", manager: "مدير مباشر", viewer: "متابع", employee: "موظف" };
@@ -295,6 +295,10 @@
         <div class="list">${accts.map(([u, l]) => `<button class="btn sm" type="button" data-demo-login="${u}">${l}</button>`).join("")}</div>
         <p class="hint">البيانات وهمية ومحفوظة في هذا المتصفح فقط.</p>
       </div>
+      <div class="card-foot">
+        <button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog">${SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>')}عن النظام</button>
+        <p class="card-credit"><span>جميع الحقوق محفوظة © ${new Date().getFullYear()}</span>${s.credit ? `<span>${h(s.credit)}</span>` : ""}</p>
+      </div>
     </section>
     <section class="gate-intro" aria-labelledby="intro-title">
       <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
@@ -308,11 +312,11 @@
       </ul>
     </section>
   </div></main>
-  <footer class="gate-foot"><div class="gate-foot-in">
-    <span>© ${new Date().getFullYear()} جميع الحقوق محفوظة${s.credit ? " · " + h(s.credit) : ""}</span>
-    <nav aria-label="روابط التذييل"><details><summary>عن النظام</summary><p>${h(s.system_title)}: تسجيل المهام والساعات، احتساب الأيام المستحقة، طلبات التمتع واعتمادها من المدير المباشر، وكشوف الأرصدة السنوية. هذه نسخة عرض تعمل في المتصفح فقط.</p></details></nav>
-  </div></footer>
-</div>`;
+</div>
+<dialog id="about-dlg" class="about-dlg" aria-labelledby="about-title">
+  <form method="dialog" class="about-head"><h2 id="about-title">عن نظام «${h(s.system_title)}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
+  ${aboutHTML(s)}
+</dialog>`;
   };
 
   V.password = (u) => layout(u, "تغيير كلمة المرور", `<div class="card" style="max-width:480px">
@@ -978,6 +982,37 @@
 
   // ============================================================ الإجراءات
   const ACT = {};
+  function aboutHTML(s) { return `<div class="about-doc">
+  <p class="about-lead"><b>«${h(s.system_title)}»</b> نظام إلكتروني داخلي لإدارة أيام بدل الراحة لمنسوبي ${h(s.college)} في ${h(s.university)}. يحلّ محل السجلات الورقية وجداول Excel، ويوحّد في منصة واحدة آمنة وقابلة للتدقيق توثيقَ ساعات العمل الإضافية، واحتسابَ الأيام المستحقة، واعتمادَ طلبات التمتع.</p>
+  <h3>الأهداف</h3>
+  <ul>
+    <li>توحيد إجراءات بدل الراحة وضبطها وفق قواعد معتمدة يحددها مدير النظام.</li>
+    <li>تمكين الموظف من الاطلاع على رصيده وحركاته بشفافية في أي وقت.</li>
+    <li>تسريع دورة الاعتماد بين الموظف ومسؤول الإدخال والمدير المباشر.</li>
+    <li>توفير مرجعية موثّقة تدعم أعمال المراجعة والتدقيق الداخلي.</li>
+  </ul>
+  <h3>الخدمات الرئيسية</h3>
+  <ul>
+    <li><b>تسجيل المهام والساعات:</b> توثيق ساعات العمل الإضافية مع إمكانية إرفاق المستندات المؤيدة.</li>
+    <li><b>الاحتساب الآلي:</b> تحويل الساعات المعتمدة إلى أيام مستحقة وفق المعادلة المعتمدة لكل سنة (افتراضياً: كل 7 ساعات تعادل يوماً واحداً).</li>
+    <li><b>طلبات التمتع:</b> تقديم طلبات أيام بدل الراحة واعتمادها إلكترونياً من المدير المباشر.</li>
+    <li><b>الأرصدة والكشوف:</b> رصيد سنوي لكل موظف، وكشف رسمي قابل للطباعة والحفظ بصيغة PDF.</li>
+    <li><b>التقارير:</b> مؤشرات ولوحات متابعة، مع تصدير البيانات إلى Excel.</li>
+    <li><b>إدارة المستخدمين:</b> استيراد بيانات الموظفين وإنشاء حساباتهم وإسناد الأدوار.</li>
+  </ul>
+  <h3>الأدوار والصلاحيات</h3>
+  <p>مدير النظام، ومسؤول الإدخال، والمدير المباشر، والمتابع، والموظف؛ ولكلٍّ منهم صلاحيات محددة بحسب دوره.</p>
+  <h3>الحوكمة وأمن المعلومات</h3>
+  <ul>
+    <li>صلاحيات وصول مبنية على الدور الوظيفي.</li>
+    <li>فصل المهام: لا يعتمد أحدٌ طلباً يخصّه أو بيانات أدخلها بنفسه.</li>
+    <li>سجل تدقيق يوثّق جميع العمليات ومنفّذيها وتوقيتها.</li>
+    <li>حماية الحسابات بكلمات مرور مشفّرة، وقفل مؤقت عند تكرار المحاولات الخاطئة، وإنهاء الجلسة تلقائياً عند عدم النشاط.</li>
+  </ul>
+  <h3>الدعم الفني</h3>
+  <p>للاستفسارات أو إعادة تعيين كلمة المرور، يُرجى التواصل مع مدير النظام في ${h(s.college)}.</p>
+  <p class="about-credit">جميع الحقوق محفوظة © ${new Date().getFullYear()} — ${h(s.system_title)}${s.credit ? "<br>" + h(s.credit) : ""}</p>
+</div>`; }
   const BKEY = "hr_demo_banner_hidden";
   function bannerHidden() { try { return localStorage.getItem(BKEY) === "1"; } catch (e) { return false; } }
   ACT.hideBanner = () => { try { localStorage.setItem(BKEY, "1"); } catch (e) {} render(); };
@@ -1017,6 +1052,8 @@
     const t = ev.target;
     const sk = t.closest(".skip"); if (sk) { ev.preventDefault(); const m = document.getElementById("main"); if (m) m.focus(); return; }
     const dl = t.closest("[data-demo-login]"); if (dl) { document.getElementById("u").value = dl.dataset.demoLogin; document.getElementById("p").value = DEMO_PW; document.querySelector('form[data-form="login"]').requestSubmit(); return; }
+    const od = t.closest("[data-open-dialog]"); if (od) { const d = document.getElementById(od.dataset.openDialog); if (d && d.showModal) d.showModal(); else if (d) d.setAttribute("open", ""); return; }
+    if (t.tagName === "DIALOG" && t.open) { t.close(); return; }
     const a = t.closest("[data-act]");
     if (a) { try { await ACT[a.dataset.act](a, me()); } catch (e) { if (e instanceof RuleError || e instanceof Forbidden) { flash(e.message, "error"); render(); } else { console.error(e); toast("حدث خطأ غير متوقع.", "error"); } } return; }
     if (t.closest("[data-theme-toggle]")) { const cur = document.documentElement.getAttribute("data-theme"); const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; const nx = dark ? "light" : "dark"; document.documentElement.setAttribute("data-theme", nx); try { localStorage.setItem("theme", nx); } catch (e) {} return; }
@@ -1071,7 +1108,7 @@
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null) DB.settings.tagline = TAGLINE;
-    if (!DB.settings.credit) DB.settings.credit = CREDIT;
+    if (!DB.settings.credit || DB.settings.credit === "تطوير مريم حمدي") DB.settings.credit = CREDIT;
     [SPRITE_INLINE, HERO_INLINE] = await Promise.all([inlineSprite("icons.svg"), inlineSprite("hero.svg")]);
     render();
   })();

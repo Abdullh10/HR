@@ -4,9 +4,7 @@
 {% block heading %}عن النظام{% endblock %}
 {% block content %}
 <div class="card">
-  <h2>{{ org.system_title }}</h2>
-  <p>{{ org.university }} – {{ org.college }}</p>
-  <p>نظام لإدارة أيام بدل الراحة للموظفين: تسجيل المهام والساعات، احتساب الأيام المستحقة، طلبات التمتع واعتمادها من المدير المباشر، وكشوف الأرصدة السنوية.</p>
-  {% if org.credit %}<p class="muted">{{ org.credit }}</p>{% endif %}
+  <h2>عن نظام «{{ org.system_title }}»</h2>
+  {% include "_about.html" %}
 </div>
 {% endblock %}

@@ -110,6 +110,18 @@
     if (auto && auto.form) auto.form.submit();
   });
 
+  // فتح النوافذ الحوارية (مثل «عن النظام»)
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-open-dialog]");
+    if (!b) return;
+    var d = document.getElementById(b.getAttribute("data-open-dialog"));
+    if (d && d.showModal) d.showModal(); else if (d) d.setAttribute("open", "");
+  });
+  // إغلاق النافذة عند النقر على الخلفية
+  document.addEventListener("click", function (ev) {
+    if (ev.target.tagName === "DIALOG" && ev.target.open) ev.target.close();
+  });
+
   // إضافة تاريخ آخر في طلب بدل الراحة
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-add-date]");

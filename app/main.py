@@ -77,7 +77,7 @@ def init_db() -> None:
             "college": "كلية التمريض",
             "system_title": "إتمام",
             "tagline": "إدارة أيام بدل الراحة بكفاءة واحتراف",
-            "credit": "تطوير مريم حمدي",
+            "credit": "تصميم وتطوير: مريم حمدي",
         }
         for k, v in defaults.items():
             if not db.get(AppSetting, k):
@@ -87,8 +87,8 @@ def init_db() -> None:
         if old and old.value == "إدارة أيام بدل الراحة للموظفين":
             old.value = "إتمام"
         credit = db.get(AppSetting, "credit")
-        if credit and not credit.value:
-            credit.value = "تطوير مريم حمدي"
+        if credit and credit.value in ("", "تطوير مريم حمدي"):
+            credit.value = "تصميم وتطوير: مريم حمدي"
         if not db.scalar(select(FiscalYear)):
             db.add(FiscalYear(name="2027", start_date=date(2027, 1, 1), end_date=date(2027, 12, 31),
                               is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7))

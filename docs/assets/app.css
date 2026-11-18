@@ -748,6 +748,32 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
   .gate-help { font-size: .8rem; }
 }
 
+/* ---------- تذييل مربع الدخول ونافذة «عن النظام» */
+.gate-card .card-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; margin-top: clamp(.8rem, 2vh, 1.15rem); padding-top: clamp(.65rem, 1.6vh, .9rem); border-top: 1px solid var(--border); }
+.about-link { display: inline-flex; align-items: center; gap: .35rem; background: none; border: 0; padding: .25rem .1rem; font: inherit; font-size: .86rem; font-weight: 600; color: var(--brand-2); cursor: pointer; border-radius: 6px; }
+.about-link svg { width: 17px; height: 17px; }
+.about-link:hover { text-decoration: underline; }
+.card-credit { margin: 0; display: flex; flex-direction: column; align-items: flex-end; text-align: end; font-size: .76rem; line-height: 1.55; color: var(--muted); }
+.card-credit span:last-child:not(:first-child) { color: var(--text); font-weight: 600; }
+.about-dlg { width: min(720px, calc(100vw - 2rem)); max-height: min(86vh, 860px); padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); overflow: hidden; }
+.about-dlg[open] { display: flex; flex-direction: column; }
+.about-dlg::backdrop { background: rgba(0, 32, 60, .45); backdrop-filter: blur(3px); }
+.about-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0; padding: 1rem 1.4rem; border-bottom: 1px solid var(--border); box-shadow: inset 0 3px 0 var(--brand-solid); }
+.about-head h2 { margin: 0; font-size: 1.15rem; color: var(--brand-ink); }
+.about-head .btn { font-size: 1.4rem; line-height: 1; }
+.about-dlg .about-doc { padding: 1.1rem 1.4rem 1.4rem; overflow-y: auto; }
+.about-doc { font-size: .93rem; line-height: 1.85; }
+.about-doc .about-lead { margin: 0 0 .8rem; font-size: .98rem; }
+.about-doc h3 { font-size: .98rem; color: var(--brand-ink); margin: 1.1rem 0 .35rem; padding-inline-start: .6rem; border-inline-start: 3px solid var(--brand-solid); }
+.about-doc ul { margin: 0; padding-inline-start: 1.25rem; }
+.about-doc li { margin-bottom: .2rem; }
+.about-doc p { margin: 0 0 .5rem; }
+.about-doc .about-credit { margin-top: 1.25rem; padding-top: .8rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .84rem; text-align: center; }
+@media (max-width: 480px) {
+  .about-head, .about-dlg .about-doc { padding-inline: 1rem; }
+  .about-doc { font-size: .9rem; }
+}
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
