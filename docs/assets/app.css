@@ -716,6 +716,8 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
 }
 
 /* ---------- نسخة العرض */
+.demo-banner .banner-x { margin-inline-start: auto; background: none; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; width: 2rem; height: 2rem; border-radius: 8px; cursor: pointer; }
+.demo-banner .banner-x:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .demo-banner { background: var(--warn-soft); color: var(--warn); border-bottom: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); padding: .45rem 1.5rem; font-size: .85rem; display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
 .demo-tag { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 600; color: var(--warn); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: 999px; padding: .1rem .6rem; margin-bottom: .75rem; }
 .demo-accounts { margin-top: 1.25rem; border: 1px dashed var(--border); background: var(--surface-2); border-radius: 10px; padding: .85rem 1rem; font-size: .85rem; }

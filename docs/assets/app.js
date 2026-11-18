@@ -236,7 +236,7 @@
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
-    <div class="demo-banner" role="note">نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية. <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button></div>
+    ${bannerHidden() ? "" : `<div class="demo-banner" role="note"><span>نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية.</span> <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button><button class="banner-x" data-act="hideBanner" type="button" aria-label="إخفاء الشريط" title="إخفاء الشريط">×</button></div>`}
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <span class="t-logo" aria-hidden="true"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(DB.settings.system_title)}</b></span>
@@ -249,6 +249,8 @@
           <div class="who-full"><b>${h(displayName(u))}</b><small>${ROLES[u.role]}</small></div>
           <button class="btn" type="button" data-theme-toggle>${ico("moon")}الوضع الداكن/الفاتح</button>
           <a class="btn" href="#/password">${ico("shield")}كلمة المرور</a>
+          ${bannerHidden() ? `<button class="btn" type="button" data-act="showBanner">${ico("palette")}إظهار شريط نسخة العرض</button>` : ""}
+          <button class="btn" type="button" data-act="reset">${ico("adjust")}استعادة بيانات العرض</button>
           <button class="btn logout" type="button" data-act="logout">${ico("logout")}خروج</button>
         </div>
       </details>
@@ -978,6 +980,10 @@
 
   // ============================================================ الإجراءات
   const ACT = {};
+  const BKEY = "hr_demo_banner_hidden";
+  function bannerHidden() { try { return localStorage.getItem(BKEY) === "1"; } catch (e) { return false; } }
+  ACT.hideBanner = () => { try { localStorage.setItem(BKEY, "1"); } catch (e) {} render(); };
+  ACT.showBanner = () => { try { localStorage.removeItem(BKEY); } catch (e) {} render(); };
   ACT.logout = () => { sessionStorage.removeItem("hr_uid"); go("#/login"); };
   ACT.reset = async () => { if (!confirm("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
   ACT["cancel-req"] = (b, u) => { const r = byId("reqs", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = (prompt("اذكر سبب إلغاء اليوم المعتمد:") || "").trim(); if (!note) return; } else if (!confirm("تأكيد إلغاء الطلب؟")) return; const prev = cancelReq(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء الطلب وإعادة اليوم إلى الرصيد." : "تم إلغاء الطلب."); render(); };
