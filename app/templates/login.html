@@ -6,27 +6,21 @@
 <a class="skip" href="#gate-main">تخطَّ إلى نموذج الدخول</a>
 <div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
-  <header class="gate-head">
-    <div class="gate-head-in">
-      <a class="gate-org" href="/login" aria-label="{{ org.system_title }} – {{ org.tagline }}">
-        <span class="emblem" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="40" height="40"></span>
-        <span><b class="wordmark">{{ org.system_title }}</b><small>{{ org.tagline }}</small></span>
-      </a>
-      <span class="gate-sys hide-sm">{{ org.university }} · {{ org.college }}</span>
-      <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon') }}<span class="sr-only">الوضع</span></button>
-    </div>
-  </header>
-
   <main id="gate-main" class="gate-main" tabindex="-1">
     <div class="gate-grid">
       <section class="gate-card" aria-labelledby="login-title">
-        <div class="card-mark">{{ ico('shield') }}<h1 id="login-title">تسجيل الدخول</h1></div>
+        <button class="btn ghost icon-btn card-theme" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon') }}<span class="sr-only">الوضع</span></button>
+        <div class="card-brand">
+          <img class="logo-img" src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="64" height="64">
+          <div><b class="wordmark">{{ org.system_title }}</b><small>{{ org.tagline }}</small></div>
+        </div>
+        <h1 id="login-title" class="login-h">تسجيل الدخول</h1>
         <p class="sub">أدخل بيانات حسابك للوصول إلى نظام {{ org.system_title }}.</p>
         {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
         {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
         <form method="post" action="/login" novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf }}">
-          <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label>
+          <div class="field"><label for="u">اسم المستخدم</label>
             <div class="input-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></svg>
               <input id="u" name="username" type="text" autocomplete="username" required value="{{ username or '' }}" autofocus>
@@ -63,7 +57,7 @@
 
   <footer class="gate-foot">
     <div class="gate-foot-in">
-      <span>© {{ today.year }} {{ org.university }} – {{ org.college }}.{% if 'محفوظة' not in (org.credit or '') %} جميع الحقوق محفوظة.{% endif %}{% if org.credit %} {{ org.credit }}{% endif %}</span>
+      <span>© {{ today.year }} جميع الحقوق محفوظة{% if org.credit %} · {{ org.credit }}{% endif %}</span>
       <nav aria-label="روابط التذييل"><a href="/about">عن النظام</a></nav>
     </div>
   </footer>

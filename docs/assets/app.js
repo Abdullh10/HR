@@ -4,6 +4,7 @@
 
   // ============================================================ أدوات
   const KEY = "hr_demo_v1";
+  const CREDIT = "تطوير مريم حمدي";
   const TAGLINE = "إدارة أيام بدل الراحة بكفاءة واحتراف";
   const $app = document.getElementById("app");
   const ROLES = { admin: "مدير النظام", officer: "مسؤول الإدخال", manager: "مدير مباشر", viewer: "متابع", employee: "موظف" };
@@ -48,7 +49,7 @@
 
   async function seed() {
     const pw = await sha(DEMO_PW);
-    const db = { seq: 0, settings: { university: "جامعة الملك سعود", college: "كلية التمريض", system_title: "إتمام", tagline: TAGLINE, credit: "" },
+    const db = { seq: 0, settings: { university: "جامعة الملك سعود", college: "كلية التمريض", system_title: "إتمام", tagline: TAGLINE, credit: CREDIT },
       years: [], depts: [], emps: [], users: [], balances: [], tasks: [], reqs: [], holidays: [], audit: [] };
     DB = db;
     db.years.push({ id: nid(), name: "2027", start: "2027-01-01", end: "2027-12-31", active: true, locked: false, mode: "mixed", base: 20, hpd: 7, maxh: 12,
@@ -275,19 +276,16 @@
     const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
-  <header class="gate-head"><div class="gate-head-in">
-    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="40" height="40"></span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
-    <span class="gate-sys hide-sm">${h(s.university)} · ${h(s.college)}</span>
-    <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
-  </div></header>
   <main class="gate-main"><div class="gate-grid">
     <section class="gate-card" aria-labelledby="login-title">
+      <button class="btn ghost icon-btn card-theme" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
       <span class="demo-tag" role="note">نسخة عرض — ليست النظام الفعلي</span>
-      <div class="card-mark">${ico("shield")}<h1 id="login-title">تسجيل الدخول</h1></div>
+      <div class="card-brand"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="64" height="64"><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></div></div>
+      <h1 id="login-title" class="login-h">تسجيل الدخول</h1>
       <p class="sub">أدخل بيانات حسابك للوصول إلى نظام ${h(s.system_title)}.</p>
       ${flashQ.splice(0).map(([k, m]) => `<div class="alert ${k}" role="alert">${h(m)}</div>`).join("")}
       <form data-form="login" novalidate>
-        <div class="field"><label for="u">اسم المستخدم أو الرقم الوظيفي</label><div class="input-icon">${SV('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/>')}<input id="u" name="username" type="text" autocomplete="username" required autofocus></div></div>
+        <div class="field"><label for="u">اسم المستخدم</label><div class="input-icon">${SV('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/>')}<input id="u" name="username" type="text" autocomplete="username" required autofocus></div></div>
         <div class="field"><label for="p">كلمة المرور</label><div class="input-icon">${SV('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>')}<input id="p" name="password" type="password" autocomplete="current-password" required></div></div>
         <button class="btn primary block lg" type="submit">دخول</button>
       </form>
@@ -311,7 +309,7 @@
     </section>
   </div></main>
   <footer class="gate-foot"><div class="gate-foot-in">
-    <span>© ${new Date().getFullYear()} ${h(s.university)} – ${h(s.college)}.${/محفوظة/.test(s.credit || "") ? "" : " جميع الحقوق محفوظة."}${s.credit ? " " + h(s.credit) : ""}</span>
+    <span>© ${new Date().getFullYear()} جميع الحقوق محفوظة${s.credit ? " · " + h(s.credit) : ""}</span>
     <nav aria-label="روابط التذييل"><details><summary>عن النظام</summary><p>${h(s.system_title)}: تسجيل المهام والساعات، احتساب الأيام المستحقة، طلبات التمتع واعتمادها من المدير المباشر، وكشوف الأرصدة السنوية. هذه نسخة عرض تعمل في المتصفح فقط.</p></details></nav>
   </div></footer>
 </div>`;
@@ -1073,6 +1071,7 @@
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null) DB.settings.tagline = TAGLINE;
+    if (!DB.settings.credit) DB.settings.credit = CREDIT;
     [SPRITE_INLINE, HERO_INLINE] = await Promise.all([inlineSprite("icons.svg"), inlineSprite("hero.svg")]);
     render();
   })();
