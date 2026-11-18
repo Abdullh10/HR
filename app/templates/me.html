@@ -15,8 +15,7 @@
   <a class="tile msg" href="/messages/new">{{ ico('send') }}<span><b>مراسلة الإداري</b><small>استفسار أو متابعة</small></span></a>
 </nav>
 {% endif %}
-<div class="grid two">
-  <section class="card flush">
+<section class="card flush">
     <h2>التوصيات الممنوحة</h2>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>الموضوع</th><th></th></tr></thead><tbody>
@@ -33,5 +32,4 @@
       {% else %}<tr><td colspan="5" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>
-</div>
 {% endblock %}
