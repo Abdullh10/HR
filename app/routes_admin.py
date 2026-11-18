@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import (
-    BALANCE_MODES,
     ROLES,
     AppSetting,
     AuditLog,
@@ -18,8 +17,8 @@ from .models import (
     Employee,
     FiscalYear,
     Holiday,
-    RestDayRequest,
-    Task,
+    LeaveRequest,
+    Recommendation,
     User,
 )
 from .security import hash_password, password_problem
@@ -47,8 +46,8 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
     if role not in ROLES:
         flash(request, "دور غير معروف.", "error")
         return redirect("/admin/users")
-    if role in ("employee", "manager") and not employee_id:
-        flash(request, "يجب ربط حساب الموظف/المدير بسجل موظف.", "error")
+    if role in ("employee", "officer") and not employee_id:
+        flash(request, "يجب ربط حساب الموظف/الإداري بسجل موظف.", "error")
         return redirect("/admin/users")
     dup = db.scalar(select(User).where(func.lower(User.username) == username, User.id != (user_id or 0)))
     if dup or not username:
@@ -112,7 +111,7 @@ def users_bulk(request: Request, user: User = Depends(admin_only), db: Session =
         if db.scalar(select(User).where(func.lower(User.username) == uname)):
             continue
         pw = secrets.token_urlsafe(8)
-        role = "manager" if db.scalar(select(Employee.id).where(Employee.manager_id == e.id)) else "employee"
+        role = "officer" if db.scalar(select(Employee.id).where(Employee.manager_id == e.id)) else "employee"
         db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=e.id))
         made.append((e.full_name, uname, pw, role))
     audit(db, user, "users_bulk_created", "user", None, ip=client_ip(request), count=len(made))
@@ -124,7 +123,7 @@ def users_bulk(request: Request, user: User = Depends(admin_only), db: Session =
 @router.get("/years")
 def years_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
     rows = list(db.scalars(select(FiscalYear).order_by(FiscalYear.start_date.desc())))
-    return render(request, db, "admin_years.html", user=user, rows=rows, modes=BALANCE_MODES)
+    return render(request, db, "admin_years.html", user=user, rows=rows)
 
 
 @router.post("/years/save")
@@ -137,14 +136,10 @@ async def year_save(request: Request, user: User = Depends(admin_only), db: Sess
     sd, ed = parse_date(f.get("start_date")), parse_date(f.get("end_date"))
     name = str(f.get("name") or "").strip()
     hpd, base = parse_float(f.get("hours_per_day")), parse_float(f.get("base_days"))
-    mx = parse_float(f.get("max_hours_per_task"))
-    mode = str(f.get("balance_mode"))
     err = None
     if not name or not sd or not ed or ed < sd:
         err = "أدخل اسم السنة وتاريخي بداية ونهاية صحيحين."
-    elif mode not in BALANCE_MODES:
-        err = "طريقة احتساب غير معروفة."
-    elif not hpd or hpd <= 0 or base is None or base < 0 or not mx or mx <= 0:
+    elif not hpd or hpd <= 0 or base is None or base < 0:
         err = "قيم الإعدادات الرقمية غير صحيحة."
     else:
         overlap = db.scalar(select(FiscalYear).where(FiscalYear.id != (y.id or 0), FiscalYear.start_date <= ed,
@@ -154,25 +149,22 @@ async def year_save(request: Request, user: User = Depends(admin_only), db: Sess
         if not err and db.scalar(select(FiscalYear).where(FiscalYear.name == name, FiscalYear.id != (y.id or 0))):
             err = "اسم السنة مستخدم."
     if not err and y.id:
-        has_moves = db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == y.id)) or \
-            db.scalar(select(func.count(RestDayRequest.id)).where(RestDayRequest.fiscal_year_id == y.id))
-        if has_moves:
-            outside = db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == y.id,
-                                (Task.task_date < sd) | (Task.task_date > ed))) or \
-                db.scalar(select(func.count(RestDayRequest.id)).where(RestDayRequest.fiscal_year_id == y.id,
-                          (RestDayRequest.rest_date < sd) | (RestDayRequest.rest_date > ed)))
-            if outside:
-                err = "توجد حركات خارج الفترة الجديدة، لا يمكن تضييق السنة."
+        outside = db.scalar(select(func.count(Recommendation.id)).where(Recommendation.fiscal_year_id == y.id,
+                            (Recommendation.rec_date < sd) | (Recommendation.rec_date > ed))) or \
+            db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.fiscal_year_id == y.id,
+                      (LeaveRequest.start_date < sd) | (LeaveRequest.end_date > ed)))
+        if outside:
+            err = "توجد حركات خارج الفترة الجديدة، لا يمكن تضييق السنة."
     if err:
         flash(request, err, "error")
         return redirect("/admin/years")
     if y.id and y.is_locked:
         flash(request, "السنة مقفلة. افتح القفل أولاً لتعديل إعداداتها.", "error")
         return redirect("/admin/years")
-    before = {k: getattr(y, k, None) for k in ("balance_mode", "base_days", "hours_per_day")} if y.id else {}
+    before = {k: getattr(y, k, None) for k in ("base_days", "hours_per_day")} if y.id else {}
     y.name, y.start_date, y.end_date = name, sd, ed
-    y.balance_mode, y.base_days, y.hours_per_day, y.max_hours_per_task = mode, int(base), hpd, mx
-    for flag in ("require_task_attachment", "require_request_attachment", "block_weekends", "allow_future_tasks",
+    y.base_days, y.hours_per_day = int(base), hpd
+    for flag in ("require_task_attachment", "require_request_attachment", "block_weekends",
                  "allow_late_cancel", "employee_can_request"):
         setattr(y, flag, bool(f.get(flag)))
     y.weekend_days = ",".join(str(x) for x in f.getlist("weekend_days")) or "4,5"
@@ -180,7 +172,7 @@ async def year_save(request: Request, user: User = Depends(admin_only), db: Sess
         db.add(y)
     db.flush()
     audit(db, user, "year_saved", "fiscal_year", y.id, ip=client_ip(request), before=before,
-          after=dict(balance_mode=mode, base_days=int(base), hours_per_day=hpd))
+          after=dict(base_days=int(base), hours_per_day=hpd))
     db.commit()
     flash(request, f"تم حفظ إعدادات السنة {name}.")
     return redirect("/admin/years")
@@ -206,9 +198,8 @@ def year_lock(request: Request, yid: int, lock: int = Form(...), user: User = De
     if not y:
         raise HTTPException(404, "غير موجود")
     if lock:
-        pend = (db.scalar(select(func.count(Task.id)).where(Task.fiscal_year_id == yid, Task.status == "pending"))
-                or 0) + (db.scalar(select(func.count(RestDayRequest.id)).where(
-                    RestDayRequest.fiscal_year_id == yid, RestDayRequest.status == "pending")) or 0)
+        pend = db.scalar(select(func.count(LeaveRequest.id)).where(
+            LeaveRequest.fiscal_year_id == yid, LeaveRequest.status == "pending")) or 0
         if pend:
             flash(request, f"لا يمكن الإقفال: توجد {pend} حركة بانتظار الاعتماد.", "error")
             return redirect("/admin/years")

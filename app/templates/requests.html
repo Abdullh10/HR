@@ -1,33 +1,34 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge %}
-{% block title %}أيام بدل الراحة{% endblock %}
-{% block heading %}سجل أيام بدل الراحة{% endblock %}
+{% from "_macros.html" import kind_badge, status_badge %}
+{% block title %}الطلبات{% endblock %}
+{% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>سجل أيام بدل الراحة</h1><p>كل يوم في سجل مستقل · الإلغاء يعيد اليوم إلى الرصيد · السنة {{ sel_year.name }}</p></div>
-  <div class="actions">{% if user.role in ('admin','officer','manager','viewer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
-    {% if user.role in ('admin','officer') or (year and year.employee_can_request and user.employee_id) %}<a class="btn primary" href="/requests/new">+ طلب يوم بدل راحة</a>{% endif %}</div>
+  <div><h1>{{ 'طلباتي' if user.role == 'employee' else 'طلبات الاستبدال والتعويض' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
+  <div class="actions">
+    {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
+    {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new?kind=use">+ طلب استبدال</a><a class="btn primary" href="/requests/new?kind=compensation">+ طلب تعويض</a>{% endif %}
+  </div>
 </div>
 <form method="get" class="card filters">
-  {% if employees|length > 1 %}<div class="field grow"><label for="emp">الموظف</label><select id="emp" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
-  <div class="field"><label for="st">الحالة</label><select id="st" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" {% if kind=='use' %}selected{% endif %}>استبدال</option><option value="compensation" {% if kind=='compensation' %}selected{% endif %}>تعويض غياب</option></select></div>
+  <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
-  <button class="btn primary" type="submit">عرض</button>
+  <button class="btn primary">عرض</button>
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th><th>التاريخ</th><th>الحالة</th><th>ملف التوصية</th><th>ملاحظات</th><th>إجراء</th></tr></thead>
-  <tbody>
-  {% for r in rows %}
-  <tr class="{{ 'muted' if r.status in ('cancelled','rejected') }}"><td data-label="م">{{ loop.index }}</td>
-    <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>
-    <td data-label="الرقم" class="num">{{ r.employee.employee_no }}</td>
-    <td data-label="التاريخ" class="num">{{ r.rest_date|d }} <span class="hint">{{ WEEKDAYS_AR[r.rest_date.weekday()] }}</span></td>
-    <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}</td>
-    <td data-label="ملف التوصية">{% if r.attachment_id %}<a href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">فتح الملف</a>{% endif %}</td>
-    <td data-label="ملاحظات">{{ r.notes }}{% if r.decision_note %}<div class="hint">{{ r.decision_note }}</div>{% endif %}</td>
-    <td data-label="إجراء">{% if r.status == 'pending' or (r.status == 'approved' and user.role in ('admin','officer','manager')) %}
-      <form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note" value="">
-      <button class="btn sm danger" {% if r.status == 'approved' %}data-need-note{% endif %} data-confirm="تأكيد إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="8" class="empty">لا توجد سجلات.</td></tr>{% endfor %}
+  <thead><tr><th>رقم</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for r in rows %}{% set mg = can_manage(r.employee) %}<tr>
+    <td data-label="رقم" class="num">{{ r.id }}</td>
+    {% if user.role != 'employee' %}<td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>{% endif %}
+    <td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة"><b>{{ r.amount_label }}</b></td>
+    <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
+    <td data-label="السبب">{{ r.reason }}</td>
+    <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.decision_note %}<small class="muted d-block">{{ r.decision_note }}</small>{% endif %}</td>
+    <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}
+      {% if mg and r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/decide" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm ok" name="action" value="approve">اعتماد</button><button class="btn sm danger" name="action" value="reject" data-need-note>رفض</button></form>{% endif %}
+      {% if (r.status == 'pending' and r.employee_id == user.employee_id) or (mg and r.status in ('pending','approved')) %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm" {% if r.status == 'approved' %}data-need-note{% endif %} data-confirm="إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

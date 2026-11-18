@@ -1,25 +1,20 @@
 {% extends "base.html" %}
-{% from "_macros.html" import year_select %}
+{% from "_macros.html" import ico, year_select %}
 {% block title %}التقارير{% endblock %}
 {% block heading %}التقارير{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>التقارير والمؤشرات</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
+<div class="page-head"><div><h1>التقارير</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
 <div class="grid kpis">
-  <div class="kpi"><div class="l">إجمالي الطلبات</div><div class="v">{{ stats.requests }}</div></div>
-  <div class="kpi ok"><div class="l">معتمدة</div><div class="v">{{ stats.approved }}</div></div>
-  <div class="kpi warn"><div class="l">معلّقة</div><div class="v">{{ stats.pending }}</div></div>
-  <div class="kpi err"><div class="l">مرفوضة</div><div class="v">{{ stats.rejected }}</div></div>
-  <div class="kpi"><div class="l">نسبة الإلغاء</div><div class="v">{{ stats.cancel_rate }}%</div></div>
-  <div class="kpi"><div class="l">متوسط زمن الاعتماد</div><div class="v">{{ stats.avg_lead }}</div><div class="s">يوم</div></div>
-  <div class="kpi accent"><div class="l">ساعات معتمدة</div><div class="v">{{ stats.hours|n }}</div><div class="s">{{ stats.pending_hours|n }} ساعة معلّقة · {{ stats.tasks }} مهمة</div></div>
-  <div class="kpi warn"><div class="l">أيام معتمدة بلا ملف توصية</div><div class="v">{{ stats.no_attachment }}</div></div>
+  <div class="kpi brand">{{ ico('cal-check') }}<div class="l">التوصيات السارية</div><div class="v">{{ stats.recs }}</div><div class="s">{{ stats.rec_days|n }} يوم · {{ stats.rec_hours|n }} ساعة</div></div>
+  <div class="kpi accent">{{ ico('calendar') }}<div class="l">الطلبات</div><div class="v">{{ stats.requests }}</div><div class="s">استبدال {{ stats.use }} · تعويض {{ stats.compensation }}</div></div>
+  <div class="kpi ok">{{ ico('approvals') }}<div class="l">معتمدة</div><div class="v">{{ stats.approved }}</div><div class="s">مرفوضة {{ stats.rejected }} · ملغاة {{ stats.cancelled }}</div></div>
+  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بانتظار القرار</div><div class="v">{{ stats.pending }}</div><div class="s">متوسط مدة القرار {{ stats.avg_lead|n }} يوم</div></div>
+  <div class="kpi">{{ ico('audit') }}<div class="l">توصيات بلا PDF</div><div class="v">{{ stats.no_attachment }}</div></div>
 </div>
-<section class="card"><h2>تصدير البيانات (Excel)</h2>
+<section class="card"><h2>التصدير إلى Excel</h2>
   <div class="actions">
     <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">أرصدة الموظفين</a>
-    <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">سجل أيام التمتع</a>
-    <a class="btn" href="/export/tasks.xlsx?year_id={{ sel_year.id }}">سجل المهام والساعات</a>
-  </div>
-  <p class="hint mt">الملفات بنفس أعمدة ملفات الإكسل السابقة لتسهيل المطابقة.</p>
-</section>
+    <a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">سجل التوصيات</a>
+    <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">سجل الطلبات</a>
+  </div></section>
 {% endblock %}

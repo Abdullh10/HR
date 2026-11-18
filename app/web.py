@@ -42,7 +42,7 @@ templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "7"
+ASSET_V = "8"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"
@@ -77,8 +77,26 @@ def app_settings(db: Session) -> dict[str, str]:
     return {s.key: s.value for s in db.scalars(select(AppSetting))}
 
 
+def nav_counts(db: Session, user: User | None) -> dict:
+    """عدّادات القائمة: رسائل غير مقروءة وطلبات بانتظار الاعتماد."""
+    if not user:
+        return {}
+    from sqlalchemy import func
+    from .models import Employee, LeaveRequest, Message
+    unread = db.scalar(select(func.count(Message.id)).where(Message.recipient_id == user.id,
+                                                            Message.read_at.is_(None))) or 0
+    pending = 0
+    if user.role == "admin":
+        pending = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.status == "pending")) or 0
+    elif user.role == "officer" and user.employee_id:
+        pending = db.scalar(select(func.count(LeaveRequest.id)).join(Employee, Employee.id == LeaveRequest.employee_id)
+                            .where(LeaveRequest.status == "pending", Employee.manager_id == user.employee_id)) or 0
+    return dict(unread=unread, pending_approvals=pending)
+
+
 def render(request: Request, db: Session, name: str, user: User | None = None, status_code: int = 200, **ctx):
     msgs = request.session.pop("flash", [])
+    ctx.update(nav_counts(db, user))
     ctx.update(
         request=request,
         user=user,

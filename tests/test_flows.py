@@ -1,13 +1,14 @@
 from datetime import date, timedelta
 
 from app.db import SessionLocal
-from app.models import FiscalYear, Holiday, RestDayRequest, Task
+from app.models import FiscalYear, Holiday, LeaveRequest, Message, Recommendation, User
 from app.services import compute_balance
 
 from .conftest import PW, TestClient, app, csrf, login, post
 
 MON = date(2027, 3, 1)  # الإثنين
 FRI = date(2027, 3, 5)
+PDF = ("t.pdf", b"%PDF-1.4 test", "application/pdf")
 
 
 def balance(emp_id, year_id):
@@ -23,30 +24,40 @@ def set_year(year_id, **kw):
         db.commit()
 
 
+def rec(c, emp, kind, amount, d="2027-02-10", **extra):
+    return post(c, "/recommendations/new", {"emp": str(emp), "kind": kind, "amount": str(amount),
+                                            "rec_date": d, **extra})
+
+
+def leave(c, emp, kind, unit, start, end=None, hours=None, reason="سبب"):
+    data = {"emp": str(emp), "kind": kind, "unit": unit, "start_date": str(start), "reason": reason}
+    if end:
+        data["end_date"] = str(end)
+    if hours is not None:
+        data["hours"] = str(hours)
+    return post(c, "/requests/new", data)
+
+
 def test_role_access(world):
     emp = login("emp")
     assert emp.get("/me").status_code == 200
-    assert "كشف أيام بدل الراحة" in emp.get(f"/employees/{world['e']}?print=1").text
-    assert emp.get("/dashboard").status_code == 403
-    assert emp.get("/admin/users").status_code == 403
+    assert emp.get("/dashboard", follow_redirects=False).headers["location"] == "/me"
+    assert "كشف رصيد بدل الراحة" in emp.get(f"/employees/{world['e']}?print=1").text
+    for url in ("/admin/users", "/employees", "/approvals", "/recommendations/new", "/export/balances.xlsx"):
+        assert emp.get(url).status_code == 403, url
     assert emp.get(f"/employees/{world['o']}").status_code == 403
-    assert emp.get("/export/balances.xlsx").status_code == 403
     mgr = login("mgr")
+    assert mgr.get("/dashboard").status_code == 200
     assert mgr.get(f"/employees/{world['e']}").status_code == 200
-    assert mgr.get(f"/employees/{world['o']}").status_code == 403
+    assert mgr.get(f"/employees/{world['o']}").status_code == 403  # غير مُسند له
     assert mgr.get("/admin/years").status_code == 403
-    off = login("officer")
-    assert off.get(f"/employees/{world['o']}").status_code == 200
-    assert off.get("/approvals").status_code == 403
-    assert off.get("/admin/users").status_code == 403
     assert login("admin").get("/admin/audit").status_code == 200
 
 
 def test_anonymous_redirect_and_csrf(world):
     c = TestClient(app)
     assert c.get("/dashboard", follow_redirects=False).headers["location"] == "/login"
-    r = c.post("/login", data={"username": "admin", "password": PW})
-    assert r.status_code == 403  # بدون رمز CSRF
+    assert c.post("/login", data={"username": "admin", "password": PW}).status_code == 403
 
 
 def test_lockout(world):
@@ -58,150 +69,159 @@ def test_lockout(world):
     assert "قفل" in r.text
 
 
-def test_hours_to_days_with_direct_manager_approval(world):
-    off = login("officer")
-    r = post(off, "/tasks/new", {"emp": [str(world["e"])] * 2, "date": [str(MON), str(MON + timedelta(1))],
-                                 "desc": ["لجنة اختبارات", "فعالية"], "hours": ["4", "3.5"], "notes": ["", ""]})
-    assert r.status_code == 303, r.text[:800]
-    assert balance(world["e"], world["year"]).pending_hours == 7.5
-    with SessionLocal() as db:
-        ids = [t.id for t in db.query(Task).all()]
-    # المسؤول لا يعتمد
-    assert post(off, f"/tasks/{ids[0]}/decide", {"action": "approve"}).status_code == 403
-    # مدير غير مباشر (الأدمن مسموح) — المدير المباشر يعتمد
+def test_recommendations_and_cap(world):
     mgr = login("mgr")
-    for i in ids:
-        post(mgr, f"/tasks/{i}/decide", {"action": "approve"})
+    assert rec(mgr, world["e"], "days", 2).status_code == 303
+    assert rec(mgr, world["e"], "hours", 10.5).status_code == 303
     b = balance(world["e"], world["year"])
-    assert (b.approved_hours, b.earned_days, b.remainder_hours, b.base, b.total) == (7.5, 1, 0.5, 20, 21)
-    # المدير لا يعتمد مهام موظف ليس من فريقه
-    post(off, "/tasks/new", {"emp": [str(world["o"])], "date": [str(MON)], "desc": ["x"], "hours": ["7"], "notes": [""]})
+    assert (b.days_left, b.hours_left, b.hours_as_days, b.hours_remainder) == (2, 10.5, 1, 3.5)
+    assert (b.total_left_days, b.total_left_rem) == (3, 3.5)  # 2×7 + 10.5 = 24.5 ساعة
+    # الحد الأقصى 20 يوماً للأيام والساعات معاً: المتاح 140 − 24.5 = 115.5 ساعة
+    rec(mgr, world["e"], "days", 17)
+    assert balance(world["e"], world["year"]).granted_days == 2
+    rec(mgr, world["e"], "days", 16)  # 16×7=112 ≤ 115.5
+    rec(mgr, world["e"], "hours", 4)  # 3.5 متاحة فقط
+    b = balance(world["e"], world["year"])
+    assert (b.granted_days, b.granted_hours, b.cap_left_hours) == (18, 10.5, 3.5)
+    # لا يرفع الإداري لموظف غير مُسند له، ولا الموظف لنفسه
+    rec(mgr, world["o"], "days", 1)
+    assert balance(world["o"], world["year"]).granted_days == 0
+    assert rec(login("emp"), world["e"], "days", 1).status_code == 403
     with SessionLocal() as db:
-        t = db.query(Task).filter_by(employee_id=world["o"]).one()
-    post(mgr, f"/tasks/{t.id}/decide", {"action": "approve"})
-    with SessionLocal() as db:
-        assert db.get(Task, t.id).status == "pending"
+        u = db.query(User).filter_by(username="emp").one()
+        assert db.query(Message).filter_by(recipient_id=u.id).count() == 3  # إشعار لكل توصية ناجحة
+    # الأدمن يرفع لأي موظف
+    rec(login("admin"), world["o"], "hours", 7)
+    assert balance(world["o"], world["year"]).total_left_days == 1
 
 
-def test_task_validation(world):
-    off = login("officer")
-    r = post(off, "/tasks/new", {"emp": [str(world["e"])], "date": [str(MON)], "desc": ["x"], "hours": ["13"],
-                                 "notes": [""]})
-    assert r.status_code == 400 and "الحد الأقصى" in r.text
-    r = post(off, "/tasks/new", {"emp": [str(world["e"])], "date": ["2030-01-01"], "desc": ["x"], "hours": ["2"],
-                                 "notes": [""]})
-    assert r.status_code == 400 and "سنة" in r.text
+def test_attachment_required(world):
     set_year(world["year"], require_task_attachment=True)
-    r = post(off, "/tasks/new", {"emp": [str(world["e"])], "date": [str(MON)], "desc": ["x"], "hours": ["2"],
-                                 "notes": [""]})
-    assert r.status_code == 400 and "إلزامي" in r.text
-
-
-def test_admin_cannot_approve_own_entry(world):
-    adm = login("admin")
-    post(adm, "/tasks/new", {"emp": [str(world["e"])], "date": [str(MON)], "desc": ["x"], "hours": ["7"], "notes": [""]})
-    with SessionLocal() as db:
-        t = db.query(Task).one()
-    post(adm, f"/tasks/{t.id}/decide", {"action": "approve"})
-    with SessionLocal() as db:
-        assert db.get(Task, t.id).status == "pending"
-
-
-def test_rest_day_request_rules(world):
-    with SessionLocal() as db:
-        db.add(Holiday(day=MON + timedelta(2), name="عطلة"))
-        db.commit()
-    emp = login("emp")
-    r = post(emp, "/requests/new", {"rest_date": str(MON)})
-    assert r.status_code == 303
-    with SessionLocal() as db:
-        req = db.query(RestDayRequest).one()
-        assert req.status == "pending" and req.employee_id == world["e"]
-    post(emp, "/requests/new", {"rest_date": str(MON)})  # مكرر
-    post(emp, "/requests/new", {"rest_date": str(FRI)})  # جمعة
-    post(emp, "/requests/new", {"rest_date": str(MON + timedelta(2))})  # عطلة
-    # الموظف لا يستطيع الطلب لغيره
-    post(emp, "/requests/new", {"emp": str(world["o"]), "rest_date": str(MON + timedelta(1))})
-    with SessionLocal() as db:
-        rows = db.query(RestDayRequest).all()
-        assert len(rows) == 2 and all(r.employee_id == world["e"] for r in rows)
-    assert balance(world["e"], world["year"]).pending_days == 2
-    # الموظف لا يعتمد
-    assert post(emp, f"/requests/{req.id}/decide", {"action": "approve"}).status_code == 403
     mgr = login("mgr")
-    post(mgr, f"/requests/{req.id}/decide", {"action": "approve"})
-    # الرفض بلا سبب مرفوض
-    other = rows[1].id
-    post(mgr, f"/requests/{other}/decide", {"action": "reject"})
+    rec(mgr, world["e"], "days", 1)
+    assert balance(world["e"], world["year"]).granted_days == 0
+    r = post(mgr, "/recommendations/new", {"emp": str(world["e"]), "kind": "days", "amount": "1",
+                                           "rec_date": "2027-02-10"}, files={"file": PDF})
+    assert r.status_code == 303 and balance(world["e"], world["year"]).granted_days == 1
     with SessionLocal() as db:
-        assert db.get(RestDayRequest, other).status == "pending"
-    b = balance(world["e"], world["year"])
-    assert (b.used_days, b.remaining, b.pending_days) == (1, 19, 1)
-    # الموظف لا يلغي يوماً معتمداً، والمسؤول يلغيه بسبب
-    post(emp, f"/requests/{req.id}/cancel")
-    with SessionLocal() as db:
-        assert db.get(RestDayRequest, req.id).status == "approved"
-    off = login("officer")
-    post(off, f"/requests/{req.id}/cancel", {"note": ""})
-    with SessionLocal() as db:
-        assert db.get(RestDayRequest, req.id).status == "approved"
-    post(off, f"/requests/{req.id}/cancel", {"note": "تغيّر الموعد"})
-    assert balance(world["e"], world["year"]).used_days == 0
-
-
-def test_balance_limit_and_modes(world):
-    set_year(world["year"], balance_mode="fixed", base_days=1)
-    off = login("officer")
-    post(off, "/requests/new", {"emp": str(world["e"]), "rest_date": str(MON)})
-    r = post(off, "/requests/new", {"emp": str(world["e"]), "rest_date": str(MON + timedelta(1))})
-    with SessionLocal() as db:
-        assert db.query(RestDayRequest).count() == 1  # لا رصيد متاح للثاني
-    set_year(world["year"], balance_mode="earned")
-    b = balance(world["e"], world["year"])
-    assert b.base == 0 and b.total == 0
-    set_year(world["year"], balance_mode="mixed", base_days=20)
-    assert balance(world["e"], world["year"]).total == 20
-    assert r.status_code == 303
-
-
-def test_locked_year_blocks_changes(world):
-    adm = login("admin")
-    post(adm, f"/admin/years/{world['year']}/lock", {"lock": "1"})
-    off = login("officer")
-    r = post(off, "/tasks/new", {"emp": [str(world["e"])], "date": [str(MON)], "desc": ["x"], "hours": ["2"],
-                                 "notes": [""]})
-    assert r.status_code == 400 and "مقفلة" in r.text
-
-
-def test_pdf_upload_and_access(world):
-    off = login("officer")
-    bad = post(off, "/requests/new", {"emp": str(world["e"]), "rest_date": str(MON)},
-               files={"file": ("x.pdf", b"not a pdf", "application/pdf")})
-    assert bad.status_code == 303
-    with SessionLocal() as db:
-        assert db.query(RestDayRequest).count() == 0
-    post(off, "/requests/new", {"emp": str(world["e"]), "rest_date": str(MON)},
-         files={"file": ("توصية.pdf", b"%PDF-1.4 test", "application/pdf")})
-    with SessionLocal() as db:
-        att = db.query(RestDayRequest).one().attachment_id
-    assert att
+        att = db.query(Recommendation).one().attachment_id
     assert login("emp").get(f"/files/{att}").status_code == 200
-    assert login("mgr").get(f"/files/{att}").status_code == 200
     assert login("emp2").get(f"/files/{att}").status_code == 403
 
 
-def test_admin_settings_and_exports(world):
-    adm = login("admin")
-    r = post(adm, "/admin/years/save", {
-        "year_id": str(world["year"]), "name": "2027", "start_date": "2027-01-01", "end_date": "2027-12-31",
-        "balance_mode": "earned", "base_days": "0", "hours_per_day": "8", "max_hours_per_task": "10",
-        "employee_can_request": "1", "block_weekends": "1", "weekend_days": ["4", "5"]})
-    assert r.status_code == 303
+def test_use_days_flow(world):
+    mgr, emp = login("mgr"), login("emp")
+    rec(mgr, world["e"], "days", 3)
+    # الإثنين→الجمعة = 4 أيام عمل (الجمعة عطلة) > 3 → مرفوض
+    leave(emp, world["e"], "use", "days", MON, FRI)
+    assert balance(world["e"], world["year"]).pending_days == 0
+    leave(emp, world["e"], "use", "days", MON, MON + timedelta(days=1))
+    b = balance(world["e"], world["year"])
+    assert (b.pending_days, b.days_available) == (2, 1)
+    leave(emp, world["e"], "use", "days", MON + timedelta(days=1))  # تداخل
+    assert balance(world["e"], world["year"]).pending_days == 2
     with SessionLocal() as db:
-        y = db.get(FiscalYear, world["year"])
-        assert (y.balance_mode, y.hours_per_day, y.allow_future_tasks) == ("earned", 8, False)
-    for k in ("balances", "requests", "tasks"):
-        r = adm.get(f"/export/{k}.xlsx")
-        assert r.status_code == 200 and r.content[:2] == b"PK"
-    set_year(world["year"], employee_can_request=False)
-    assert login("emp").get("/requests/new").status_code == 403
+        rid = db.query(LeaveRequest).one().id
+        mid = db.query(User).filter_by(username="mgr").one().id
+        assert db.query(Message).filter_by(recipient_id=mid).count() == 1  # إشعار الإداري
+    assert post(emp, f"/requests/{rid}/decide", {"action": "approve"}).status_code == 403
+    post(mgr, f"/requests/{rid}/decide", {"action": "approve"})
+    b = balance(world["e"], world["year"])
+    assert (b.used_days, b.days_left, b.pending_days) == (2, 1, 0)
+    assert "نموذج طلب استبدال" in emp.get(f"/requests/{rid}/print").text
+    # إلغاء طلب معتمد يتطلب سبباً ويعيد الرصيد
+    post(mgr, f"/requests/{rid}/cancel", {})
+    assert balance(world["e"], world["year"]).used_days == 2
+    post(mgr, f"/requests/{rid}/cancel", {"note": "تغيير"})
+    assert balance(world["e"], world["year"]).used_days == 0
+
+
+def test_hours_and_compensation(world):
+    mgr, emp = login("mgr"), login("emp")
+    rec(mgr, world["e"], "hours", 10)
+    leave(emp, world["e"], "use", "hours", MON, hours=11)  # يتجاوز
+    assert balance(world["e"], world["year"]).pending_hours == 0
+    leave(emp, world["e"], "use", "hours", MON, hours=3)
+    future = date.today() + timedelta(days=30)
+    leave(emp, world["e"], "compensation", "hours", future, hours=1)  # التعويض لا يكون لتاريخ مستقبلي
+    assert balance(world["e"], world["year"]).pending_hours == 3
+    with SessionLocal() as db:
+        rid = db.query(LeaveRequest).one().id
+    post(mgr, f"/requests/{rid}/decide", {"action": "reject"})  # بلا سبب
+    assert balance(world["e"], world["year"]).pending_hours == 3
+    post(mgr, f"/requests/{rid}/decide", {"action": "reject", "note": "ضغط عمل"})
+    assert balance(world["e"], world["year"]).hours_available == 10
+
+
+def test_holidays_and_weekends(world):
+    with SessionLocal() as db:
+        db.add(Holiday(day=MON, name="عطلة"))
+        db.commit()
+    mgr = login("mgr")
+    rec(mgr, world["e"], "days", 5)
+    leave(mgr, world["e"], "use", "days", MON, MON)  # عطلة رسمية فقط
+    assert balance(world["e"], world["year"]).pending_days == 0
+    leave(mgr, world["e"], "use", "days", MON, FRI)  # الثلاثاء-الخميس = 3
+    assert balance(world["e"], world["year"]).pending_days == 3
+
+
+def test_cancel_recommendation_guard(world):
+    mgr = login("mgr")
+    rec(mgr, world["e"], "days", 2)
+    leave(mgr, world["e"], "use", "days", MON, MON + timedelta(days=1))
+    with SessionLocal() as db:
+        rid, rq = db.query(Recommendation).one().id, db.query(LeaveRequest).one().id
+    post(mgr, f"/requests/{rq}/decide", {"action": "approve"})
+    post(mgr, f"/recommendations/{rid}/cancel", {"note": "خطأ"})
+    assert balance(world["e"], world["year"]).granted_days == 2  # مستخدمة فلا تُلغى
+    assert "إشعار منح بدل راحة" in login("emp").get(f"/recommendations/{rid}/print").text
+
+
+def test_messages_scope(world):
+    emp, mgr, adm = login("emp"), login("mgr"), login("admin")
+    with SessionLocal() as db:
+        ids = {u.username: u.id for u in db.query(User)}
+    # الموظف يراسل إداريه فقط
+    post(emp, "/messages/new", {"to": [str(ids["admin"])], "subject": "x", "body": "y"})
+    post(emp, "/messages/new", {"to": [str(ids["mgr"])], "subject": "استفسار", "body": "كم رصيدي؟"})
+    with SessionLocal() as db:
+        assert db.query(Message).filter_by(sender_id=ids["emp"]).count() == 1
+        mid = db.query(Message).filter_by(sender_id=ids["emp"]).one().id
+    r = mgr.get(f"/messages/{mid}")
+    assert "كم رصيدي" in r.text and "/messages/new?re=" in r.text
+    assert login("emp2").get(f"/messages/{mid}").status_code == 404
+    # الإداري يراسل الأدمن وموظفيه، ولا يراسل موظفاً غير مُسند
+    post(mgr, "/messages/new", {"to": [str(ids["emp2"]), str(ids["admin"])], "subject": "تعميم", "body": "نص"})
+    with SessionLocal() as db:
+        assert db.query(Message).filter_by(sender_id=ids["mgr"]).count() == 1
+    assert adm.get("/messages").status_code == 200 and "تعميم" in adm.get("/messages").text
+    assert "خطاب: تعميم" in adm.get(f"/messages/{mid + 1}?print=1").text
+
+
+def test_locked_year_blocks(world):
+    set_year(world["year"], is_locked=True)
+    rec(login("mgr"), world["e"], "days", 1)
+    assert balance(world["e"], world["year"]).granted_days == 0
+
+
+def test_legacy_roles_migrate(world):
+    from app.main import init_db
+    with SessionLocal() as db:
+        db.query(User).filter_by(username="mgr").one().role = "manager"
+        db.commit()
+    init_db()
+    with SessionLocal() as db:
+        assert db.query(User).filter_by(username="mgr").one().role == "officer"
+
+
+def test_pages_render(world):
+    mgr, emp, adm = login("mgr"), login("emp"), login("admin")
+    rec(mgr, world["e"], "days", 2)
+    for c, urls in ((adm, ["/dashboard", "/employees", "/recommendations", "/requests", "/approvals", "/reports",
+                           "/messages", "/messages/new", "/recommendations/new?kind=hours", "/admin/years",
+                           "/admin/users", f"/employees/{world['e']}", "/export/recommendations.xlsx",
+                           "/export/requests.xlsx", "/export/balances.xlsx"]),
+                    (mgr, ["/dashboard", "/employees", "/requests/new?kind=compensation", "/me"]),
+                    (emp, ["/me", "/requests", "/requests/new?kind=use", "/messages/new"])):
+        for u in urls:
+            assert c.get(u).status_code == 200, u

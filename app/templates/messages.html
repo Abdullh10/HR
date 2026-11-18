@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}المراسلات{% endblock %}
+{% block heading %}المراسلات{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>المراسلات</h1><p>رسائل داخل المنصة{% if box == 'in' %} · {{ unread }} غير مقروءة{% endif %}. تصل نسخة بالبريد الإلكتروني لمن لديه بريد مسجّل عند تفعيل خادم البريد.</p></div>
+  <div class="actions"><a class="btn primary" href="/messages/new">+ رسالة جديدة</a></div></div>
+<div class="seg mb" role="tablist" aria-label="صندوق الرسائل"><a href="/messages" class="{{ 'on' if box == 'in' }}">الوارد</a><a href="/messages?box=sent" class="{{ 'on' if box == 'sent' }}">المرسل</a></div>
+<div class="card flush"><ul class="msg-list">
+  {% for m in rows %}<li class="{{ 'unread' if box == 'in' and not m.read_at }}"><a href="/messages/{{ m.id }}">
+    <span class="who">{% if box == 'in' %}{{ m.sender.display_name if m.sender else 'إشعار النظام' }}{% else %}إلى: {{ m.recipient.display_name }}{% endif %}</span>
+    <b class="subj">{{ m.subject }}</b><span class="snip">{{ m.body[:110] }}</span><time class="num">{{ m.created_at|d }}</time></a></li>
+  {% else %}<li class="empty">لا توجد رسائل.</li>{% endfor %}
+</ul></div>
+{% endblock %}

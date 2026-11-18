@@ -13,7 +13,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from .db import DATA_DIR, Base, SessionLocal, engine
-from .models import AppSetting, FiscalYear, User
+from .models import LEGACY_ROLES, AppSetting, FiscalYear, User
 from .security import hash_password, secret_key, verify_csrf
 from .web import LoginRequired, MustChangePassword, redirect, render
 
@@ -91,7 +91,11 @@ def init_db() -> None:
             credit.value = "تصميم وتطوير: مريم حمدي"
         if not db.scalar(select(FiscalYear)):
             db.add(FiscalYear(name="2027", start_date=date(2027, 1, 1), end_date=date(2027, 12, 31),
-                              is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7))
+                              is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7,
+                              require_task_attachment=True))
+        # ترحيل الأدوار القديمة (مدير مباشر/متابع) إلى «إداري»
+        from sqlalchemy import update
+        db.execute(update(User).where(User.role.in_(LEGACY_ROLES)).values(role="officer"))
         if not db.scalar(select(User)):
             pw = os.environ.get("HR_ADMIN_PASSWORD") or secrets.token_urlsafe(10)
             db.add(User(username="admin", password_hash=hash_password(pw), role="admin",

@@ -1,32 +1,28 @@
-<!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>كشف رسمي — {{ emp.full_name }}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="/static/app.css?v={{ ASSET_V }}"><script src="/static/app.js?v={{ ASSET_V }}"></script></head>
-<body class="print-page">
-<div class="actions no-print" style="justify-content:center;padding:1rem"><button class="btn primary" type="button" data-print>طباعة / حفظ PDF</button></div>
-<article class="official">
-  <header>
-    <div><h1>{{ org.university }}</h1><div>{{ org.college }}</div><div>{{ org.system_title }}</div></div>
-    <div class="meta">الرقم المرجعي: {{ ref }}<br>تاريخ الإصدار: {{ today|d }}<br>السنة: {{ sel_year.name }}</div>
-  </header>
-  <h2 style="text-align:center">كشف أيام بدل الراحة لموظف</h2>
+{% extends "_print.html" %}
+{% from "_macros.html" import letter_head, rec_amount with context %}
+{% block title %}كشف رسمي — {{ emp.full_name }}{% endblock %}
+{% block letter %}
+  {{ letter_head('كشف رصيد بدل الراحة', ref, 'السنة: ' ~ sel_year.name) }}
   <table><tbody>
     <tr><th>اسم الموظف</th><td>{{ emp.full_name }}</td><th>الرقم الوظيفي</th><td>{{ emp.employee_no }}</td></tr>
-    <tr><th>القسم</th><td>{{ emp.department.name if emp.department else '' }}</td><th>المدير المباشر</th><td>{{ emp.manager.full_name if emp.manager else '' }}</td></tr>
+    <tr><th>القسم</th><td>{{ emp.department.name if emp.department else '' }}</td><th>الإداري المسؤول</th><td>{{ emp.manager.full_name if emp.manager else '' }}</td></tr>
   </tbody></table>
-  <table class="mt"><thead><tr>
-    {% if info.mode != 'earned' %}<th>الرصيد الأساسي</th>{% endif %}{% if info.mode != 'fixed' %}<th>الساعات المعتمدة</th><th>الأيام المكتسبة</th>{% endif %}{% if info.adjustment %}<th>تسوية</th>{% endif %}<th>إجمالي الرصيد</th><th>الأيام التي تمتع بها</th><th>الرصيد المتبقي</th></tr></thead>
-    <tbody><tr>{% if info.mode != 'earned' %}<td>{{ info.base }}</td>{% endif %}{% if info.mode != 'fixed' %}<td>{{ info.approved_hours|n }}</td><td>{{ info.earned_days }}</td>{% endif %}{% if info.adjustment %}<td>{{ info.adjustment }}</td>{% endif %}<td>{{ info.total }}</td><td>{{ info.used_days }}</td><td><b>{{ info.remaining }}</b></td></tr></tbody></table>
-  <p>إجمالي الرصيد: {{ days_ar(info.total) }}. الأيام التي تمتع بها: {{ days_ar(info.used_days) }}. الرصيد المتبقي: {{ days_ar(info.remaining) }}.</p>
-  <h3>سجل أيام بدل الراحة المعتمدة</h3>
-  <table><thead><tr><th>م</th><th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>ملاحظات</th></tr></thead><tbody>
+  <table class="mt"><thead><tr><th></th><th>ممنوح</th><th>مستخدم</th><th>معلّق</th><th>المتبقي</th></tr></thead><tbody>
+    <tr><th>الأيام</th><td>{{ info.granted_days|n }}</td><td>{{ info.used_days }}</td><td>{{ info.pending_days }}</td><td><b>{{ info.days_left|n }}</b></td></tr>
+    <tr><th>الساعات</th><td>{{ info.granted_hours|n }}</td><td>{{ info.used_hours|n }}</td><td>{{ info.pending_hours|n }}</td><td><b>{{ info.hours_left|n }}</b></td></tr>
+  </tbody></table>
+  <p>إجمالي الرصيد المتاح: <b>{{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %}</b> (كل {{ info.hours_per_day|n }} ساعات تعادل يوماً). الممنوح خلال السنة {{ info.granted_equiv_days|n }} يوماً من حد أقصى {{ info.cap_days|n }} يوماً.</p>
+  <h3>التوصيات</h3>
+  <table><thead><tr><th>م</th><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>رقم التوصية</th><th>الموضوع</th></tr></thead><tbody>
   {% set ns = namespace(i=0) %}
-  {% for r in reqs|reverse if r.status == 'approved' %}{% set ns.i = ns.i + 1 %}<tr><td>{{ ns.i }}</td><td>{{ r.rest_date|d }}</td><td>{{ WEEKDAYS_AR[r.rest_date.weekday()] }}</td><td>{{ r.status_label }}</td><td>{{ r.notes }}</td></tr>
-  {% else %}<tr><td colspan="5" style="text-align:center">لا توجد أيام معتمدة.</td></tr>{% endfor %}
+  {% for r in recs|reverse if r.status == 'active' %}{% set ns.i = ns.i + 1 %}<tr><td>{{ ns.i }}</td><td>{{ r.rec_date|d }}</td><td>{{ r.kind_label }}</td><td>{{ rec_amount(r) }}</td><td>{{ r.ref_no }}</td><td>{{ r.subject }}</td></tr>
+  {% else %}<tr><td colspan="6" style="text-align:center">لا توجد توصيات.</td></tr>{% endfor %}
   </tbody></table>
-  <div class="sign"><div>الموظف</div><div>المدير المباشر</div><div>الشؤون الإدارية</div></div>
-</article>
-</body></html>
+  <h3>الطلبات المعتمدة</h3>
+  <table><thead><tr><th>م</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th></tr></thead><tbody>
+  {% set ns2 = namespace(i=0) %}
+  {% for r in reqs|reverse if r.status == 'approved' %}{% set ns2.i = ns2.i + 1 %}<tr><td>{{ ns2.i }}</td><td>{{ r.kind_label }}</td><td>{{ r.start_date|d }}</td><td>{{ r.end_date|d }}</td><td>{{ r.amount_label }}</td><td>{{ r.reason }}</td></tr>
+  {% else %}<tr><td colspan="6" style="text-align:center">لا توجد طلبات معتمدة.</td></tr>{% endfor %}
+  </tbody></table>
+  <div class="sign"><div>الموظف</div><div>الإداري المسؤول</div><div>مدير النظام</div></div>
+{% endblock %}

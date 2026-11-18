@@ -20,3 +20,41 @@
 {% macro ico(name, cls='') -%}
 <svg class="i3d {{ cls }}" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
 {%- endmacro %}
+{% macro kind_badge(k) -%}
+  {%- if k == 'days' -%}<span class="badge info">بالأيام</span>{%- elif k == 'hours' -%}<span class="badge accent">بالساعات</span>
+  {%- elif k == 'use' -%}<span class="badge info">استبدال</span>{%- elif k == 'compensation' -%}<span class="badge accent">تعويض غياب</span>{%- endif -%}
+{%- endmacro %}
+{% macro rec_amount(r) -%}{{ days_ar(r.amount) if r.kind == 'days' else hours_ar(r.amount) }}{%- endmacro %}
+{% macro balance_board(info, big=False) -%}
+{# مؤشر الرصيد: حلقة تجمع الأيام والساعات + بطاقتان مستقلتان #}
+<section class="board{{ ' big' if big }}">
+  <div class="gauge" style="--p: {{ info.left_pct }}" role="img" aria-label="الرصيد المتبقي {{ info.total_left_days }} يوم و{{ info.total_left_rem|n }} ساعة">
+    <div class="gauge-in">
+      <b class="num">{{ info.total_left_days }}</b><span>يوماً متاحاً</span>
+      {% if info.total_left_rem %}<small>+ {{ hours_ar(info.total_left_rem) }}</small>{% endif %}
+    </div>
+  </div>
+  <div class="board-cards">
+    <div class="bcard days">
+      {{ ico('calendar') }}
+      <div><span class="l">رصيد الأيام</span><b class="v num">{{ info.days_left|n }}</b><span class="s">ممنوح {{ info.granted_days|n }} · مستخدم {{ info.used_days }}{% if info.pending_days %} · معلّق {{ info.pending_days }}{% endif %}</span></div>
+    </div>
+    <div class="bcard hours">
+      {{ ico('clock') }}
+      <div><span class="l">رصيد الساعات</span><b class="v num">{{ info.hours_left|n }}</b><span class="s">= {{ days_ar(info.hours_as_days) }}{% if info.hours_remainder %} و{{ hours_ar(info.hours_remainder) }}{% endif %} · كل {{ info.hours_per_day|n }} ساعات = يوم{% if info.pending_hours %} · معلّق {{ info.pending_hours|n }}{% endif %}</span></div>
+    </div>
+    <div class="bcard cap">
+      {{ ico('pie') }}
+      <div><span class="l">من الحد الأقصى السنوي</span><b class="v num">{{ info.granted_equiv_days|n }} <small class="of">من {{ info.cap_days|n }} يوماً</small></b>
+        <div class="progress" role="progressbar" aria-valuenow="{{ info.cap_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ info.cap_pct }}%"></span></div></div>
+    </div>
+  </div>
+</section>
+{%- endmacro %}
+{% macro letter_head(title, ref, extra='') -%}
+<header>
+  <div><h1>{{ org.university }}</h1><div>{{ org.college }}</div><div>نظام {{ org.system_title }} — {{ org.tagline }}</div></div>
+  <div class="meta">الرقم المرجعي: {{ ref }}<br>تاريخ الإصدار: {{ today|d }}{% if extra %}<br>{{ extra }}{% endif %}</div>
+</header>
+<h2 class="letter-title">{{ title }}</h2>
+{%- endmacro %}

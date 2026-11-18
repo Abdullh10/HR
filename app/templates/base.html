@@ -24,32 +24,40 @@
       <div class="mark" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="40" height="40"></div>
       <div><b class="wordmark">{{ org.system_title or "إتمام" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
     </div>
+    {% set here = path ~ ('?' ~ request.url.query if request.url.query else '') %}
     {% macro item(href, label, icon, badge=None) -%}
-      <li><a href="{{ href }}" title="{{ label }}" {% if path == href or (href in ('/employees',) and path.startswith(href + '/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ ico(icon) }}<span class="lbl">{{ label }}</span>{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
+      <li><a href="{{ href }}" title="{{ label }}" {% if here == href or (href == '/employees' and path.startswith('/employees/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ ico(icon) }}<span class="lbl">{{ label }}</span>{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
     {%- endmacro %}
     <ul class="nav">
-      {% if user.employee_id %}{{ item('/me', 'كشف رصيدي', 'idcard') }}{% endif %}
-      {% if user.role in ('admin','officer','manager','viewer') %}
+      {% if user.role in ('admin','officer') %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
-        {{ item('/employees', 'الموظفون والأرصدة', 'users') }}
-        {% if user.role in ('admin','manager') %}{{ item('/approvals', 'الاعتمادات', 'approvals') }}{% endif %}
+        {{ item('/employees', 'الموظفون' if user.role == 'admin' else 'موظفيّ', 'users') }}
+        {{ item('/approvals', 'الاعتمادات', 'approvals', pending_approvals) }}
         {{ item('/reports', 'التقارير', 'reports') }}
+        <li class="sep">التوصيات</li>
+        {{ item('/recommendations/new?kind=days', 'توصية بالأيام', 'calendar-plus') }}
+        {{ item('/recommendations/new?kind=hours', 'توصية بالساعات', 'clock-plus') }}
+        {{ item('/recommendations', 'سجل التوصيات', 'cal-check') }}
+        {{ item('/requests', 'طلبات الموظفين', 'calendar') }}
       {% endif %}
-      <li class="sep">الحركات</li>
-      {{ item('/tasks', 'المهام والساعات', 'clock') }}
-      {{ item('/requests', 'أيام بدل الراحة', 'calendar') }}
-      {% if user.role in ('admin','officer') %}
-        {{ item('/tasks/new', 'تسجيل ساعات', 'clock-plus') }}
+      {% if user.employee_id %}
+        <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
+        {{ item('/me', 'رصيدي', 'pie') }}
+        {% if user.role == 'employee' %}{{ item('/requests', 'طلباتي', 'calendar') }}{% endif %}
+        {% if year and year.employee_can_request %}
+          {{ item('/requests/new?kind=use', 'طلب استبدال', 'calendar-plus' if user.role == 'employee' else 'idcard') }}
+          {{ item('/requests/new?kind=compensation', 'طلب تعويض غياب', 'adjust') }}
+        {% endif %}
       {% endif %}
-      {% if user.role in ('admin','officer') or (year and year.employee_can_request and user.employee_id) %}
-        {{ item('/requests/new', 'طلب يوم بدل راحة', 'calendar-plus') }}
-      {% endif %}
+      <li class="sep">التواصل</li>
+      {{ item('/messages', 'المراسلات', 'mail', unread) }}
+      {{ item('/messages/new', 'رسالة جديدة', 'send') }}
       {% if user.role == 'admin' %}
         <li class="sep">الإدارة</li>
-        {{ item('/admin/years', 'السنوات وقواعد الحساب', 'gear') }}
-        {{ item('/admin/import', 'استيراد الموظفين', 'upload') }}
         {{ item('/admin/users', 'المستخدمون والصلاحيات', 'shield') }}
+        {{ item('/admin/import', 'استيراد الموظفين', 'upload') }}
+        {{ item('/admin/years', 'السنة وقواعد الرصيد', 'gear') }}
         {{ item('/admin/departments', 'الأقسام', 'building') }}
         {{ item('/admin/holidays', 'العطل الرسمية', 'holiday') }}
         {{ item('/admin/settings', 'هوية الجهة', 'palette') }}

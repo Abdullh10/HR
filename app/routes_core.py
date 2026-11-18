@@ -1,4 +1,4 @@
-"""الشاشات التشغيلية: اللوحة، الموظفون، الكشف، المهام، الطلبات، الاعتمادات، التقارير."""
+"""الشاشات التشغيلية: اللوحة، رصيدي، الموظفون، التوصيات، الطلبات، الاعتمادات، المراسلات، التقارير."""
 from __future__ import annotations
 
 import io
@@ -7,18 +7,20 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import false, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.orm import Session
 
 from .db import UPLOAD_DIR, get_db
 from .models import (
     Attachment,
-    Balance,
     Department,
     Employee,
     FiscalYear,
-    RestDayRequest,
-    Task,
+    LEAVE_KINDS,
+    LeaveRequest,
+    Message,
+    REC_KINDS,
+    Recommendation,
     User,
 )
 from .security import save_pdf
@@ -26,13 +28,20 @@ from .services import (
     RuleError,
     active_year,
     audit,
-    can_decide,
+    can_manage,
     can_view_employee,
-    check_can_approve_request,
-    check_can_cancel,
+    check_can_approve_leave,
+    check_can_cancel_leave,
+    check_can_cancel_recommendation,
     compute_balance,
-    validate_rest_day,
-    validate_task,
+    days_ar,
+    employee_user,
+    hours_ar,
+    message_recipients,
+    notify,
+    officer_users_for,
+    validate_leave,
+    validate_recommendation,
     visible_employee_ids,
 )
 from .web import (
@@ -48,8 +57,7 @@ from .web import (
 )
 
 router = APIRouter()
-STAFF = ("admin", "officer", "manager", "viewer")
-EDITORS = ("admin", "officer")
+STAFF = ("admin", "officer")
 
 
 def pick_year(db: Session, year_id: int | None) -> FiscalYear:
@@ -74,79 +82,89 @@ def get_employee_or_404(db: Session, emp_id: int, user: User) -> Employee:
     return emp
 
 
-def scoped_employees(db: Session, user: User, include_inactive: bool = False):
+def scoped_employees(db: Session, user: User, include_inactive: bool = False, managed_only: bool = False):
+    """الموظفون الظاهرون للمستخدم. managed_only: من يملك المستخدم إدارتهم (دون نفسه)."""
     q = select(Employee).order_by(Employee.full_name)
     ids = visible_employee_ids(db, user)
     if ids is not None:
         q = q.where(Employee.id.in_(ids))
+    if managed_only and user.employee_id:
+        q = q.where(Employee.id != user.employee_id)
     if not include_inactive:
         q = q.where(Employee.is_active.is_(True))
     return q
 
 
+def officers(db: Session) -> list[Employee]:
+    """سجلات الموظفين الذين لهم حساب «إداري» (يُسند لهم موظفون)."""
+    return list(db.scalars(select(Employee).join(User, User.employee_id == Employee.id)
+                           .where(User.role == "officer", User.is_active.is_(True)).order_by(Employee.full_name)))
+
+
+def ref_no(prefix: str, obj_id: int, d: date | datetime) -> str:
+    return f"{prefix}-{d:%Y}-{obj_id:05d}"
+
+
 # ================================================================ اللوحة
 @router.get("/dashboard")
-def dashboard(request: Request, year_id: int | None = None, user: User = Depends(require(*STAFF)),
+def dashboard(request: Request, year_id: int | None = None, user: User = Depends(current_user),
               db: Session = Depends(get_db)):
+    if user.role == "employee":
+        return redirect("/me")
     year = pick_year(db, year_id)
-    emps = list(db.scalars(scoped_employees(db, user)))
-    totals = dict(employees=len(emps), total=0, used=0, remaining=0, pending=0, earned=0, hours=0.0,
-                  exhausted=0, no_number=0)
-    by_dept: dict[str, dict] = defaultdict(lambda: dict(count=0, total=0, used=0, remaining=0))
-    alerts = []
+    emps = list(db.scalars(scoped_employees(db, user, managed_only=True)))
+    ids = [e.id for e in emps]
+    t = dict(employees=len(emps), granted_days=0.0, granted_hours=0.0, used_days=0, used_hours=0.0,
+             left_hours=0.0, at_cap=0, no_rec=0)
+    by_officer: dict[str, dict] = defaultdict(lambda: dict(count=0, granted=0.0, used=0.0, left=0.0))
+    near_cap = []
     for e in emps:
         b = compute_balance(db, e.id, year)
-        totals["total"] += b.total
-        totals["used"] += b.used_days
-        totals["remaining"] += b.remaining
-        totals["pending"] += b.pending_days
-        totals["earned"] += b.earned_days
-        totals["hours"] += b.approved_hours
-        if b.remaining <= 0:
-            totals["exhausted"] += 1
-        if e.is_temp_no:
-            totals["no_number"] += 1
-        if b.remaining < 0:
-            alerts.append((e, "تجاوز الرصيد"))
-        d = by_dept[e.department.name if e.department else "بدون قسم"]
-        d["count"] += 1
-        d["total"] += b.total
-        d["used"] += b.used_days
-        d["remaining"] += b.remaining
-    ids = [e.id for e in emps]
-    monthly = [0] * 12
-    rows = db.execute(
-        select(RestDayRequest.rest_date).where(
-            RestDayRequest.fiscal_year_id == year.id,
-            RestDayRequest.status == "approved",
-            RestDayRequest.employee_id.in_(ids) if ids else false(),
-        )
-    ).all()
-    for (d,) in rows:
-        monthly[d.month - 1] += 1
-    pending_tasks = pending_reqs = 0
-    if user.role in ("admin", "manager"):
-        pending_tasks = sum(1 for t in db.scalars(select(Task).where(Task.status == "pending",
-                            Task.employee_id.in_(ids) if ids else false()))
-                            if can_decide(user, t.employee, t.entered_by))
-        pending_reqs = sum(1 for r in db.scalars(select(RestDayRequest).where(
-                           RestDayRequest.status == "pending",
-                           RestDayRequest.employee_id.in_(ids) if ids else false()))
-                           if can_decide(user, r.employee, r.requested_by))
-    dept_rows = sorted(by_dept.items(), key=lambda kv: -kv[1]["used"])
-    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), totals=totals,
-                  dept_rows=dept_rows, monthly=monthly, monthly_max=max(monthly) or 1,
-                  pending_tasks=pending_tasks, pending_reqs=pending_reqs, alerts=alerts[:10])
+        t["granted_days"] += b.granted_days
+        t["granted_hours"] += b.granted_hours
+        t["used_days"] += b.used_days
+        t["used_hours"] += b.used_hours
+        t["left_hours"] += b.total_left_hours
+        if b.cap_left_hours <= 0:
+            t["at_cap"] += 1
+        elif b.cap_pct >= 80:
+            near_cap.append((e, b))
+        if not (b.granted_days or b.granted_hours):
+            t["no_rec"] += 1
+        o = by_officer[e.manager.full_name if e.manager else "— غير مُسند —"]
+        o["count"] += 1
+        o["granted"] += b.granted_equiv_days
+        o["used"] += b.used_equiv_days
+        o["left"] += b.total_left_hours / year.hours_per_day
+    hpd = year.hours_per_day
+    t["left_days"], t["left_rem"] = int(t["left_hours"] // hpd), round(t["left_hours"] % hpd, 2)
+    monthly = [0.0] * 12
+    for r in db.scalars(select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
+                        Recommendation.status == "active",
+                        Recommendation.employee_id.in_(ids) if ids else false())):
+        monthly[r.rec_date.month - 1] += r.amount if r.kind == "days" else r.amount / hpd
+    monthly = [round(v, 1) for v in monthly]
+    pending = list(db.scalars(select(LeaveRequest).where(
+        LeaveRequest.status == "pending", LeaveRequest.employee_id.in_(ids) if ids else false())
+        .order_by(LeaveRequest.created_at)))
+    pending = [r for r in pending if can_manage(user, r.employee)]
+    recent = list(db.scalars(select(Recommendation).where(Recommendation.employee_id.in_(ids) if ids else false())
+                             .order_by(Recommendation.created_at.desc()).limit(6)))
+    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t,
+                  by_officer=sorted(by_officer.items(), key=lambda kv: -kv[1]["count"]),
+                  monthly=monthly, monthly_max=max(monthly) or 1, pending=pending[:8],
+                  pending_count=len(pending), recent=recent, near_cap=near_cap[:8])
 
 
-# ================================================================ كشف الموظف
+# ================================================================ رصيدي وكشف الموظف
 def statement_ctx(db: Session, emp: Employee, year: FiscalYear) -> dict:
-    tasks = list(db.scalars(select(Task).where(Task.employee_id == emp.id, Task.fiscal_year_id == year.id)
-                            .order_by(Task.task_date.desc())))
-    reqs = list(db.scalars(select(RestDayRequest).where(RestDayRequest.employee_id == emp.id,
-                           RestDayRequest.fiscal_year_id == year.id).order_by(RestDayRequest.rest_date.desc())))
-    bal = db.scalar(select(Balance).where(Balance.employee_id == emp.id, Balance.fiscal_year_id == year.id))
-    return dict(emp=emp, sel_year=year, info=compute_balance(db, emp.id, year), tasks=tasks, reqs=reqs, bal=bal)
+    recs = list(db.scalars(select(Recommendation).where(Recommendation.employee_id == emp.id,
+                Recommendation.fiscal_year_id == year.id).order_by(Recommendation.rec_date.desc(),
+                                                                    Recommendation.id.desc())))
+    reqs = list(db.scalars(select(LeaveRequest).where(LeaveRequest.employee_id == emp.id,
+                LeaveRequest.fiscal_year_id == year.id).order_by(LeaveRequest.start_date.desc(),
+                                                                  LeaveRequest.id.desc())))
+    return dict(emp=emp, sel_year=year, info=compute_balance(db, emp.id, year), recs=recs, reqs=reqs)
 
 
 @router.get("/me")
@@ -158,27 +176,29 @@ def me(request: Request, year_id: int | None = None, user: User = Depends(curren
         return redirect("/dashboard")
     year = pick_year(db, year_id)
     emp = db.get(Employee, user.employee_id)
-    return render(request, db, "statement.html", user=user, years=years(db), self_view=True,
-                  **statement_ctx(db, emp, year))
+    return render(request, db, "me.html", user=user, years=years(db), **statement_ctx(db, emp, year))
 
 
 @router.get("/employees/{emp_id}")
 def employee_statement(request: Request, emp_id: int, year_id: int | None = None,
                        user: User = Depends(current_user), db: Session = Depends(get_db)):
     emp = get_employee_or_404(db, emp_id, user)
+    if emp.id == user.employee_id and not request.query_params.get("print"):
+        return redirect(f"/me?year_id={year_id}" if year_id else "/me")
     year = pick_year(db, year_id)
     tpl = "statement_print.html" if request.query_params.get("print") else "statement.html"
-    return render(request, db, tpl, user=user, years=years(db), self_view=(emp.id == user.employee_id),
-                  ref=f"BR-{year.name}-{emp.employee_no}-{datetime.now():%Y%m%d%H%M}",
+    return render(request, db, tpl, user=user, years=years(db), can_manage=can_manage(user, emp),
+                  ref=f"ST-{year.name}-{emp.employee_no}-{datetime.now():%m%d%H%M}",
                   **statement_ctx(db, emp, year))
 
 
 # ================================================================ الموظفون
 @router.get("/employees")
-def employees(request: Request, q: str = "", dept: int | None = None, state: str = "", year_id: int | None = None,
+def employees(request: Request, q: str = "", dept: int | None = None, officer: int | None = None,
+              state: str = "", year_id: int | None = None,
               user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
-    stmt = scoped_employees(db, user, include_inactive=(state == "inactive"))
+    stmt = scoped_employees(db, user, include_inactive=(state == "inactive"), managed_only=True)
     if state == "inactive":
         stmt = stmt.where(Employee.is_active.is_(False))
     if q.strip():
@@ -186,33 +206,37 @@ def employees(request: Request, q: str = "", dept: int | None = None, state: str
         stmt = stmt.where(or_(Employee.full_name.like(like), Employee.employee_no.like(like)))
     if dept:
         stmt = stmt.where(Employee.department_id == dept)
+    if officer == -1:
+        stmt = stmt.where(Employee.manager_id.is_(None))
+    elif officer:
+        stmt = stmt.where(Employee.manager_id == officer)
     rows = []
     for e in db.scalars(stmt):
         b = compute_balance(db, e.id, year)
-        if state == "exhausted" and b.remaining > 0:
+        if state == "cap" and b.cap_left_hours > 0:
             continue
-        if state == "tmp" and not e.is_temp_no:
+        if state == "none" and (b.granted_days or b.granted_hours):
             continue
         rows.append((e, b))
     depts = list(db.scalars(select(Department).order_by(Department.name)))
     return render(request, db, "employees.html", user=user, rows=rows, depts=depts, q=q, dept=dept,
-                  state=state, sel_year=year, years=years(db))
+                  officer=officer, officers=officers(db), state=state, sel_year=year, years=years(db))
 
 
 def employee_form_ctx(db: Session) -> dict:
     return dict(
         depts=list(db.scalars(select(Department).where(Department.is_active.is_(True)).order_by(Department.name))),
-        managers=list(db.scalars(select(Employee).where(Employee.is_active.is_(True)).order_by(Employee.full_name))),
+        officers=officers(db),
     )
 
 
 @router.get("/employees/new/form")
-def employee_new(request: Request, user: User = Depends(require(*EDITORS)), db: Session = Depends(get_db)):
+def employee_new(request: Request, user: User = Depends(require("admin")), db: Session = Depends(get_db)):
     return render(request, db, "employee_form.html", user=user, emp=None, **employee_form_ctx(db))
 
 
 @router.get("/employees/{emp_id}/edit")
-def employee_edit(request: Request, emp_id: int, user: User = Depends(require(*EDITORS)),
+def employee_edit(request: Request, emp_id: int, user: User = Depends(require("admin")),
                   db: Session = Depends(get_db)):
     emp = db.get(Employee, emp_id)
     if not emp:
@@ -225,7 +249,7 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
                   full_name: str = Form(...), department_id: int | None = Form(None),
                   manager_id: int | None = Form(None), job_title: str = Form(""), email: str = Form(""),
                   notes: str = Form(""), is_active: str = Form(""),
-                  user: User = Depends(require(*EDITORS)), db: Session = Depends(get_db)):
+                  user: User = Depends(require("admin")), db: Session = Depends(get_db)):
     employee_no, full_name = employee_no.strip(), " ".join(full_name.split())
     emp = db.get(Employee, emp_id) if emp_id else Employee()
     err = None
@@ -239,386 +263,379 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
         if not err and dupn:
             err = "يوجد موظف مسجل بنفس الاسم. أضف ما يميّزه (مثل الاسم الرباعي)."
         if not err and emp_id and manager_id == emp_id:
-            err = "لا يمكن أن يكون الموظف مديراً مباشراً لنفسه."
+            err = "لا يمكن إسناد الموظف إلى نفسه."
     if err:
         flash(request, err, "error")
         return back(request, "/employees")
-    before = dict(no=emp.employee_no, name=emp.full_name, dept=emp.department_id, mgr=emp.manager_id) if emp_id else {}
+    before = dict(no=emp.employee_no, name=emp.full_name, dept=emp.department_id, officer=emp.manager_id) if emp_id else {}
     emp.employee_no, emp.full_name = employee_no, full_name
     emp.department_id, emp.manager_id = department_id or None, manager_id or None
     emp.job_title, emp.email, emp.notes = job_title.strip(), email.strip(), notes.strip()
     if emp_id:
-        if user.role == "admin" or emp.is_active:
-            emp.is_active = bool(is_active)
+        emp.is_active = bool(is_active)
     else:
         emp.is_active = True
         db.add(emp)
     db.flush()
     audit(db, user, "employee_updated" if emp_id else "employee_created", "employee", emp.id,
           ip=client_ip(request), before=before,
-          after=dict(no=employee_no, name=full_name, dept=department_id, mgr=manager_id, active=emp.is_active))
+          after=dict(no=employee_no, name=full_name, dept=department_id, officer=manager_id, active=emp.is_active))
     db.commit()
     flash(request, "تم حفظ بيانات الموظف.")
     return redirect(f"/employees/{emp.id}")
 
 
-@router.post("/employees/{emp_id}/balance")
-def employee_balance(request: Request, emp_id: int, year_id: int = Form(...), base_override: str = Form(""),
-                     adjustment_days: int = Form(0), adjustment_reason: str = Form(""),
-                     user: User = Depends(require("admin")), db: Session = Depends(get_db)):
-    year = db.get(FiscalYear, year_id)
-    if not year or year.is_locked:
-        flash(request, "السنة غير موجودة أو مقفلة.", "error")
-        return back(request)
-    if (adjustment_days or base_override.strip()) and not adjustment_reason.strip():
-        flash(request, "اذكر سبب الرصيد الخاص أو التسوية.", "error")
-        return back(request)
-    bal = db.scalar(select(Balance).where(Balance.employee_id == emp_id, Balance.fiscal_year_id == year_id))
-    if not bal:
-        bal = Balance(employee_id=emp_id, fiscal_year_id=year_id)
-        db.add(bal)
-    before = dict(base=bal.base_override, adj=bal.adjustment_days)
-    bal.base_override = int(base_override) if base_override.strip().lstrip("-").isdigit() else None
-    bal.adjustment_days = adjustment_days
-    bal.adjustment_reason = adjustment_reason.strip()
-    db.flush()
-    audit(db, user, "balance_adjusted", "employee", emp_id, ip=client_ip(request), year=year.name,
-          before=before, after=dict(base=bal.base_override, adj=adjustment_days), reason=adjustment_reason)
-    db.commit()
-    flash(request, "تم تحديث الرصيد.")
-    return redirect(f"/employees/{emp_id}?year_id={year_id}")
-
-
-# ================================================================ المهام والساعات
-@router.get("/tasks")
-def tasks(request: Request, status: str = "", emp: int | None = None, year_id: int | None = None,
-          user: User = Depends(current_user), db: Session = Depends(get_db)):
+# ================================================================ التوصيات
+@router.get("/recommendations")
+def recommendations(request: Request, kind: str = "", emp: int | None = None, year_id: int | None = None,
+                    user: User = Depends(current_user), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
-    stmt = select(Task).where(Task.fiscal_year_id == year.id).order_by(Task.task_date.desc(), Task.id.desc())
+    stmt = select(Recommendation).where(Recommendation.fiscal_year_id == year.id) \
+        .order_by(Recommendation.rec_date.desc(), Recommendation.id.desc())
     ids = visible_employee_ids(db, user)
     if ids is not None:
-        stmt = stmt.where(Task.employee_id.in_(ids))
-    if status:
-        stmt = stmt.where(Task.status == status)
+        stmt = stmt.where(Recommendation.employee_id.in_(ids))
+    if kind in REC_KINDS:
+        stmt = stmt.where(Recommendation.kind == kind)
     if emp:
-        stmt = stmt.where(Task.employee_id == emp)
-    rows = list(db.scalars(stmt.limit(1000)))
-    return render(request, db, "tasks.html", user=user, rows=rows, status=status, emp=emp, sel_year=year,
-                  years=years(db), employees=list(db.scalars(scoped_employees(db, user))))
+        stmt = stmt.where(Recommendation.employee_id == emp)
+    return render(request, db, "recommendations.html", user=user, rows=list(db.scalars(stmt.limit(1000))),
+                  kind=kind, emp=emp, sel_year=year, years=years(db),
+                  employees=list(db.scalars(scoped_employees(db, user, managed_only=True))))
 
 
-@router.get("/tasks/new")
-def task_new(request: Request, emp: int | None = None, user: User = Depends(require(*EDITORS)),
-             db: Session = Depends(get_db)):
-    return render(request, db, "task_form.html", user=user, employees=list(db.scalars(scoped_employees(db, user))),
-                  rows=[dict(emp=emp or "", date="", desc="", hours="", notes="", error="")] * 1, count=5)
+@router.get("/recommendations/new")
+def recommendation_new(request: Request, kind: str = "days", emp: int | None = None,
+                       user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    kind = kind if kind in REC_KINDS else "days"
+    emps = list(db.scalars(scoped_employees(db, user, managed_only=True)))
+    year = pick_year(db, None)
+    caps = {e.id: compute_balance(db, e.id, year) for e in emps}
+    return render(request, db, "recommendation_form.html", user=user, kind=kind, emp=emp, employees=emps,
+                  caps=caps, sel_year=year)
 
 
-@router.post("/tasks/new")
-async def task_create(request: Request, user: User = Depends(require(*EDITORS)), db: Session = Depends(get_db)):
+@router.post("/recommendations/new")
+async def recommendation_create(request: Request, user: User = Depends(require(*STAFF)),
+                                db: Session = Depends(get_db)):
     form = await request.form()
-    emps = form.getlist("emp")
-    dates, descs, hours, notes = (form.getlist(k) for k in ("date", "desc", "hours", "notes"))
-    rows, to_save, has_error = [], [], False
-    for i, emp_id in enumerate(emps):
-        r = dict(emp=emp_id, date=dates[i], desc=descs[i], hours=hours[i], notes=notes[i], error="")
-        if not any([emp_id, r["date"], r["desc"].strip(), r["hours"]]):
-            continue
-        upload = form.get(f"file_{i}")
+    kind = str(form.get("kind") or "days")
+    back_url = f"/recommendations/new?kind={kind}"
+    try:
+        emp = db.get(Employee, int(form.get("emp") or 0))
+        if not emp or not can_manage(user, emp):
+            raise RuleError("اختر موظفاً من الموظفين المسندين إليك.")
+        amount = parse_float(str(form.get("amount") or ""))
+        rec_date = parse_date(str(form.get("rec_date") or "")) or date.today()
+        upload = form.get("file")
         has_file = bool(getattr(upload, "filename", ""))
-        try:
-            emp = db.get(Employee, int(emp_id)) if emp_id else None
-            if not emp:
-                raise RuleError("اختر اسم الموظف.")
-            d = parse_date(r["date"])
-            if not d:
-                raise RuleError("أدخل التاريخ.")
-            if not r["desc"].strip():
-                raise RuleError("أدخل وصف المهمة.")
-            h = parse_float(r["hours"])
-            if h is None:
-                raise RuleError("أدخل الساعات.")
-            dup = db.scalar(select(Task.id).where(Task.employee_id == emp.id, Task.task_date == d,
-                            Task.description == r["desc"].strip(), Task.status != "rejected"))
-            if dup and not form.get("allow_dup"):
-                raise RuleError("مهمة مطابقة مسجلة مسبقاً (نفس الموظف والتاريخ والوصف).")
-            year = validate_task(db, emp, d, h, has_file)
-            to_save.append((emp, d, h, r, upload if has_file else None, year))
-        except RuleError as e:
-            r["error"] = f"⚠ {e}"
-            has_error = True
-        rows.append(r)
-    if not rows:
-        flash(request, "لم يتم إدخال أي صف.", "error")
-        return redirect("/tasks/new")
-    if has_error:
-        return render(request, db, "task_form.html", user=user, status_code=400, rows=rows, count=0,
-                      employees=list(db.scalars(scoped_employees(db, user))),
-                      error="بعض الصفوف تحتوي على أخطاء، صحّحها ثم أعد الحفظ. لم يُحفظ أي صف.")
-    try:
-        for emp, d, h, r, upload, year in to_save:
-            att = await save_pdf(db, upload, user) if upload else None
-            t = Task(employee_id=emp.id, fiscal_year_id=year.id, task_date=d, description=r["desc"].strip(),
-                     hours=h, notes=r["notes"].strip(), attachment_id=att.id if att else None,
-                     entered_by=user.id, status="pending")
-            db.add(t)
-            db.flush()
-            audit(db, user, "task_created", "task", t.id, ip=client_ip(request), employee=emp.employee_no,
-                  date=d, hours=h)
-    except RuleError as e:
-        db.rollback()
+        year = validate_recommendation(db, emp, kind, amount, rec_date, has_file)
+        att = await save_pdf(db, upload, user) if has_file else None
+    except (RuleError, ValueError) as e:
         flash(request, str(e), "error")
-        return redirect("/tasks/new")
+        return redirect(back_url + (f"&emp={form.get('emp')}" if form.get("emp") else ""))
+    rec = Recommendation(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, amount=amount, rec_date=rec_date,
+                         ref_no=str(form.get("ref_no") or "").strip()[:64],
+                         subject=str(form.get("subject") or "").strip(), attachment_id=att.id if att else None,
+                         entered_by=user.id, created_at=datetime.now())
+    db.add(rec)
+    db.flush()
+    amount_txt = days_ar(amount) if kind == "days" else hours_ar(amount)
+    audit(db, user, "recommendation_added", "recommendation", rec.id, ip=client_ip(request),
+          employee=emp.full_name, kind=kind, amount=amount)
+    notify(db, employee_user(db, emp), f"منحك بدل راحة: {amount_txt}",
+           f"أُضيفت إلى رصيدك توصية بمنحك {rec.kind_label}: {amount_txt}"
+           f"{' — ' + rec.subject if rec.subject else ''}.", f"/me", sender=user)
     db.commit()
-    flash(request, f"تم تسجيل {len(to_save)} مهمة وإرسالها للاعتماد من المدير المباشر.")
-    return redirect("/tasks?status=pending")
+    flash(request, f"تم رفع التوصية وإضافة {amount_txt} إلى رصيد {emp.full_name}.")
+    return redirect(f"/employees/{emp.id}" if emp.id != user.employee_id else "/me")
 
 
-@router.post("/tasks/{task_id}/delete")
-def task_delete(request: Request, task_id: int, user: User = Depends(require(*EDITORS)),
-                db: Session = Depends(get_db)):
-    t = db.get(Task, task_id)
-    if not t or t.status != "pending":
-        flash(request, "يمكن سحب المهام التي بانتظار الاعتماد فقط.", "error")
-        return back(request, "/tasks")
-    t.status = "rejected"
-    t.decision_note = "سُحبت من قبل المدخل"
-    t.decided_by, t.decided_at = user.id, datetime.now()
-    audit(db, user, "task_withdrawn", "task", t.id, ip=client_ip(request))
-    db.commit()
-    flash(request, "تم سحب المهمة.")
-    return back(request, "/tasks")
-
-
-@router.post("/tasks/{task_id}/decide")
-def task_decide(request: Request, task_id: int, action: str = Form(...), note: str = Form(""),
-                user: User = Depends(require("admin", "manager")), db: Session = Depends(get_db)):
-    t = db.get(Task, task_id)
-    if not t:
-        raise HTTPException(404, "غير موجود")
+@router.post("/recommendations/{rec_id}/cancel")
+def recommendation_cancel(request: Request, rec_id: int, note: str = Form(""),
+                          user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    rec = db.get(Recommendation, rec_id)
+    if not rec or not can_manage(user, rec.employee):
+        raise HTTPException(403, "ليست لديك صلاحية على هذه التوصية.")
     try:
-        _decide_task(db, user, t, action, note, client_ip(request))
-        db.commit()
-        flash(request, "تم اعتماد المهمة." if action == "approve" else "تم رفض المهمة.")
+        if not note.strip():
+            raise RuleError("اذكر سبب إلغاء التوصية.")
+        check_can_cancel_recommendation(db, rec)
     except RuleError as e:
-        db.rollback()
         flash(request, str(e), "error")
-    return back(request, "/approvals")
+        return back(request)
+    rec.status, rec.cancelled_by, rec.cancel_note = "cancelled", user.id, note.strip()
+    audit(db, user, "recommendation_cancelled", "recommendation", rec.id, ip=client_ip(request), note=note)
+    notify(db, employee_user(db, rec.employee), "إلغاء توصية بدل راحة",
+           f"أُلغيت التوصية ({rec.kind_label}). السبب: {note.strip()}", "/me", sender=user)
+    db.commit()
+    flash(request, "تم إلغاء التوصية وتحديث الرصيد.")
+    return back(request)
 
 
-def _decide_task(db: Session, user: User, t: Task, action: str, note: str, ip: str) -> None:
-    if t.status != "pending":
-        raise RuleError("تم البت في هذه المهمة مسبقاً.")
-    if not can_decide(user, t.employee, t.entered_by):
-        raise RuleError("الاعتماد من صلاحية المدير المباشر للموظف، ولا يعتمد أحد ما أدخله بنفسه.")
-    year = db.get(FiscalYear, t.fiscal_year_id)
-    if year.is_locked:
-        raise RuleError("السنة مقفلة.")
-    if action == "reject" and not note.strip():
-        raise RuleError("اذكر سبب الرفض.")
-    if action not in ("approve", "reject"):
-        raise RuleError("إجراء غير معروف.")
-    t.status = "approved" if action == "approve" else "rejected"
-    t.decided_by, t.decided_at, t.decision_note = user.id, datetime.now(), note.strip()
-    audit(db, user, f"task_{t.status}", "task", t.id, ip=ip, note=note)
+@router.get("/recommendations/{rec_id}/print")
+def recommendation_print(request: Request, rec_id: int, user: User = Depends(current_user),
+                         db: Session = Depends(get_db)):
+    rec = db.get(Recommendation, rec_id)
+    if not rec or not can_view_employee(user, rec.employee):
+        raise HTTPException(404, "التوصية غير موجودة.")
+    year = db.get(FiscalYear, rec.fiscal_year_id)
+    return render(request, db, "recommendation_print.html", user=user, rec=rec, sel_year=year,
+                  info=compute_balance(db, rec.employee_id, year), ref=ref_no("REC", rec.id, rec.created_at))
 
 
-# ================================================================ طلبات بدل الراحة
+# ================================================================ الطلبات (استبدال / تعويض)
 @router.get("/requests")
-def requests_list(request: Request, status: str = "", emp: int | None = None, year_id: int | None = None,
-                  user: User = Depends(current_user), db: Session = Depends(get_db)):
+def requests_list(request: Request, status: str = "", kind: str = "", emp: int | None = None,
+                  year_id: int | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
-    stmt = (select(RestDayRequest).where(RestDayRequest.fiscal_year_id == year.id)
-            .order_by(RestDayRequest.rest_date.desc(), RestDayRequest.id.desc()))
+    stmt = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id) \
+        .order_by(LeaveRequest.created_at.desc())
     ids = visible_employee_ids(db, user)
     if ids is not None:
-        stmt = stmt.where(RestDayRequest.employee_id.in_(ids))
+        stmt = stmt.where(LeaveRequest.employee_id.in_(ids))
     if status:
-        stmt = stmt.where(RestDayRequest.status == status)
+        stmt = stmt.where(LeaveRequest.status == status)
+    if kind in LEAVE_KINDS:
+        stmt = stmt.where(LeaveRequest.kind == kind)
     if emp:
-        stmt = stmt.where(RestDayRequest.employee_id == emp)
+        stmt = stmt.where(LeaveRequest.employee_id == emp)
     rows = list(db.scalars(stmt.limit(1000)))
-    return render(request, db, "requests.html", user=user, rows=rows, status=status, emp=emp, sel_year=year,
-                  years=years(db), employees=list(db.scalars(scoped_employees(db, user))))
-
-
-def _request_employees(db: Session, user: User) -> list[Employee]:
-    if user.role in EDITORS:
-        return list(db.scalars(scoped_employees(db, user)))
-    return [db.get(Employee, user.employee_id)] if user.employee_id else []
+    return render(request, db, "requests.html", user=user, rows=rows, status=status, kind=kind, emp=emp,
+                  sel_year=year, years=years(db), employees=list(db.scalars(scoped_employees(db, user))),
+                  can_manage=lambda e: can_manage(user, e))
 
 
 @router.get("/requests/new")
-def request_new(request: Request, emp: int | None = None, user: User = Depends(current_user),
+def request_new(request: Request, kind: str = "use", emp: int | None = None, user: User = Depends(current_user),
                 db: Session = Depends(get_db)):
-    year = active_year(db)
-    if user.role not in EDITORS and not (year and year.employee_can_request and user.employee_id):
-        raise HTTPException(403, "تقديم الطلبات يتم عبر مسؤول الإدخال.")
-    emps = _request_employees(db, user)
-    sel = emp or (user.employee_id if user.role not in EDITORS else None)
-    info = None
-    if sel and year:
-        info = compute_balance(db, sel, year)
-    return render(request, db, "request_form.html", user=user, employees=emps, sel=sel, info=info)
+    kind = kind if kind in LEAVE_KINDS else "use"
+    year = pick_year(db, None)
+    managed = list(db.scalars(scoped_employees(db, user, managed_only=True))) if user.role in STAFF else []
+    self_emp = db.get(Employee, user.employee_id) if user.employee_id else None
+    if not managed and not self_emp:
+        raise HTTPException(403, "حسابك غير مرتبط بسجل موظف.")
+    if self_emp and not managed and not year.employee_can_request:
+        raise HTTPException(403, "تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع الإداري.")
+    target = emp or (self_emp.id if self_emp and not managed else None)
+    info = compute_balance(db, target, year) if target else None
+    return render(request, db, "request_form.html", user=user, kind=kind, emp=target, managed=managed,
+                  self_emp=self_emp, info=info, sel_year=year)
 
 
 @router.post("/requests/new")
 async def request_create(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     form = await request.form()
+    kind, unit = str(form.get("kind") or "use"), str(form.get("unit") or "days")
     try:
-        emp_id = int(form.get("emp") or 0)
-    except ValueError:
-        emp_id = 0
-    if user.role not in EDITORS:
-        emp_id = user.employee_id or 0
-        year = active_year(db)
-        if not (year and year.employee_can_request):
-            raise HTTPException(403, "تقديم الطلبات يتم عبر مسؤول الإدخال.")
-    emp = db.get(Employee, emp_id)
-    upload = form.get("file")
-    has_file = bool(getattr(upload, "filename", ""))
-    dates_raw = [x for x in form.getlist("rest_date") if x]
-    try:
+        emp_id = int(form.get("emp") or user.employee_id or 0)
+        emp = db.get(Employee, emp_id)
         if not emp:
             raise RuleError("اختر الموظف.")
-        if not dates_raw:
-            raise RuleError("أدخل تاريخ يوم بدل الراحة.")
-        dates = []
-        for raw in dates_raw:
-            d = parse_date(raw)
-            if not d:
-                raise RuleError("تاريخ غير صالح.")
-            if d in dates:
-                raise RuleError("تكرر التاريخ نفسه في الطلب.")
-            dates.append(d)
+        own = emp.id == user.employee_id
+        if not own and not can_manage(user, emp):
+            raise RuleError("ليست لديك صلاحية لتقديم طلب لهذا الموظف.")
+        if own and user.role == "employee" and not (active_year(db) and active_year(db).employee_can_request):
+            raise RuleError("تقديم الطلبات من الموظفين غير مفعّل حالياً.")
+        start = parse_date(str(form.get("start_date") or ""))
+        end = parse_date(str(form.get("end_date") or "")) if unit == "days" else start
+        hours = parse_float(str(form.get("hours") or "")) if unit == "hours" else None
+        upload = form.get("file")
+        has_file = bool(getattr(upload, "filename", ""))
+        year, ndays, nhours = validate_leave(db, emp, kind, unit, start, end, hours, has_file)
         att = await save_pdf(db, upload, user) if has_file else None
-        created = 0
-        for d in sorted(dates):
-            year = validate_rest_day(db, emp, d, has_file)
-            r = RestDayRequest(employee_id=emp.id, fiscal_year_id=year.id, rest_date=d,
-                               notes=str(form.get("notes") or "").strip(), status="pending",
-                               attachment_id=att.id if att else None, requested_by=user.id)
-            db.add(r)
-            db.flush()
-            created += 1
-            audit(db, user, "request_created", "rest_day_request", r.id, ip=client_ip(request),
-                  employee=emp.employee_no, date=d,
-                  on_behalf=user.employee_id != emp.id)
-        db.commit()
-    except RuleError as e:
-        db.rollback()
+    except (RuleError, ValueError) as e:
         flash(request, str(e), "error")
-        return redirect(f"/requests/new?emp={emp_id}" if emp_id else "/requests/new")
-    flash(request, f"تم تقديم {created} طلب، وهو الآن بانتظار اعتماد المدير المباشر.")
-    return redirect("/requests?status=pending" if user.role in STAFF else "/me")
+        return redirect(f"/requests/new?kind={kind}" + (f"&emp={form.get('emp')}" if form.get("emp") else ""))
+    req = LeaveRequest(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, unit=unit, start_date=start,
+                       end_date=end or start, days=ndays, hours=nhours, reason=str(form.get("reason") or "").strip(),
+                       attachment_id=att.id if att else None, requested_by=user.id, created_at=datetime.now())
+    db.add(req)
+    db.flush()
+    audit(db, user, "leave_requested", "leave_request", req.id, ip=client_ip(request),
+          employee=emp.full_name, kind=kind, unit=unit, days=ndays, hours=nhours)
+    if own:
+        for o in officer_users_for(db, emp) or list(db.scalars(select(User).where(User.role == "admin"))):
+            notify(db, o, f"طلب {req.kind_label} جديد من {emp.full_name}",
+                   f"{req.kind_label} — {req.amount_label} بتاريخ {start:%Y-%m-%d}. {req.reason}",
+                   "/approvals", sender=user)
+    db.commit()
+    flash(request, f"تم رفع طلب {req.kind_label} ({req.amount_label})" + (" وهو بانتظار اعتماد الإداري." if own else "."))
+    return redirect("/requests")
+
+
+def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note: str, ip: str) -> None:
+    if req.status != "pending":
+        raise RuleError("الطلب ليس بانتظار الاعتماد.")
+    if not can_manage(user, req.employee):
+        raise RuleError("لا يمكنك البت في هذا الطلب.")
+    if action == "approve":
+        check_can_approve_leave(db, req)
+        req.status = "approved"
+    elif action == "reject":
+        if not note.strip():
+            raise RuleError("اذكر سبب الرفض.")
+        req.status = "rejected"
+    else:
+        raise RuleError("إجراء غير معروف.")
+    req.decided_by, req.decided_at, req.decision_note = user.id, datetime.now(), note.strip()
+    audit(db, user, f"leave_{req.status}", "leave_request", req.id, ip=ip, note=note)
+    word = "اعتماد" if req.status == "approved" else "رفض"
+    notify(db, employee_user(db, req.employee), f"تم {word} طلب {req.kind_label}",
+           f"طلبك ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}): {req.status_label}."
+           f"{' الملاحظة: ' + note.strip() if note.strip() else ''}", "/requests", sender=user)
 
 
 @router.post("/requests/{req_id}/decide")
 def request_decide(request: Request, req_id: int, action: str = Form(...), note: str = Form(""),
-                   user: User = Depends(require("admin", "manager")), db: Session = Depends(get_db)):
-    r = db.get(RestDayRequest, req_id)
-    if not r:
-        raise HTTPException(404, "غير موجود")
+                   user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    req = db.get(LeaveRequest, req_id)
+    if not req:
+        raise HTTPException(404, "الطلب غير موجود.")
     try:
-        _decide_request(db, user, r, action, note, client_ip(request))
+        _decide_leave(db, user, req, action, note, client_ip(request))
         db.commit()
-        flash(request, "تم اعتماد الطلب." if action == "approve" else "تم رفض الطلب.")
+        flash(request, f"تم تحديث الطلب: {req.status_label}.")
     except RuleError as e:
         db.rollback()
         flash(request, str(e), "error")
     return back(request, "/approvals")
 
 
-def _decide_request(db: Session, user: User, r: RestDayRequest, action: str, note: str, ip: str) -> None:
-    if r.status != "pending":
-        raise RuleError("تم البت في هذا الطلب مسبقاً.")
-    if not can_decide(user, r.employee, r.requested_by):
-        raise RuleError("الاعتماد من صلاحية المدير المباشر للموظف، ولا يعتمد أحد طلباً قدّمه بنفسه.")
-    if action == "approve":
-        check_can_approve_request(db, r)
-    elif action == "reject":
-        if not note.strip():
-            raise RuleError("اذكر سبب الرفض.")
-    else:
-        raise RuleError("إجراء غير معروف.")
-    r.status = "approved" if action == "approve" else "rejected"
-    r.decided_by, r.decided_at, r.decision_note = user.id, datetime.now(), note.strip()
-    audit(db, user, f"request_{r.status}", "rest_day_request", r.id, ip=ip, note=note)
-
-
 @router.post("/requests/{req_id}/cancel")
 def request_cancel(request: Request, req_id: int, note: str = Form(""), user: User = Depends(current_user),
                    db: Session = Depends(get_db)):
-    r = db.get(RestDayRequest, req_id)
-    if not r:
-        raise HTTPException(404, "غير موجود")
-    allowed = (
-        user.role in EDITORS
-        or (user.role == "manager" and can_decide(user, r.employee, None))
-        or (user.employee_id == r.employee_id and r.status == "pending")
-    )
+    req = db.get(LeaveRequest, req_id)
+    if not req:
+        raise HTTPException(404, "الطلب غير موجود.")
+    own = req.employee_id == user.employee_id
+    if not (can_manage(user, req.employee) or (own and req.status == "pending")):
+        raise HTTPException(403, "ليست لديك صلاحية لإلغاء هذا الطلب.")
     try:
-        if not allowed:
-            raise RuleError("ليست لديك صلاحية لإلغاء هذا الطلب.")
-        check_can_cancel(db, r, user)
-        if r.status == "approved" and not note.strip():
-            raise RuleError("اذكر سبب إلغاء يوم معتمد.")
-        prev = r.status
-        r.status = "cancelled"
-        r.decision_note = (note.strip() or "ألغي")
-        r.decided_by, r.decided_at = user.id, datetime.now()
-        audit(db, user, "request_cancelled", "rest_day_request", r.id, ip=client_ip(request), previous=prev,
-              note=note)
-        db.commit()
-        flash(request, "تم إلغاء الطلب وإعادة اليوم إلى الرصيد." if prev == "approved" else "تم إلغاء الطلب.")
+        check_can_cancel_leave(db, req, user)
+        if req.status == "approved" and not note.strip():
+            raise RuleError("اذكر سبب إلغاء طلب معتمد.")
     except RuleError as e:
-        db.rollback()
         flash(request, str(e), "error")
+        return back(request, "/requests")
+    prev = req.status
+    req.status = "cancelled"
+    req.decision_note = (req.decision_note + " | " if req.decision_note else "") + (note.strip() or "إلغاء")
+    audit(db, user, "leave_cancelled", "leave_request", req.id, ip=client_ip(request), prev=prev, note=note)
+    if not own:
+        notify(db, employee_user(db, req.employee), f"إلغاء طلب {req.kind_label}",
+               f"أُلغي طلبك ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}). {note.strip()}",
+               "/requests", sender=user)
+    db.commit()
+    flash(request, "تم إلغاء الطلب وإعادة الرصيد.")
     return back(request, "/requests")
+
+
+@router.get("/requests/{req_id}/print")
+def request_print(request: Request, req_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    req = db.get(LeaveRequest, req_id)
+    if not req or not can_view_employee(user, req.employee):
+        raise HTTPException(404, "الطلب غير موجود.")
+    year = db.get(FiscalYear, req.fiscal_year_id)
+    return render(request, db, "request_print.html", user=user, req=req, sel_year=year,
+                  info=compute_balance(db, req.employee_id, year), ref=ref_no("REQ", req.id, req.created_at))
 
 
 # ================================================================ الاعتمادات
 @router.get("/approvals")
-def approvals(request: Request, user: User = Depends(require("admin", "manager")), db: Session = Depends(get_db)):
+def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     ids = visible_employee_ids(db, user)
-    tq = select(Task).where(Task.status == "pending").order_by(Task.task_date)
-    rq = select(RestDayRequest).where(RestDayRequest.status == "pending").order_by(RestDayRequest.rest_date)
+    stmt = select(LeaveRequest).where(LeaveRequest.status == "pending").order_by(LeaveRequest.created_at)
     if ids is not None:
-        tq, rq = tq.where(Task.employee_id.in_(ids)), rq.where(RestDayRequest.employee_id.in_(ids))
-    tasks_ = [t for t in db.scalars(tq) if can_decide(user, t.employee, t.entered_by)]
-    reqs = []
-    for r in db.scalars(rq):
-        if can_decide(user, r.employee, r.requested_by):
-            y = db.get(FiscalYear, r.fiscal_year_id)
-            reqs.append((r, compute_balance(db, r.employee_id, y)))
-    return render(request, db, "approvals.html", user=user, tasks=tasks_, reqs=reqs)
+        stmt = stmt.where(LeaveRequest.employee_id.in_(ids))
+    rows = []
+    for r in db.scalars(stmt):
+        if can_manage(user, r.employee):
+            rows.append((r, compute_balance(db, r.employee_id, db.get(FiscalYear, r.fiscal_year_id))))
+    return render(request, db, "approvals.html", user=user, rows=rows)
 
 
 @router.post("/approvals/bulk")
-async def approvals_bulk(request: Request, user: User = Depends(require("admin", "manager")),
-                         db: Session = Depends(get_db)):
+async def approvals_bulk(request: Request, user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     form = await request.form()
-    action = form.get("action")
+    action = str(form.get("action") or "")
     note = str(form.get("note") or "")
     ok = fail = 0
     msgs = []
-    for key, model, fn in (("task_ids", Task, _decide_task), ("req_ids", RestDayRequest, _decide_request)):
-        for raw in form.getlist(key):
-            obj = db.get(model, int(raw))
-            if not obj:
-                continue
-            try:
-                fn(db, user, obj, action, note, client_ip(request))
-                db.commit()
-                ok += 1
-            except RuleError as e:
-                db.rollback()
-                fail += 1
-                msgs.append(f"{obj.employee.full_name}: {e}")
-    flash(request, f"تمت معالجة {ok} سجل." + (f" تعذّر {fail}." if fail else ""), "ok" if not fail else "error")
+    for raw in form.getlist("req_ids"):
+        obj = db.get(LeaveRequest, int(raw))
+        if not obj:
+            continue
+        try:
+            _decide_leave(db, user, obj, action, note, client_ip(request))
+            db.commit()
+            ok += 1
+        except RuleError as e:
+            db.rollback()
+            fail += 1
+            msgs.append(f"{obj.employee.full_name}: {e}")
+    flash(request, f"تمت معالجة {ok} طلب." + (f" تعذّر {fail}." if fail else ""), "ok" if not fail else "error")
     for m in msgs[:5]:
         flash(request, m, "error")
     return redirect("/approvals")
+
+
+# ================================================================ المراسلات
+@router.get("/messages")
+def messages(request: Request, box: str = "in", user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if box == "sent":
+        stmt = select(Message).where(Message.sender_id == user.id)
+    else:
+        box = "in"
+        stmt = select(Message).where(Message.recipient_id == user.id)
+    rows = list(db.scalars(stmt.order_by(Message.created_at.desc()).limit(300)))
+    return render(request, db, "messages.html", user=user, rows=rows, box=box)
+
+
+@router.get("/messages/new")
+def message_new(request: Request, to: int | None = None, re: int | None = None, user: User = Depends(current_user),
+                db: Session = Depends(get_db)):
+    subject = body = ""
+    if re:
+        orig = db.get(Message, re)
+        if orig and user.id in (orig.recipient_id, orig.sender_id):
+            to = to or orig.sender_id
+            subject = orig.subject if orig.subject.startswith("رد:") else f"رد: {orig.subject}"
+            body = "\n\n—— الرسالة الأصلية ——\n" + orig.body
+    return render(request, db, "message_form.html", user=user, recipients=message_recipients(db, user),
+                  to=to, subject=subject, body=body)
+
+
+@router.post("/messages/new")
+def message_send(request: Request, to: list[int] = Form([]), subject: str = Form(""), body: str = Form(""),
+                 user: User = Depends(current_user), db: Session = Depends(get_db)):
+    allowed = {u.id: u for u in message_recipients(db, user)}
+    targets = [allowed[i] for i in to if i in allowed]
+    if not targets or not subject.strip() or not body.strip():
+        flash(request, "اختر المستلم واكتب الموضوع ونص الرسالة.", "error")
+        return redirect("/messages/new")
+    for u in targets:
+        notify(db, u, subject.strip(), body.strip(), sender=user)
+    audit(db, user, "message_sent", "message", None, ip=client_ip(request), to=[u.username for u in targets],
+          subject=subject.strip())
+    db.commit()
+    flash(request, "تم إرسال الرسالة." + (" وأُرسل إشعار بالبريد لمن لديه بريد مسجّل." if any(
+        u.employee and u.employee.email for u in targets) else ""))
+    return redirect("/messages?box=sent")
+
+
+@router.get("/messages/{msg_id}")
+def message_view(request: Request, msg_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    m = db.get(Message, msg_id)
+    if not m or user.id not in (m.recipient_id, m.sender_id):
+        raise HTTPException(404, "الرسالة غير موجودة.")
+    if m.recipient_id == user.id and not m.read_at:
+        m.read_at = datetime.now()
+        db.commit()
+    can_reply = bool(m.sender_id) and m.sender_id != user.id and \
+        m.sender_id in {u.id for u in message_recipients(db, user)}
+    tpl = "message_print.html" if request.query_params.get("print") else "message_view.html"
+    return render(request, db, tpl, user=user, m=m, can_reply=can_reply, ref=ref_no("MSG", m.id, m.created_at))
 
 
 # ================================================================ المرفقات
@@ -627,9 +644,9 @@ def file_download(att_id: int, user: User = Depends(current_user), db: Session =
     att = db.get(Attachment, att_id)
     if not att:
         raise HTTPException(404, "الملف غير موجود.")
-    owners = [t.employee for t in db.scalars(select(Task).where(Task.attachment_id == att_id))]
-    owners += [r.employee for r in db.scalars(select(RestDayRequest).where(RestDayRequest.attachment_id == att_id))]
-    if not any(can_view_employee(user, e) for e in owners) and user.role != "admin":
+    owners = [r.employee for r in db.scalars(select(Recommendation).where(Recommendation.attachment_id == att_id))]
+    owners += [r.employee for r in db.scalars(select(LeaveRequest).where(LeaveRequest.attachment_id == att_id))]
+    if user.role != "admin" and not any(can_view_employee(user, e) for e in owners):
         raise HTTPException(403, "ليست لديك صلاحية لهذا الملف.")
     path = UPLOAD_DIR / att.stored_name
     if not path.exists():
@@ -644,29 +661,26 @@ def reports(request: Request, year_id: int | None = None, user: User = Depends(r
             db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     ids = visible_employee_ids(db, user)
-    rq = select(RestDayRequest).where(RestDayRequest.fiscal_year_id == year.id)
+    rq = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id)
+    rc = select(Recommendation).where(Recommendation.fiscal_year_id == year.id, Recommendation.status == "active")
     if ids is not None:
-        rq = rq.where(RestDayRequest.employee_id.in_(ids))
-    reqs = list(db.scalars(rq))
-    by_status = defaultdict(int)
+        rq = rq.where(LeaveRequest.employee_id.in_(ids))
+        rc = rc.where(Recommendation.employee_id.in_(ids))
+    reqs, recs = list(db.scalars(rq)), list(db.scalars(rc))
+    by = defaultdict(int)
     lead = []
     for r in reqs:
-        by_status[r.status] += 1
+        by[r.status] += 1
+        by[f"k_{r.kind}"] += 1
         if r.decided_at and r.status in ("approved", "rejected"):
             lead.append((r.decided_at - r.created_at).total_seconds() / 86400)
-    no_att = sum(1 for r in reqs if r.status == "approved" and not r.attachment_id)
-    tq = select(Task).where(Task.fiscal_year_id == year.id)
-    if ids is not None:
-        tq = tq.where(Task.employee_id.in_(ids))
-    task_rows = list(db.scalars(tq))
-    total = len(reqs) or 1
     stats = dict(
-        requests=len(reqs), approved=by_status["approved"], pending=by_status["pending"],
-        rejected=by_status["rejected"], cancelled=by_status["cancelled"],
-        cancel_rate=round(by_status["cancelled"] / total * 100), no_attachment=no_att,
+        recs=len(recs), rec_days=sum(r.amount for r in recs if r.kind == "days"),
+        rec_hours=sum(r.amount for r in recs if r.kind == "hours"),
+        requests=len(reqs), approved=by["approved"], pending=by["pending"], rejected=by["rejected"],
+        cancelled=by["cancelled"], use=by["k_use"], compensation=by["k_compensation"],
         avg_lead=round(sum(lead) / len(lead), 1) if lead else 0,
-        tasks=len(task_rows), hours=sum(t.hours for t in task_rows if t.status == "approved"),
-        pending_hours=sum(t.hours for t in task_rows if t.status == "pending"),
+        no_attachment=sum(1 for r in recs if not r.attachment_id),
     )
     return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), stats=stats)
 
@@ -691,7 +705,7 @@ def _sheet(wb, title: str, headers: list[str], rows: list[list]):
     ws.append(headers)
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor="1B3A6B")
+        c.fill = PatternFill("solid", fgColor="00427A")
         c.alignment = Alignment(horizontal="center")
     for r in rows:
         ws.append(r)
@@ -712,33 +726,35 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
     ids = visible_employee_ids(db, user)
     if kind == "balances":
         rows = []
-        for i, e in enumerate(db.scalars(scoped_employees(db, user)), 1):
+        for i, e in enumerate(db.scalars(scoped_employees(db, user, managed_only=True)), 1):
             b = compute_balance(db, e.id, year)
             rows.append([i, e.full_name, e.employee_no, e.department.name if e.department else "",
-                         b.base, b.approved_hours, b.earned_days, b.remainder_hours, b.adjustment, b.total,
-                         b.used_days, b.pending_days, b.remaining, b.state])
-        _sheet(wb, "أرصدة الموظفين", ["م", "اسم الموظف", "الرقم الوظيفي", "القسم", "الرصيد الأساسي",
-               "الساعات المعتمدة", "الأيام المكتسبة", "الساعات المتبقية", "تسوية", "إجمالي الرصيد",
-               "الأيام التي تمتع بها", "طلبات معلقة", "الرصيد المتبقي", "حالة الرصيد"], rows)
+                         e.manager.full_name if e.manager else "", b.granted_days, b.granted_hours,
+                         b.used_days, b.used_hours, b.days_left, b.hours_left, b.total_left_days,
+                         b.total_left_rem, b.granted_equiv_days, b.cap_days])
+        _sheet(wb, "أرصدة الموظفين", ["م", "اسم الموظف", "الرقم الوظيفي", "القسم", "الإداري", "أيام ممنوحة",
+               "ساعات ممنوحة", "أيام مستخدمة", "ساعات مستخدمة", "رصيد الأيام", "رصيد الساعات",
+               "الإجمالي (أيام)", "+ ساعات", "الممنوح بالأيام المعادلة", "الحد الأقصى"], rows)
         name = f"أرصدة بدل الراحة {year.name}.xlsx"
+    elif kind == "recommendations":
+        q = select(Recommendation).where(Recommendation.fiscal_year_id == year.id).order_by(Recommendation.rec_date)
+        if ids is not None:
+            q = q.where(Recommendation.employee_id.in_(ids))
+        rows = [[i, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
+                 r.subject, r.status_label, "نعم" if r.attachment_id else ""] for i, r in enumerate(db.scalars(q), 1)]
+        _sheet(wb, "التوصيات", ["م", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة",
+               "رقم التوصية", "الموضوع", "الحالة", "ملف PDF"], rows)
+        name = f"توصيات بدل الراحة {year.name}.xlsx"
     elif kind == "requests":
-        q = select(RestDayRequest).where(RestDayRequest.fiscal_year_id == year.id).order_by(RestDayRequest.rest_date)
+        q = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id).order_by(LeaveRequest.start_date)
         if ids is not None:
-            q = q.where(RestDayRequest.employee_id.in_(ids))
-        rows = [[i, r.employee.full_name, r.employee.employee_no, r.rest_date, r.status_label, r.notes,
-                 r.decision_note, "نعم" if r.attachment_id else ""] for i, r in enumerate(db.scalars(q), 1)]
-        _sheet(wb, "سجل أيام التمتع", ["م", "اسم الموظف", "الرقم الوظيفي", "تاريخ يوم بدل الراحة", "الحالة",
-               "ملاحظات", "ملاحظة القرار", "ملف التوصية"], rows)
-        name = f"سجل أيام التمتع {year.name}.xlsx"
-    elif kind == "tasks":
-        q = select(Task).where(Task.fiscal_year_id == year.id).order_by(Task.task_date)
-        if ids is not None:
-            q = q.where(Task.employee_id.in_(ids))
-        rows = [[i, t.employee.full_name, t.employee.employee_no, t.task_date, t.description, t.hours,
-                 t.status_label, t.notes] for i, t in enumerate(db.scalars(q), 1)]
-        _sheet(wb, "سجل المهام والساعات", ["م", "اسم الموظف", "الرقم الوظيفي", "تاريخ المهمة", "وصف المهمة",
-               "الساعات", "الحالة", "ملاحظات"], rows)
-        name = f"سجل المهام والساعات {year.name}.xlsx"
+            q = q.where(LeaveRequest.employee_id.in_(ids))
+        rows = [[i, r.employee.full_name, r.employee.employee_no, r.kind_label, r.start_date, r.end_date,
+                 r.days if r.unit == "days" else "", r.hours if r.unit == "hours" else "", r.status_label,
+                 r.reason, r.decision_note] for i, r in enumerate(db.scalars(q), 1)]
+        _sheet(wb, "الطلبات", ["م", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات",
+               "الحالة", "السبب", "ملاحظة القرار"], rows)
+        name = f"طلبات بدل الراحة {year.name}.xlsx"
     else:
         raise HTTPException(404, "نوع تصدير غير معروف.")
     for ws in wb.worksheets:

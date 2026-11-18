@@ -1,0 +1,20 @@
+{% extends "_print.html" %}
+{% from "_macros.html" import letter_head with context %}
+{% block title %}نموذج {{ req.kind_label }} — {{ req.employee.full_name }}{% endblock %}
+{% block letter %}
+  {{ letter_head('نموذج طلب ' ~ req.kind_label ~ ' من رصيد بدل الراحة', ref, 'تاريخ الطلب: ' ~ (req.created_at|d)) }}
+  <table><tbody>
+    <tr><th>اسم الموظف</th><td>{{ req.employee.full_name }}</td><th>الرقم الوظيفي</th><td>{{ req.employee.employee_no }}</td></tr>
+    <tr><th>القسم</th><td>{{ req.employee.department.name if req.employee.department else '' }}</td><th>الإداري المسؤول</th><td>{{ req.employee.manager.full_name if req.employee.manager else '' }}</td></tr>
+    <tr><th>نوع الطلب</th><td>{{ req.kind_label }}</td><th>الرصيد المستخدم</th><td>{{ 'رصيد الأيام' if req.unit == 'days' else 'رصيد الساعات' }}</td></tr>
+    <tr><th>{{ 'المدة' if req.kind == 'use' else 'تاريخ الغياب' }}</th><td>{{ req.start_date|d }}{% if req.end_date != req.start_date %} إلى {{ req.end_date|d }}{% endif %}</td><th>المقدار</th><td><b>{{ req.amount_label }}</b></td></tr>
+    <tr><th>السبب</th><td colspan="3">{{ req.reason or '—' }}</td></tr>
+  </tbody></table>
+  <h3>قرار الإداري</h3>
+  <table><tbody>
+    <tr><th>الحالة</th><td><b>{{ req.status_label }}</b></td><th>تاريخ القرار</th><td>{{ req.decided_at|d if req.decided_at else '—' }}</td></tr>
+    <tr><th>صاحب القرار</th><td>{{ req.decider.display_name if req.decider else '—' }}</td><th>ملاحظة</th><td>{{ req.decision_note or '—' }}</td></tr>
+  </tbody></table>
+  <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام {{ info.days_left|n }} · الساعات {{ info.hours_left|n }} · الإجمالي {{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %}.</p>
+  <div class="sign"><div>مقدم الطلب</div><div>الإداري المسؤول</div><div>الختم</div></div>
+{% endblock %}

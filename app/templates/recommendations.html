@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kind_badge, rec_amount, status_badge %}
+{% block title %}سجل التوصيات{% endblock %}
+{% block heading %}سجل التوصيات{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>سجل التوصيات</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} توصية</p></div>
+  <div class="actions">
+    {% if user.role in ('admin','officer') %}<a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>
+    <a class="btn primary" href="/recommendations/new?kind=days">+ توصية بالأيام</a><a class="btn primary" href="/recommendations/new?kind=hours">+ توصية بالساعات</a>{% endif %}
+  </div>
+</div>
+<form method="get" class="card filters">
+  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="days" {% if kind=='days' %}selected{% endif %}>بالأيام</option><option value="hours" {% if kind=='hours' %}selected{% endif %}>بالساعات</option></select></div>
+  {% if employees %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
+  <button class="btn primary">عرض</button>
+</form>
+<div class="card flush"><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>التاريخ</th><th>الموظف</th><th>النوع</th><th>القيمة</th><th>رقم التوصية</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for r in rows %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة"><b>{{ rec_amount(r) }}</b></td><td data-label="رقم التوصية">{{ r.ref_no }}</td><td data-label="الموضوع">{{ r.subject }}</td><td data-label="الحالة">{{ status_badge('approved' if r.status == 'active' else 'cancelled', r.status_label) }}</td>
+    <td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">إشعار</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="empty">لا توجد توصيات.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico %}
+{% set is_days = kind == 'days' %}
+{% block title %}توصية {{ 'بالأيام' if is_days else 'بالساعات' }}{% endblock %}
+{% block heading %}رفع توصية بدل راحة {{ 'بالأيام' if is_days else 'بالساعات' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('calendar-plus' if is_days else 'clock-plus', 'h-ico') }} توصية بدل راحة {{ 'بالأيام' if is_days else 'بالساعات' }}</h1>
+  <p>ترفع توصية العميد (PDF) في حساب الموظف، وتُضاف القيمة إلى رصيده فوراً. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }} (الأيام والساعات معاً){% if not is_days %}، وكل {{ sel_year.hours_per_day|n }} ساعات تعادل يوماً{% endif %}.</p></div>
+  <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="/recommendations/new?kind=days{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_days }}" aria-current="{{ 'page' if is_days else 'false' }}">بالأيام</a><a href="/recommendations/new?kind=hours{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_days }}" aria-current="{{ 'page' if not is_days else 'false' }}">بالساعات</a></div>
+</div>
+{% if not employees %}<div class="alert warn">لا يوجد موظفون مسندون إليك. يُسند مدير النظام الموظفين إلى الإداري من بطاقة الموظف.</div>{% else %}
+<form method="post" action="/recommendations/new" enctype="multipart/form-data" class="card form-narrow">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
+  <div class="field"><label for="emp">الموظف *</label>
+    <select id="emp" name="emp" required><option value="">— اختر —</option>
+      {% for e in employees %}{% set b = caps[e.id] %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %} {% if b.cap_left_hours <= 0 %}disabled{% endif %}>{{ e.full_name }} — {{ e.employee_no }} (المتاح للمنح: {% if is_days %}{{ (b.cap_left_hours / b.hours_per_day)|round(2)|n }} يوم{% else %}{{ b.cap_left_hours|n }} ساعة{% endif %})</option>{% endfor %}
+    </select></div>
+  <div class="form-grid">
+    <div class="field"><label for="am">{{ 'عدد الأيام الممنوحة' if is_days else 'عدد الساعات الممنوحة' }} *</label><input id="am" name="amount" type="number" required min="{{ 1 if is_days else 0.25 }}" step="{{ 1 if is_days else 0.25 }}" inputmode="decimal"></div>
+    <div class="field"><label for="dt">تاريخ التوصية *</label><input id="dt" name="rec_date" type="date" required value="{{ today|d }}"></div>
+    <div class="field"><label for="rf">رقم التوصية / الخطاب</label><input id="rf" name="ref_no" type="text" maxlength="64"></div>
+  </div>
+  <div class="field"><label for="sb">موضوع التكليف</label><input id="sb" name="subject" type="text" placeholder="مثال: المراقبة في الاختبارات النهائية"></div>
+  <div class="field"><label for="fl">ملف التوصية (PDF){{ ' *' if sel_year.require_task_attachment }}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" {% if sel_year.require_task_attachment %}required{% endif %}><span class="hint">الحد الأقصى 5 ميجابايت.</span></div>
+  <div class="actions"><button class="btn primary" type="submit">رفع التوصية وإضافة الرصيد</button><a class="btn" href="/recommendations">إلغاء</a></div>
+</form>{% endif %}
+{% endblock %}

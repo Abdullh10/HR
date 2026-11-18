@@ -1,49 +1,24 @@
 {% extends "base.html" %}
+{% from "_macros.html" import kind_badge %}
 {% block title %}الاعتمادات{% endblock %}
 {% block heading %}الاعتمادات{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>بانتظار اعتمادي</h1><p>{{ tasks|length }} مهمة · {{ reqs|length }} طلب يوم بدل راحة</p></div></div>
-<form method="post" action="/approvals/bulk">
-  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note" value="">
-  <section class="card flush">
-    <h2>طلبات أيام بدل الراحة</h2>
-    <div class="table-wrap"><table class="responsive">
-      <thead><tr><th><input type="checkbox" data-check-all="req_ids" aria-label="تحديد الكل"></th><th>الموظف</th><th>التاريخ</th><th>المتبقي قبل/بعد</th><th>التوصية</th><th>ملاحظات</th><th>قرار</th></tr></thead>
-      <tbody>
-      {% for r, b in reqs %}
-      <tr><td data-label="تحديد"><input type="checkbox" name="req_ids" value="{{ r.id }}" aria-label="تحديد طلب {{ r.employee.full_name }}"></td>
-        <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>
-        <td data-label="التاريخ" class="num">{{ r.rest_date|d }} <span class="hint">{{ WEEKDAYS_AR[r.rest_date.weekday()] }}</span></td>
-        <td data-label="المتبقي" class="num">{{ b.remaining }} ← <b class="{{ 'badge err' if b.remaining - 1 < 0 }}">{{ b.remaining - 1 }}</b></td>
-        <td data-label="التوصية">{% if r.attachment_id %}<a href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">معاينة PDF</a>{% else %}<span class="hint">لا يوجد</span>{% endif %}</td>
-        <td data-label="ملاحظات">{{ r.notes }}</td>
-        <td data-label="قرار" class="nowrap">
-          <button class="btn sm ok" formaction="/requests/{{ r.id }}/decide" name="action" value="approve">اعتماد</button>
-          <button class="btn sm danger" formaction="/requests/{{ r.id }}/decide" name="action" value="reject" data-need-note>رفض</button></td></tr>
-      {% else %}<tr><td colspan="7" class="empty">لا توجد طلبات بانتظارك.</td></tr>{% endfor %}
-      </tbody></table></div>
-  </section>
-  <section class="card flush">
-    <h2>المهام والساعات</h2>
-    <div class="table-wrap"><table class="responsive">
-      <thead><tr><th><input type="checkbox" data-check-all="task_ids" aria-label="تحديد الكل"></th><th>الموظف</th><th>التاريخ</th><th>الوصف</th><th class="n">الساعات</th><th>مرفق</th><th>قرار</th></tr></thead>
-      <tbody>
-      {% for t in tasks %}
-      <tr><td data-label="تحديد"><input type="checkbox" name="task_ids" value="{{ t.id }}" aria-label="تحديد مهمة {{ t.employee.full_name }}"></td>
-        <td data-label="الموظف"><a href="/employees/{{ t.employee_id }}">{{ t.employee.full_name }}</a></td>
-        <td data-label="التاريخ" class="num">{{ t.task_date|d }}</td><td data-label="الوصف">{{ t.description }}{% if t.notes %}<div class="hint">{{ t.notes }}</div>{% endif %}</td>
-        <td class="n" data-label="الساعات">{{ t.hours|n }}</td>
-        <td data-label="مرفق">{% if t.attachment_id %}<a href="/files/{{ t.attachment_id }}" target="_blank" rel="noopener">معاينة</a>{% endif %}</td>
-        <td data-label="قرار" class="nowrap">
-          <button class="btn sm ok" formaction="/tasks/{{ t.id }}/decide" name="action" value="approve">اعتماد</button>
-          <button class="btn sm danger" formaction="/tasks/{{ t.id }}/decide" name="action" value="reject" data-need-note>رفض</button></td></tr>
-      {% else %}<tr><td colspan="7" class="empty">لا توجد مهام بانتظارك.</td></tr>{% endfor %}
-      </tbody></table></div>
-  </section>
-  {% if tasks or reqs %}
-  <div class="actions"><span class="muted">للمحدد:</span>
-    <button class="btn ok" name="action" value="approve" data-confirm="اعتماد كل السجلات المحددة؟">اعتماد المحدد</button>
-    <button class="btn danger" name="action" value="reject" data-need-note>رفض المحدد</button></div>
-  {% endif %}
+<div class="page-head"><div><h1>الطلبات بانتظار قرارك</h1><p>{{ rows|length }} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+{% if rows %}
+<form method="post" action="/approvals/bulk" class="card flush">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note">
+  <div class="table-wrap"><table class="responsive">
+    <thead><tr><th><input type="checkbox" data-check-all="req_ids" aria-label="تحديد الكل"></th><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>المتاح</th><th></th></tr></thead><tbody>
+    {% for r, b in rows %}<tr>
+      <td><input type="checkbox" name="req_ids" value="{{ r.id }}" aria-label="تحديد طلب {{ r.employee.full_name }}"></td>
+      <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>
+      <td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة"><b>{{ r.amount_label }}</b></td>
+      <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
+      <td data-label="السبب">{{ r.reason }}{% if r.attachment_id %} <a href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td>
+      <td data-label="المتاح">{{ (b.days_left|n ~ ' يوم') if r.unit == 'days' else (b.hours_left|n ~ ' ساعة') }}</td>
+      <td class="actions-cell"><button class="btn sm ok" formaction="/requests/{{ r.id }}/decide" name="action" value="approve">اعتماد</button><button class="btn sm danger" formaction="/requests/{{ r.id }}/decide" name="action" value="reject" data-need-note>رفض</button></td></tr>{% endfor %}
+    </tbody></table></div>
+  <div class="actions pad"><button class="btn ok" name="action" value="approve" data-confirm="اعتماد الطلبات المحددة؟">اعتماد المحدد</button><button class="btn danger" name="action" value="reject" data-need-note>رفض المحدد</button></div>
 </form>
+{% else %}<div class="card empty">لا توجد طلبات بانتظار قرارك. 👍</div>{% endif %}
 {% endblock %}

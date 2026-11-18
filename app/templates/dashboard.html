@@ -1,48 +1,64 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select %}
+{% from "_macros.html" import ico, year_select, kind_badge, rec_amount %}
 {% block title %}لوحة المؤشرات{% endblock %}
 {% block heading %}لوحة المؤشرات{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>لوحة المؤشرات</h1><p>{% if user.role == 'manager' %}فريقك المباشر{% else %}جميع الموظفين{% endif %} · السنة {{ sel_year.name }} · طريقة الاحتساب: {{ {'fixed':'ثابت','earned':'مكتسب','mixed':'مختلط'}[sel_year.balance_mode] }}</p></div>
+  <div><h1>لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
   {{ year_select(years, sel_year) }}
 </div>
-{% if pending_tasks or pending_reqs %}
-<div class="alert warn" role="status">لديك {{ pending_tasks }} مهمة و{{ pending_reqs }} طلب بانتظار اعتمادك. <a href="/approvals">اذهب إلى الاعتمادات</a></div>
-{% endif %}
+<nav class="action-tiles" aria-label="إجراءات سريعة">
+  <a class="tile days" href="/recommendations/new?kind=days">{{ ico('calendar-plus') }}<span><b>توصية بدل راحة بالأيام</b><small>رفع توصية العميد بأيام ممنوحة</small></span></a>
+  <a class="tile hours" href="/recommendations/new?kind=hours">{{ ico('clock-plus') }}<span><b>توصية بدل راحة بالساعات</b><small>كل {{ sel_year.hours_per_day|n }} ساعات = يوم</small></span></a>
+  <a class="tile appr" href="/approvals">{{ ico('approvals') }}<span><b>الاعتمادات</b><small>{{ pending_count }} طلب بانتظار قرارك</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
+  <a class="tile msg" href="/messages">{{ ico('mail') }}<span><b>المراسلات</b><small>{{ unread }} رسالة غير مقروءة</small></span>{% if unread %}<span class="badge warn">{{ unread }}</span>{% endif %}</a>
+</nav>
 <div class="grid kpis">
-  <div class="kpi brand">{{ ico('users') }}<div class="l">إجمالي الموظفين</div><div class="v">{{ totals.employees }}</div>{% if totals.no_number %}<div class="s">{{ totals.no_number }} برقم وظيفي مؤقت</div>{% endif %}</div>
-  <div class="kpi accent">{{ ico('calendar') }}<div class="l">إجمالي أيام البدل</div><div class="v">{{ totals.total }}</div><div class="s">منها {{ totals.earned }} مكتسبة من {{ totals.hours|n }} ساعة</div></div>
-  <div class="kpi ok">{{ ico('cal-check') }}<div class="l">الأيام المعتمدة (المستهلكة)</div><div class="v">{{ totals.used }}</div></div>
-  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">طلبات معلّقة</div><div class="v">{{ totals.pending }}</div></div>
-  <div class="kpi">{{ ico('pie') }}<div class="l">إجمالي الأيام المتبقية</div><div class="v">{{ totals.remaining }}</div><div class="s">{{ totals.exhausted }} موظف نفد رصيده</div></div>
+  <div class="kpi brand">{{ ico('users') }}<div class="l">الموظفون</div><div class="v">{{ t.employees }}</div>{% if t.no_rec %}<div class="s">{{ t.no_rec }} بلا توصيات بعد</div>{% endif %}</div>
+  <div class="kpi accent">{{ ico('calendar') }}<div class="l">أيام ممنوحة بالتوصيات</div><div class="v">{{ t.granted_days|n }}</div><div class="s">مستخدم منها {{ t.used_days }}</div></div>
+  <div class="kpi">{{ ico('clock') }}<div class="l">ساعات ممنوحة بالتوصيات</div><div class="v">{{ t.granted_hours|n }}</div><div class="s">مستخدم منها {{ t.used_hours|n }}</div></div>
+  <div class="kpi ok">{{ ico('pie') }}<div class="l">الرصيد المتاح (معادل)</div><div class="v">{{ t.left_days }}</div><div class="s">يوماً{% if t.left_rem %} + {{ hours_ar(t.left_rem) }}{% endif %}</div></div>
+  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بلغوا الحد الأقصى</div><div class="v">{{ t.at_cap }}</div><div class="s">{{ days_ar(sel_year.base_days) }} في السنة</div></div>
 </div>
 <div class="grid two">
   <section class="card">
-    <h2>الأيام المعتمدة حسب الشهر</h2>
-    <div class="bars" role="img" aria-label="رسم الأيام المعتمدة لكل شهر">
+    <h2>الممنوح شهرياً (بالأيام المعادلة)</h2>
+    <div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">
       {% set months = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'] %}
-      {% for v in monthly %}<div class="bar"><b>{{ v if v else '' }}</b><span style="height: {{ (v / monthly_max * 100)|round(0) }}%"></span><small>{{ months[loop.index0] }}</small></div>{% endfor %}
+      {% for v in monthly %}<div class="bar"><b>{{ v|n if v else '' }}</b><span style="height: {{ (v / monthly_max * 100)|round(0) }}%"></span><small>{{ months[loop.index0] }}</small></div>{% endfor %}
     </div>
   </section>
   <section class="card flush">
-    <h2>حسب القسم</h2>
+    <h2>طلبات بانتظار القرار</h2>
     <div class="table-wrap"><table class="responsive">
-      <thead><tr><th>القسم</th><th class="n">موظفون</th><th class="n">الرصيد</th><th class="n">مستهلك</th><th class="n">متبقٍ</th></tr></thead>
-      <tbody>
-      {% for name, d in dept_rows[:12] %}<tr><td data-label="القسم">{{ name }}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="الرصيد">{{ d.total }}</td><td class="n" data-label="مستهلك">{{ d.used }}</td><td class="n" data-label="متبقٍ">{{ d.remaining }}</td></tr>
+      <thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
+      {% for r in pending %}<tr><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}</td></tr>
+      {% else %}<tr><td colspan="4" class="empty">لا توجد طلبات معلّقة.</td></tr>{% endfor %}
+      </tbody></table></div>
+    {% if pending_count > pending|length %}<p class="pad"><a href="/approvals">عرض الكل ({{ pending_count }})</a></p>{% endif %}
+  </section>
+</div>
+<div class="grid two">
+  {% if user.role == 'admin' %}
+  <section class="card flush">
+    <h2>حسب الإداري</h2>
+    <div class="table-wrap"><table class="responsive">
+      <thead><tr><th>الإداري</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th></tr></thead><tbody>
+      {% for name, d in by_officer %}<tr><td data-label="الإداري">{{ name }}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="ممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="مستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="متاح">{{ d.left|round(1)|n }}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد بيانات.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>
+  {% endif %}
+  <section class="card flush">
+    <h2>أحدث التوصيات</h2>
+    <div class="table-wrap"><table class="responsive">
+      <thead><tr><th>الموظف</th><th>النوع</th><th>القيمة</th><th>التاريخ</th></tr></thead><tbody>
+      {% for r in recent %}<tr><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td></tr>
+      {% else %}<tr><td colspan="4" class="empty">لم تُرفع توصيات بعد.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </section>
+  {% if near_cap %}
+  <section class="card"><h2>قاربوا الحد الأقصى (80% فأكثر)</h2><ul>{% for e, b in near_cap %}<li><a href="/employees/{{ e.id }}">{{ e.full_name }}</a> — {{ b.granted_equiv_days|n }} من {{ b.cap_days|n }} يوماً</li>{% endfor %}</ul></section>
+  {% endif %}
 </div>
-{% if alerts %}
-<section class="card"><h2>تنبيهات</h2><ul>{% for e, m in alerts %}<li><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a> — {{ m }}</li>{% endfor %}</ul></section>
-{% endif %}
-<section class="card">
-  <h2>بحث سريع عن موظف</h2>
-  <form method="get" action="/employees" class="filters">
-    <div class="field grow"><label for="q">الاسم أو جزء منه، أو الرقم الوظيفي</label><input id="q" type="search" name="q"></div>
-    <button class="btn primary" type="submit">بحث</button>
-  </form>
-</section>
 {% endblock %}

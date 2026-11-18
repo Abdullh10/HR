@@ -1,0 +1,12 @@
+{% extends "_print.html" %}
+{% from "_macros.html" import letter_head with context %}
+{% block title %}{{ m.subject }}{% endblock %}
+{% block letter %}
+  {{ letter_head('خطاب: ' ~ m.subject, ref) }}
+  <table><tbody>
+    <tr><th>من</th><td>{{ m.sender.display_name if m.sender else 'نظام ' ~ org.system_title }}{% if m.sender %} ({{ m.sender.role_label }}){% endif %}</td><th>إلى</th><td>{{ m.recipient.display_name }} ({{ m.recipient.role_label }})</td></tr>
+    <tr><th>التاريخ</th><td colspan="3">{{ m.created_at|d }}</td></tr>
+  </tbody></table>
+  <div class="letter-body">{{ m.body }}</div>
+  <div class="sign"><div>المرسل</div><div></div><div>الختم</div></div>
+{% endblock %}

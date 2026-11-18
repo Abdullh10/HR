@@ -122,6 +122,23 @@
     if (ev.target.tagName === "DIALOG" && ev.target.open) ev.target.close();
   });
 
+  // نموذج الطلب: إظهار حقول الأيام أو الساعات حسب الرصيد المختار
+  function syncUnit(form) {
+    var u = form.querySelector('[data-unit]:checked');
+    if (!u) return;
+    form.querySelectorAll("[data-for-unit]").forEach(function (el) {
+      var on = el.getAttribute("data-for-unit") === u.value;
+      el.hidden = !on;
+      el.querySelectorAll("input").forEach(function (i) { i.required = on && i.name === "hours"; });
+    });
+  }
+  document.addEventListener("change", function (ev) {
+    if (ev.target.matches("[data-unit]")) syncUnit(ev.target.form);
+    var g = ev.target.closest("[data-autosubmit-get]");
+    if (g && g.value) window.location = g.getAttribute("data-autosubmit-get") + encodeURIComponent(g.value);
+  });
+  document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("[data-leave-form]").forEach(syncUnit); });
+
   // إضافة تاريخ آخر في طلب بدل الراحة
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-add-date]");

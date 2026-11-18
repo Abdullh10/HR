@@ -1,0 +1,16 @@
+{% extends "_print.html" %}
+{% from "_macros.html" import letter_head, rec_amount with context %}
+{% block title %}إشعار منح بدل راحة — {{ rec.employee.full_name }}{% endblock %}
+{% block letter %}
+  {{ letter_head('إشعار منح بدل راحة ' ~ ('بالأيام' if rec.kind == 'days' else 'بالساعات'), ref, 'السنة: ' ~ sel_year.name) }}
+  {% if rec.status != 'active' %}<p class="stamp-void">ملغى — {{ rec.cancel_note }}</p>{% endif %}
+  <p>المكرم/ <b>{{ rec.employee.full_name }}</b> &nbsp; الرقم الوظيفي: {{ rec.employee.employee_no }}{% if rec.employee.department %} &nbsp; القسم: {{ rec.employee.department.name }}{% endif %}</p>
+  <p>السلام عليكم ورحمة الله وبركاته،</p>
+  <p>بناءً على توصية سعادة عميد {{ org.college }}{% if rec.ref_no %} رقم ({{ rec.ref_no }}){% endif %} المؤرخة في {{ rec.rec_date|d }}{% if rec.subject %} بشأن: <b>{{ rec.subject }}</b>{% endif %}، نفيدكم بأنه قد مُنح لكم <b>{{ rec.kind_label }}</b> مقداره <b>{{ rec_amount(rec) }}</b>{% if rec.kind == 'hours' %} (تعادل {{ (rec.amount / sel_year.hours_per_day)|round(2)|n }} يوماً، كل {{ sel_year.hours_per_day|n }} ساعات = يوم){% endif %}، وأُضيف إلى رصيدكم في نظام «{{ org.system_title }}».</p>
+  <table class="mt"><tbody>
+    <tr><th>رصيد الأيام الحالي</th><td>{{ info.days_left|n }}</td><th>رصيد الساعات الحالي</th><td>{{ info.hours_left|n }}</td></tr>
+    <tr><th>إجمالي المتاح</th><td colspan="3">{{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %} — الممنوح خلال السنة {{ info.granted_equiv_days|n }} من {{ info.cap_days|n }} يوماً</td></tr>
+  </tbody></table>
+  <p>وتقبلوا خالص التحية والتقدير،</p>
+  <div class="sign"><div>الإداري المسؤول<br><small>{{ rec.enterer.display_name if rec.enterer else '' }}</small></div><div>الموظف</div><div>الختم</div></div>
+{% endblock %}

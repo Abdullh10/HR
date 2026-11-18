@@ -1,29 +1,32 @@
 {% extends "base.html" %}
-{% block title %}طلب يوم بدل راحة{% endblock %}
-{% block heading %}طلب يوم بدل راحة{% endblock %}
+{% from "_macros.html" import ico, balance_board %}
+{% set is_use = kind == 'use' %}
+{% block title %}{{ 'طلب استبدال' if is_use else 'طلب تعويض غياب' }}{% endblock %}
+{% block heading %}{{ 'طلب استبدال رصيد' if is_use else 'طلب تعويض غياب' }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>طلب يوم بدل راحة</h1><p>يُرسل الطلب إلى المدير المباشر للاعتماد، ويُحجز اليوم من الرصيد حتى البت فيه.</p></div></div>
-{% if not year %}<div class="alert error">لا توجد سنة نشطة.</div>{% endif %}
-<form method="post" enctype="multipart/form-data" class="card" style="max-width:720px">
-  <input type="hidden" name="csrf_token" value="{{ csrf }}">
-  {% if user.role in ('admin','officer') %}
-  <div class="field"><label for="emp">الموظف *</label>
-    <select id="emp" name="emp" required>
-      <option value="">— اختر الموظف —</option>{% for e in employees %}<option value="{{ e.id }}" {% if sel == e.id %}selected{% endif %}>{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}
-    </select>
-    <span class="hint">يُسجَّل أن الطلب مقدَّم نيابةً عن الموظف.</span></div>
-  {% else %}<input type="hidden" name="emp" value="{{ user.employee_id }}">{% endif %}
-  {% if info %}
-  <div class="alert {{ 'ok' if info.available > 0 else 'error' }}" role="status">الرصيد المتبقي: <b>{{ info.remaining }}</b> · المعلّق: {{ info.pending_days }} · <b>المتاح للطلب: {{ info.available }}</b></div>
-  {% endif %}
-  <div class="field" id="dates"><label for="rd">تاريخ يوم بدل الراحة *</label><input id="rd" type="date" name="rest_date" required></div>
-  <button class="btn sm" type="button" data-add-date>+ يوم آخر</button>
-  <div class="field mt"><label for="f">ملف التوصية (PDF){% if year and year.require_request_attachment %} *{% else %} <span class="hint">اختياري</span>{% endif %}</label><input id="f" type="file" name="file" accept="application/pdf" {% if year and year.require_request_attachment %}required{% endif %}><span class="hint">بحد أقصى 5 ميجابايت.</span></div>
-  <div class="field"><label for="n">ملاحظات</label><textarea id="n" name="notes"></textarea></div>
-  <div class="hint">لا يُقبل: تاريخ خارج السنة، {% if year and year.block_weekends %}عطلة نهاية الأسبوع، {% endif %}العطل الرسمية، أو تاريخ مكرر للموظف نفسه.</div>
-  <div class="actions mt"><button class="btn primary" type="submit">إرسال الطلب</button><a class="btn" href="/requests">إلغاء</a></div>
+<div class="page-head"><div><h1>{{ ico('calendar-plus' if is_use else 'adjust', 'h-ico') }} {{ 'طلب استبدال رصيد' if is_use else 'طلب تعويض غياب' }}</h1>
+  <p>{{ 'استخدم رصيدك من الأيام أو الساعات في المدة والتاريخ الذي تختاره.' if is_use else 'إذا اضطررت للغياب، يُعوَّض الغياب من رصيدك بعد اعتماد الإداري.' }} يُعتمد الطلب من الإداري المسؤول.</p></div>
+  <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="/requests/new?kind=use{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_use }}">استبدال</a><a href="/requests/new?kind=compensation{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_use }}">تعويض غياب</a></div>
+</div>
+{% if info %}{{ balance_board(info) }}{% endif %}
+<form method="post" action="/requests/new" enctype="multipart/form-data" class="card form-narrow" data-leave-form>
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
+  {% if managed %}
+  <div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-autosubmit-get="/requests/new?kind={{ kind }}&emp="><option value="">— اختر —</option>
+    {% if self_emp %}<option value="{{ self_emp.id }}" {% if emp == self_emp.id %}selected{% endif %}>{{ self_emp.full_name }} (أنا)</option>{% endif %}
+    {% for e in managed %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }} — {{ e.employee_no }}</option>{% endfor %}</select></div>
+  {% else %}<input type="hidden" name="emp" value="{{ emp }}">{% endif %}
+  <fieldset class="unit-pick"><legend>الرصيد المستخدم *</legend>
+    <label class="radio-card"><input type="radio" name="unit" value="days" checked data-unit> {{ ico('calendar') }}<span><b>من رصيد الأيام</b>{% if info %}<small>المتاح: {{ info.days_available|n }} يوم</small>{% endif %}</span></label>
+    <label class="radio-card"><input type="radio" name="unit" value="hours" data-unit> {{ ico('clock') }}<span><b>من رصيد الساعات</b>{% if info %}<small>المتاح: {{ info.hours_available|n }} ساعة</small>{% endif %}</span></label>
+  </fieldset>
+  <div class="form-grid">
+    <div class="field"><label for="sd">{{ 'من تاريخ' if is_use else 'تاريخ الغياب' }} *</label><input id="sd" name="start_date" type="date" required {% if not is_use %}max="{{ today|d }}"{% endif %}></div>
+    <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date" {% if not is_use %}max="{{ today|d }}"{% endif %}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</span></div>
+    <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.25" step="0.25" inputmode="decimal"><span class="hint">كل {{ sel_year.hours_per_day|n }} ساعات = يوم.</span></div>
+  </div>
+  <div class="field"><label for="rs">{{ 'السبب / ملاحظات' if is_use else 'سبب الغياب' }}{{ '' if is_use else ' *' }}</label><textarea id="rs" name="reason" {% if not is_use %}required{% endif %}></textarea></div>
+  <div class="field"><label for="fl">مستند مؤيد (PDF){{ ' *' if sel_year.require_request_attachment }}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" {% if sel_year.require_request_attachment %}required{% endif %}></div>
+  <div class="actions"><button class="btn primary" type="submit">رفع الطلب</button><a class="btn" href="/requests">إلغاء</a></div>
 </form>
-{% if user.role in ('admin','officer') %}
-<form method="get" class="no-print card filters" style="max-width:720px"><div class="field grow"><label for="e2">عرض رصيد موظف قبل الطلب</label><select id="e2" name="emp" data-autosubmit><option value="">—</option>{% for e in employees %}<option value="{{ e.id }}" {% if sel == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div></form>
-{% endif %}
 {% endblock %}

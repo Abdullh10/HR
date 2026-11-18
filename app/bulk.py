@@ -22,7 +22,8 @@ HEADERS = {
     "no": ("الرقم الوظيفي", "الرقم", "رقم الموظف", "رقم وظيفي", "employee no", "employee number", "id"),
     "dept": ("القسم", "الوحده", "الاداره", "الجهه", "department"),
     "role": ("المنصب", "الدور", "الصلاحيه", "نوع الحساب", "role"),
-    "manager": ("رقم المدير المباشر", "المدير المباشر", "رقم المدير", "المدير", "manager"),
+    "manager": ("رقم الإداري", "الإداري المسؤول", "الإداري", "رقم المدير المباشر", "المدير المباشر", "رقم المدير",
+                "المدير", "manager", "officer"),
     "title": ("المسمى الوظيفي", "المسمى", "الوظيفه", "title", "job title"),
     "email": ("البريد", "البريد الالكتروني", "البريد الجامعي", "الايميل", "email"),
 }
@@ -32,8 +33,9 @@ ROLE_WORDS = {
     "موظف": "employee", "employee": "employee",
     "مسؤول": "officer", "مسئول": "officer", "مسؤول الادخال": "officer", "مسؤول ادخال": "officer",
     "مدخل بيانات": "officer", "officer": "officer",
-    "مدير مباشر": "manager", "مدير": "manager", "رئيس مباشر": "manager", "manager": "manager",
-    "متابع": "viewer", "مراقب": "viewer", "viewer": "viewer",
+    "إداري": "officer", "اداري": "officer", "officer": "officer",
+    "مدير مباشر": "officer", "مدير": "officer", "رئيس مباشر": "officer", "manager": "officer",
+    "متابع": "officer", "مراقب": "officer", "viewer": "officer",
 }
 _HEADER_LOOKUP = {norm_ar(v).lower(): k for k, vals in HEADERS.items() for v in vals}
 
@@ -45,7 +47,7 @@ def parse_role(text: str) -> str | None:
         return None
     if t in ROLE_WORDS:
         return ROLE_WORDS[t]
-    raise ValueError(f"منصب غير معروف «{text}» (المسموح: موظف، مسؤول، مدير مباشر، متابع)")
+    raise ValueError(f"منصب غير معروف «{text}» (المسموح: موظف، إداري)")
 
 
 def _clean(v) -> str:
@@ -198,7 +200,7 @@ def validate(db: Session, rows: list[Row]) -> list[Row]:
         if r.manager and r.manager == r.no:
             r.errors.append("لا يكون الموظف مديراً لنفسه")
         elif r.manager and r.manager not in file_nos and r.manager not in by_no:
-            r.errors.append(f"رقم المدير المباشر {r.manager} غير موجود")
+            r.errors.append(f"رقم الإداري المسؤول {r.manager} غير موجود")
         if r.errors:
             r.action = "error"
             continue
@@ -309,27 +311,28 @@ def template_workbook():
     ws = wb.active
     ws.title = "الموظفون"
     ws.sheet_view.rightToLeft = True
-    ws.append(["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم المدير المباشر", "المسمى الوظيفي", "البريد"])
+    ws.append(["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول", "المسمى الوظيفي", "البريد"])
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor="1B3A6B")
+        c.fill = PatternFill("solid", fgColor="00427A")
     help_ws = wb.create_sheet("تعليمات")
     help_ws.sheet_view.rightToLeft = True
     for line in (
         ["عبّئ ورقة «الموظفون» بدءاً من السطر الثاني، ولا تغيّر صف العناوين."],
         ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."],
-        ["المنصب: موظف، مسؤول، مدير مباشر، متابع (الافتراضي: موظف)."],
-        ["رقم المدير المباشر: الرقم الوظيفي لمن يعتمد طلبات الموظف."],
+        ["المنصب: موظف أو إداري (الافتراضي: موظف)."],
+        ["رقم الإداري المسؤول: الرقم الوظيفي للإداري الذي يرفع توصيات الموظف ويعتمد طلباته."],
+        ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."],
         ["يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، وكلمة مرور مؤقتة تُعرض بعد الاستيراد."],
         [""],
         ["مثال:"],
-        ["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم المدير المباشر"],
+        ["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول"],
         ["محمد أحمد العتيبي", "100500", "وحدة الشؤون الإدارية", "موظف", "100400"],
-        ["سارة علي القحطاني", "100400", "وحدة الشؤون الإدارية", "مدير مباشر", ""],
+        ["سارة علي القحطاني", "100400", "وحدة الشؤون الإدارية", "إداري", ""],
     ):
         help_ws.append(line)
     help_ws.column_dimensions["A"].width = 60
-    dv = DataValidation(type="list", formula1='"موظف,مسؤول,مدير مباشر,متابع"', allow_blank=True)
+    dv = DataValidation(type="list", formula1='"موظف,إداري"', allow_blank=True)
     ws.add_data_validation(dv)
     dv.add("D2:D2001")
     for col, w in zip("ABCDEFG", (32, 16, 30, 16, 20, 22, 26)):

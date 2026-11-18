@@ -5,19 +5,19 @@ import json
 import math
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .models import (
     AuditLog,
-    Balance,
     Employee,
     FiscalYear,
     Holiday,
-    RestDayRequest,
-    Task,
+    LeaveRequest,
+    Message,
+    Recommendation,
     User,
 )
 
@@ -82,45 +82,85 @@ def year_for_date(db: Session, d: date) -> FiscalYear | None:
 # ---------------------------------------------------------------- الرصيد
 @dataclass
 class BalanceInfo:
-    base: int
-    adjustment: int
-    approved_hours: float
-    pending_hours: float
-    earned_days: int
-    remainder_hours: float
-    used_days: int
-    taken_days: int
-    pending_days: int
-    total: int
-    remaining: int
-    available: int
+    """الرصيد السنوي: يُمنح بالتوصيات (أيام وساعات)، ويُستهلك بالطلبات المعتمدة."""
+
     hours_per_day: float
-    mode: str
+    cap_days: float
+    granted_days: float
+    granted_hours: float
+    used_days: int
+    used_hours: float
+    pending_days: int
+    pending_hours: float
 
     @property
-    def hours_to_next_day(self) -> float:
-        return round(self.hours_per_day - self.remainder_hours, 2)
+    def days_left(self) -> float:
+        return self.granted_days - self.used_days
 
     @property
-    def progress_pct(self) -> int:
-        if self.hours_per_day <= 0:
+    def hours_left(self) -> float:
+        return round(self.granted_hours - self.used_hours, 2)
+
+    @property
+    def days_available(self) -> float:
+        return self.days_left - self.pending_days
+
+    @property
+    def hours_available(self) -> float:
+        return round(self.hours_left - self.pending_hours, 2)
+
+    # ما يعادله رصيد الساعات من أيام (كل N ساعات = يوم)
+    @property
+    def hours_as_days(self) -> int:
+        return compute_earned(max(self.hours_left, 0), self.hours_per_day)[0]
+
+    @property
+    def hours_remainder(self) -> float:
+        return compute_earned(max(self.hours_left, 0), self.hours_per_day)[1]
+
+    @property
+    def total_left_hours(self) -> float:
+        return round(self.days_left * self.hours_per_day + self.hours_left, 2)
+
+    @property
+    def total_left_days(self) -> int:
+        return compute_earned(max(self.total_left_hours, 0), self.hours_per_day)[0]
+
+    @property
+    def total_left_rem(self) -> float:
+        return compute_earned(max(self.total_left_hours, 0), self.hours_per_day)[1]
+
+    @property
+    def granted_equiv_days(self) -> float:
+        return round(self.granted_days + self.granted_hours / self.hours_per_day, 2)
+
+    @property
+    def used_equiv_days(self) -> float:
+        return round(self.used_days + self.used_hours / self.hours_per_day, 2)
+
+    @property
+    def cap_left_hours(self) -> float:
+        return round(self.cap_days * self.hours_per_day - (self.granted_days * self.hours_per_day + self.granted_hours), 2)
+
+    @property
+    def cap_pct(self) -> int:
+        if self.cap_days <= 0:
             return 0
-        return int(round(self.remainder_hours / self.hours_per_day * 100))
+        return min(100, int(round(self.granted_equiv_days / self.cap_days * 100)))
 
     @property
-    def state(self) -> str:
-        if self.remaining < 0:
-            return "⚠ تجاوز الرصيد"
-        if self.remaining == 0:
-            return "نفد الرصيد"
-        return "متبقي رصيد"
+    def left_pct(self) -> int:
+        """نسبة المتبقي إلى الممنوح (لمؤشر الموظف)."""
+        granted = self.granted_days * self.hours_per_day + self.granted_hours
+        if granted <= 0:
+            return 0
+        return max(0, min(100, int(round(self.total_left_hours / granted * 100))))
 
 
 def compute_earned(hours: float, hours_per_day: float) -> tuple[int, float]:
-    """BR-01: الأيام = INT(الساعات ÷ ساعات اليوم)، والمتبقي = MOD."""
+    """الأيام = INT(الساعات ÷ ساعات اليوم)، والمتبقي = MOD."""
     if hours_per_day <= 0:
         return 0, 0.0
-    # تقريب لتفادي أخطاء الفاصلة العائمة (مثل 6.9999999)
     q = round(hours / hours_per_day, 9)
     days = int(math.floor(q))
     rem = round(hours - days * hours_per_day, 2)
@@ -128,112 +168,102 @@ def compute_earned(hours: float, hours_per_day: float) -> tuple[int, float]:
 
 
 def compute_balance(db: Session, employee_id: int, year: FiscalYear) -> BalanceInfo:
-    bal = db.scalar(
-        select(Balance).where(Balance.employee_id == employee_id, Balance.fiscal_year_id == year.id)
-    )
-    mode = year.balance_mode
-    base = 0
-    if mode in ("fixed", "mixed"):
-        base = bal.base_override if bal and bal.base_override is not None else year.base_days
-    adjustment = bal.adjustment_days if bal else 0
+    def rec_sum(kind: str) -> float:
+        return float(db.scalar(select(func.coalesce(func.sum(Recommendation.amount), 0)).where(
+            Recommendation.employee_id == employee_id, Recommendation.fiscal_year_id == year.id,
+            Recommendation.kind == kind, Recommendation.status == "active")) or 0)
 
-    def hours_sum(status: str) -> float:
-        return float(
-            db.scalar(
-                select(func.coalesce(func.sum(Task.hours), 0)).where(
-                    Task.employee_id == employee_id,
-                    Task.fiscal_year_id == year.id,
-                    Task.status == status,
-                )
-            )
-            or 0
-        )
+    def req_sum(col, unit: str, status: str) -> float:
+        return float(db.scalar(select(func.coalesce(func.sum(col), 0)).where(
+            LeaveRequest.employee_id == employee_id, LeaveRequest.fiscal_year_id == year.id,
+            LeaveRequest.unit == unit, LeaveRequest.status == status)) or 0)
 
-    approved_hours = hours_sum("approved")
-    pending_hours = hours_sum("pending")
-    earned, rem = compute_earned(approved_hours, year.hours_per_day)
-    if mode == "fixed":
-        earned_counted = 0
-    else:
-        earned_counted = earned
-
-    def count_req(*conds) -> int:
-        return int(
-            db.scalar(
-                select(func.count(RestDayRequest.id)).where(
-                    RestDayRequest.employee_id == employee_id,
-                    RestDayRequest.fiscal_year_id == year.id,
-                    *conds,
-                )
-            )
-            or 0
-        )
-
-    used = count_req(RestDayRequest.status == "approved")
-    taken = count_req(RestDayRequest.status == "approved", RestDayRequest.rest_date < date.today())
-    pending = count_req(RestDayRequest.status == "pending")
-    total = base + earned_counted + adjustment
-    remaining = total - used
     return BalanceInfo(
-        base=base,
-        adjustment=adjustment,
-        approved_hours=approved_hours,
-        pending_hours=pending_hours,
-        earned_days=earned if mode != "fixed" else 0,
-        remainder_hours=rem if mode != "fixed" else 0.0,
-        used_days=used,
-        taken_days=taken,
-        pending_days=pending,
-        total=total,
-        remaining=remaining,
-        available=remaining - pending,
         hours_per_day=year.hours_per_day,
-        mode=mode,
+        cap_days=year.base_days,
+        granted_days=rec_sum("days"),
+        granted_hours=rec_sum("hours"),
+        used_days=int(req_sum(LeaveRequest.days, "days", "approved")),
+        used_hours=req_sum(LeaveRequest.hours, "hours", "approved"),
+        pending_days=int(req_sum(LeaveRequest.days, "days", "pending")),
+        pending_hours=req_sum(LeaveRequest.hours, "hours", "pending"),
     )
 
 
 # ---------------------------------------------------------------- الصلاحيات
-def is_direct_manager(user: User, emp: Employee) -> bool:
-    return bool(user.employee_id and emp.manager_id == user.employee_id)
+def is_officer_of(user: User, emp: Employee) -> bool:
+    """الإداري المسند له الموظف (Employee.manager_id يشير إلى سجل الإداري)."""
+    return bool(user.role == "officer" and user.employee_id and emp.manager_id == user.employee_id)
 
 
 def can_view_employee(user: User, emp: Employee) -> bool:
-    if user.role in ("admin", "officer", "viewer"):
+    if user.role == "admin" or user.employee_id == emp.id:
         return True
-    if user.employee_id == emp.id:
-        return True
-    if user.role == "manager" and is_direct_manager(user, emp):
-        return True
-    return False
+    return is_officer_of(user, emp)
 
 
-def can_decide(user: User, emp: Employee, entered_by: int | None) -> bool:
-    """الاعتماد للمدير المباشر (أو الأدمن). لا يعتمد أحد سجله أو ما أدخله بنفسه."""
+def can_manage(user: User, emp: Employee) -> bool:
+    """رفع التوصيات واعتماد الطلبات: الأدمن أو الإداري المسند له — ولا أحد على سجله."""
     if user.employee_id == emp.id:
         return False
-    if entered_by is not None and entered_by == user.id:
-        return False
-    if user.role == "admin":
-        return True
-    return user.role == "manager" and is_direct_manager(user, emp)
+    return user.role == "admin" or is_officer_of(user, emp)
 
 
 def team_ids(db: Session, user: User) -> list[int]:
-    if not user.employee_id:
+    if user.role != "officer" or not user.employee_id:
         return []
     return list(db.scalars(select(Employee.id).where(Employee.manager_id == user.employee_id)))
 
 
 def visible_employee_ids(db: Session, user: User) -> list[int] | None:
     """None = الكل."""
-    if user.role in ("admin", "officer", "viewer"):
+    if user.role == "admin":
         return None
-    ids = set()
+    ids = set(team_ids(db, user))
     if user.employee_id:
         ids.add(user.employee_id)
-    if user.role == "manager":
-        ids.update(team_ids(db, user))
     return list(ids)
+
+
+def officer_users_for(db: Session, emp: Employee) -> list[User]:
+    if not emp.manager_id:
+        return []
+    return list(db.scalars(select(User).where(User.employee_id == emp.manager_id, User.is_active.is_(True),
+                                              User.role.in_(("officer", "admin")))))
+
+
+def employee_user(db: Session, emp: Employee) -> User | None:
+    return db.scalar(select(User).where(User.employee_id == emp.id, User.is_active.is_(True)))
+
+
+def message_recipients(db: Session, user: User) -> list[User]:
+    """الأدمن ↔ الجميع، الإداري ↔ الأدمن وموظفيه، الموظف ↔ إداريه (أو الأدمن إن لم يُسند)."""
+    active = select(User).where(User.is_active.is_(True), User.id != user.id)
+    if user.role == "admin":
+        return list(db.scalars(active.order_by(User.role, User.username)))
+    admins = list(db.scalars(active.where(User.role == "admin")))
+    if user.role == "officer":
+        ids = team_ids(db, user)
+        team = list(db.scalars(active.where(User.employee_id.in_(ids)))) if ids else []
+        return admins + team
+    emp = user.employee
+    officers = [u for u in officer_users_for(db, emp) if u.id != user.id] if emp else []
+    return officers or admins
+
+
+def notify(db: Session, to: User | None, subject: str, body: str = "", link: str = "",
+           sender: User | None = None) -> None:
+    """رسالة داخل المنصة + بريد إلكتروني إن كان مفعّلاً."""
+    if not to:
+        return
+    from . import mailer
+    m = Message(sender_id=sender.id if sender else None, recipient_id=to.id, subject=subject[:200],
+                body=body, link=link, created_at=datetime.now())
+    email = to.employee.email if to.employee else ""
+    if email:
+        org = "إتمام"
+        m.emailed = mailer.send(email, f"[{org}] {subject}", f"{body}\n\n— نظام {org}")
+    db.add(m)
 
 
 # ---------------------------------------------------------------- التحقق
@@ -245,64 +275,115 @@ def ensure_year_open(year: FiscalYear | None) -> FiscalYear:
     return year
 
 
-def validate_task(db: Session, emp: Employee, task_date: date, hours: float, has_attachment: bool,
-                  exclude_id: int | None = None) -> FiscalYear:
+def working_days(db: Session, year: FiscalYear, start: date, end: date) -> list[date]:
+    """أيام العمل بين تاريخين (تستبعد عطلة نهاية الأسبوع والعطل الرسمية)."""
+    hol = set(db.scalars(select(Holiday.day).where(Holiday.day >= start, Holiday.day <= end)))
+    out, d = [], start
+    while d <= end:
+        if not (year.block_weekends and d.weekday() in year.weekend_set) and d not in hol:
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def validate_recommendation(db: Session, emp: Employee, kind: str, amount: float, rec_date: date,
+                            has_attachment: bool) -> FiscalYear:
     if not emp.is_active:
         raise RuleError("الموظف غير نشط.")
-    year = ensure_year_open(year_for_date(db, task_date))
-    if hours is None or hours <= 0:
-        raise RuleError("أدخل عدد ساعات أكبر من صفر.")
-    if hours > year.max_hours_per_task:
-        raise RuleError(f"الحد الأقصى لساعات المهمة الواحدة {year.max_hours_per_task:g} ساعة.")
-    if not year.allow_future_tasks and task_date > date.today():
-        raise RuleError("لا يمكن تسجيل مهمة بتاريخ مستقبلي.")
+    if kind not in ("days", "hours"):
+        raise RuleError("نوع التوصية غير صحيح.")
+    year = ensure_year_open(year_for_date(db, rec_date))
+    if amount is None or amount <= 0:
+        raise RuleError("أدخل قيمة أكبر من صفر.")
+    if kind == "days" and float(amount) != int(amount):
+        raise RuleError("توصية الأيام تكون بأيام كاملة.")
     if year.require_task_attachment and not has_attachment:
-        raise RuleError("إرفاق ملف (PDF) إلزامي للمهام وفق إعدادات السنة.")
+        raise RuleError("إرفاق ملف التوصية (PDF) إلزامي.")
+    b = compute_balance(db, emp.id, year)
+    need = amount * year.hours_per_day if kind == "days" else amount
+    if need > b.cap_left_hours + 1e-9:
+        left = max(b.cap_left_hours, 0)
+        d, r = compute_earned(left, year.hours_per_day)
+        raise RuleError(f"تتجاوز التوصية الحد الأقصى السنوي ({year.base_days:g} يوماً). المتاح للمنح: "
+                        f"{days_ar(d)}{' و' + hours_ar(r) if r else ''}.")
     return year
 
 
-def validate_rest_day(db: Session, emp: Employee, rest_date: date, has_attachment: bool) -> FiscalYear:
+def check_can_cancel_recommendation(db: Session, rec: Recommendation) -> None:
+    year = ensure_year_open(db.get(FiscalYear, rec.fiscal_year_id))
+    if rec.status != "active":
+        raise RuleError("التوصية ملغاة مسبقاً.")
+    b = compute_balance(db, rec.employee_id, year)
+    if rec.kind == "days" and b.days_left - rec.amount < 0:
+        raise RuleError("لا يمكن الإلغاء: الأيام الممنوحة بهذه التوصية مستخدمة في طلبات معتمدة.")
+    if rec.kind == "hours" and b.hours_left - rec.amount < -1e-9:
+        raise RuleError("لا يمكن الإلغاء: الساعات الممنوحة بهذه التوصية مستخدمة في طلبات معتمدة.")
+
+
+def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date, end: date | None,
+                   hours: float | None, has_attachment: bool, exclude_id: int | None = None) -> tuple[FiscalYear, int, float]:
+    """يعيد (السنة، عدد الأيام، عدد الساعات)."""
     if not emp.is_active:
         raise RuleError("الموظف غير نشط.")
-    year = ensure_year_open(year_for_date(db, rest_date))
-    if year.block_weekends and rest_date.weekday() in year.weekend_set:
-        raise RuleError(f"التاريخ يوافق {WEEKDAYS_AR[rest_date.weekday()]} (عطلة نهاية الأسبوع).")
-    hol = db.scalar(select(Holiday).where(Holiday.day == rest_date))
-    if hol:
-        raise RuleError(f"التاريخ يوافق عطلة رسمية: {hol.name}.")
-    dup = db.scalar(
-        select(RestDayRequest.id).where(
-            RestDayRequest.employee_id == emp.id,
-            RestDayRequest.rest_date == rest_date,
-            RestDayRequest.status.in_(("pending", "approved")),
-        )
-    )
-    if dup:
-        raise RuleError("يوجد طلب فعّال لنفس الموظف في نفس التاريخ (تاريخ مكرر).")
+    if kind not in ("use", "compensation") or unit not in ("days", "hours"):
+        raise RuleError("نوع الطلب غير صحيح.")
+    if start is None:
+        raise RuleError("أدخل التاريخ.")
+    year = ensure_year_open(year_for_date(db, start))
+    if kind == "compensation" and start > date.today():
+        raise RuleError("طلب التعويض يكون عن غياب حدث فعلاً (تاريخ اليوم أو قبله).")
     if year.require_request_attachment and not has_attachment:
-        raise RuleError("إرفاق ملف التوصية (PDF) إلزامي وفق إعدادات السنة.")
-    info = compute_balance(db, emp.id, year)
-    if info.available <= 0:
-        raise RuleError(f"لا يوجد رصيد متاح (المتبقي {info.remaining}، والمعلّق {info.pending_days}).")
-    return year
+        raise RuleError("إرفاق مستند مؤيد (PDF) إلزامي وفق إعدادات السنة.")
+    b = compute_balance(db, emp.id, year)
+    days, hrs = 0, 0.0
+    if unit == "days":
+        end = end or start
+        if end < start:
+            raise RuleError("تاريخ النهاية قبل تاريخ البداية.")
+        if year_for_date(db, end) is not year:
+            raise RuleError("يجب أن تقع مدة الطلب ضمن سنة واحدة.")
+        wd = working_days(db, year, start, end)
+        if not wd:
+            raise RuleError("المدة المختارة لا تتضمن أيام عمل (عطلة نهاية أسبوع أو عطلة رسمية).")
+        days = len(wd)
+        overlap = db.scalar(select(LeaveRequest.id).where(
+            LeaveRequest.employee_id == emp.id, LeaveRequest.unit == "days",
+            LeaveRequest.status.in_(("pending", "approved")),
+            LeaveRequest.start_date <= end, LeaveRequest.end_date >= start,
+            LeaveRequest.id != (exclude_id or 0)))
+        if overlap:
+            raise RuleError("يوجد طلب فعّال يتداخل مع هذه المدة.")
+        if days > b.days_available:
+            raise RuleError(f"رصيد الأيام المتاح ({days_ar(max(b.days_available, 0))}) لا يكفي لمدة {days_ar(days)}.")
+    else:
+        end = start
+        if hours is None or hours <= 0:
+            raise RuleError("أدخل عدد ساعات أكبر من صفر.")
+        if hours > year.hours_per_day * 5:
+            raise RuleError("عدد الساعات كبير جداً لطلب واحد.")
+        hrs = round(float(hours), 2)
+        if hrs > b.hours_available + 1e-9:
+            raise RuleError(f"رصيد الساعات المتاح ({hours_ar(max(b.hours_available, 0))}) لا يكفي.")
+    return year, days, hrs
 
 
-def check_can_approve_request(db: Session, req: RestDayRequest) -> None:
-    year = db.get(FiscalYear, req.fiscal_year_id)
-    ensure_year_open(year)
-    info = compute_balance(db, req.employee_id, year)
-    if info.remaining <= 0:
-        raise RuleError("اعتماد هذا الطلب يتجاوز رصيد الموظف.")
+def check_can_approve_leave(db: Session, req: LeaveRequest) -> None:
+    year = ensure_year_open(db.get(FiscalYear, req.fiscal_year_id))
+    b = compute_balance(db, req.employee_id, year)
+    # المعلّق يتضمن هذا الطلب نفسه؛ نتحقق أن الرصيد (دون المعلّقات الأخرى) يكفيه
+    if req.unit == "days" and req.days > b.days_left:
+        raise RuleError("اعتماد هذا الطلب يتجاوز رصيد الأيام.")
+    if req.unit == "hours" and req.hours > b.hours_left + 1e-9:
+        raise RuleError("اعتماد هذا الطلب يتجاوز رصيد الساعات.")
 
 
-def check_can_cancel(db: Session, req: RestDayRequest, user: User) -> None:
-    year = db.get(FiscalYear, req.fiscal_year_id)
-    ensure_year_open(year)
+def check_can_cancel_leave(db: Session, req: LeaveRequest, user: User) -> None:
+    year = ensure_year_open(db.get(FiscalYear, req.fiscal_year_id))
     if req.status not in ("pending", "approved"):
         raise RuleError("لا يمكن إلغاء هذا الطلب في حالته الحالية.")
-    if req.status == "approved" and req.rest_date < date.today():
+    if req.status == "approved" and req.start_date < date.today():
         if not year.allow_late_cancel and user.role != "admin":
-            raise RuleError("لا يمكن إلغاء يوم بعد مرور تاريخه (يتطلب صلاحية الأدمن).")
+            raise RuleError("لا يمكن إلغاء طلب معتمد بعد مرور تاريخه (يتطلب صلاحية الأدمن).")
 
 
 # ---------------------------------------------------------------- التدقيق

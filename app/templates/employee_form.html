@@ -9,12 +9,12 @@
     <div class="field"><label for="no">الرقم الوظيفي *</label><input id="no" name="employee_no" type="text" required value="{{ emp.employee_no if emp else '' }}">{% if emp and emp.is_temp_no %}<span class="hint">رقم مؤقت من الترحيل — استبدله بالرقم الصحيح.</span>{% endif %}</div>
     <div class="field"><label for="nm">الاسم *</label><input id="nm" name="full_name" type="text" required value="{{ emp.full_name if emp else '' }}"></div>
     <div class="field"><label for="dp">القسم</label><select id="dp" name="department_id"><option value="">—</option>{% for d in depts %}<option value="{{ d.id }}" {% if emp and emp.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="mg">المدير المباشر <span class="hint">(يعتمد طلباته)</span></label><select id="mg" name="manager_id"><option value="">—</option>{% for m in managers if not emp or m.id != emp.id %}<option value="{{ m.id }}" {% if emp and emp.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="mg">الإداري المسؤول <span class="hint">(يرفع توصياته ويعتمد طلباته)</span></label><select id="mg" name="manager_id"><option value="">— غير مُسند —</option>{% for m in officers if not emp or m.id != emp.id %}<option value="{{ m.id }}" {% if emp and emp.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select>{% if not officers %}<span class="hint">لا يوجد إداريون بعد: أنشئ حساباً بدور «إداري» من المستخدمين.</span>{% endif %}</div>
     <div class="field"><label for="jt">المسمى الوظيفي</label><input id="jt" name="job_title" type="text" value="{{ emp.job_title if emp else '' }}"></div>
-    <div class="field"><label for="em">البريد الجامعي</label><input id="em" name="email" type="email" value="{{ emp.email if emp else '' }}"></div>
+    <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" name="email" type="email" value="{{ emp.email if emp else '' }}"></div>
   </div>
   <div class="field"><label for="nt">ملاحظات</label><textarea id="nt" name="notes">{{ emp.notes if emp else '' }}</textarea></div>
-  {% if emp %}<label class="check"><input type="checkbox" name="is_active" value="1" {% if emp.is_active %}checked{% endif %} {% if user.role != 'admin' and not emp.is_active %}disabled{% endif %}> على رأس العمل (نشط)</label>{% endif %}
+  {% if emp %}<label class="check"><input type="checkbox" name="is_active" value="1" {% if emp.is_active %}checked{% endif %}> على رأس العمل (نشط)</label>{% endif %}
   <div class="actions"><button class="btn primary" type="submit">حفظ</button><a class="btn" href="{{ '/employees/%d'|format(emp.id) if emp else '/employees' }}">إلغاء</a></div>
 </form>
 {% endblock %}

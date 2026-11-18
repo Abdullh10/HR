@@ -21,14 +21,18 @@ from .db import Base
 
 ROLES = {
     "admin": "مدير النظام",
-    "officer": "مسؤول الإدخال",
-    "manager": "مدير مباشر",
-    "viewer": "متابع",
+    "officer": "إداري",
     "employee": "موظف",
 }
+# أدوار قديمة تُرحَّل تلقائياً إلى «إداري»
+LEGACY_ROLES = ("manager", "viewer")
 
 # المناصب التي يمكن إسنادها للموظفين عند الاستيراد (الأدمن يُسند يدوياً فقط)
-ASSIGNABLE_ROLES = ("employee", "officer", "manager", "viewer")
+ASSIGNABLE_ROLES = ("employee", "officer")
+
+REC_KINDS = {"days": "بدل راحة بالأيام", "hours": "بدل راحة بالساعات"}
+LEAVE_KINDS = {"use": "استبدال", "compensation": "تعويض غياب"}
+LEAVE_UNITS = {"days": "أيام", "hours": "ساعات"}
 
 BALANCE_MODES = {
     "fixed": "ثابت (رصيد سنوي محدد)",
@@ -246,3 +250,94 @@ class AuditLog(Base):
     details: Mapped[str] = mapped_column(Text, default="")
     ip: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+
+
+class Recommendation(Base):
+    """توصية العميد بمنح بدل راحة (بالأيام أو بالساعات)، يرفعها الإداري في حساب الموظف."""
+
+    __tablename__ = "recommendations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), index=True)
+    fiscal_year_id: Mapped[int] = mapped_column(ForeignKey("fiscal_years.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))  # days | hours
+    amount: Mapped[float] = mapped_column(Float)
+    rec_date: Mapped[date] = mapped_column(Date)
+    ref_no: Mapped[str] = mapped_column(String(64), default="")
+    subject: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | cancelled
+    attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id"))
+    entered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    cancel_note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    employee: Mapped[Employee] = relationship()
+    attachment: Mapped[Attachment | None] = relationship()
+    enterer: Mapped["User | None"] = relationship(foreign_keys=[entered_by])
+    __table_args__ = (CheckConstraint("amount > 0", name="ck_rec_amount"),)
+
+    @property
+    def kind_label(self) -> str:
+        return REC_KINDS.get(self.kind, self.kind)
+
+    @property
+    def status_label(self) -> str:
+        return "سارية" if self.status == "active" else "ملغاة"
+
+
+class LeaveRequest(Base):
+    """طلب الموظف: استبدال رصيد بإجازة، أو تعويض غياب من الرصيد — بالأيام أو بالساعات."""
+
+    __tablename__ = "leave_requests"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), index=True)
+    fiscal_year_id: Mapped[int] = mapped_column(ForeignKey("fiscal_years.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # use | compensation
+    unit: Mapped[str] = mapped_column(String(8))  # days | hours
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    days: Mapped[int] = mapped_column(Integer, default=0)
+    hours: Mapped[float] = mapped_column(Float, default=0)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id"))
+    requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decision_note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    employee: Mapped[Employee] = relationship()
+    attachment: Mapped[Attachment | None] = relationship()
+    decider: Mapped["User | None"] = relationship(foreign_keys=[decided_by])
+
+    @property
+    def kind_label(self) -> str:
+        return LEAVE_KINDS.get(self.kind, self.kind)
+
+    @property
+    def status_label(self) -> str:
+        return REQUEST_STATUSES.get(self.status, self.status)
+
+    @property
+    def amount_label(self) -> str:
+        from .services import days_ar, hours_ar
+        return days_ar(self.days) if self.unit == "days" else hours_ar(self.hours)
+
+
+class Message(Base):
+    """مراسلات داخل المنصة (وإشعارات النظام عندما يكون المرسل فارغاً)."""
+
+    __tablename__ = "messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sender_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    subject: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    link: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime)
+    emailed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    sender: Mapped["User | None"] = relationship(foreign_keys=[sender_id])
+    recipient: Mapped["User"] = relationship(foreign_keys=[recipient_id])

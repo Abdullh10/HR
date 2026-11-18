@@ -22,15 +22,16 @@ PW = "Passw0rd99"
 
 @pytest.fixture()
 def world():
+    """مدير نظام، إداري (mgr) مسند له الموظف e، وموظف o غير مُسند."""
     Base.metadata.drop_all(engine)
     init_db()
     with SessionLocal() as db:
         y = db.query(FiscalYear).one()
-        y.allow_future_tasks = True
+        y.require_task_attachment = False
         d = Department(name="وحدة الشؤون الإدارية")
         db.add(d)
         db.flush()
-        m = Employee(employee_no="1001", full_name="مدير الوحدة", department_id=d.id)
+        m = Employee(employee_no="1001", full_name="الإداري المسؤول", department_id=d.id, email="mgr@example.com")
         db.add(m)
         db.flush()
         e = Employee(employee_no="1002", full_name="موظف أول", department_id=d.id, manager_id=m.id)
@@ -39,9 +40,8 @@ def world():
         db.flush()
         admin = db.query(User).filter_by(username="admin").one()
         admin.password_hash, admin.must_change_password = hash_password(PW), False
-        for uname, role, emp in (("officer", "officer", None), ("mgr", "manager", m), ("emp", "employee", e),
-                                 ("emp2", "employee", o)):
-            db.add(User(username=uname, role=role, employee_id=emp.id if emp else None,
+        for uname, role, emp in (("mgr", "officer", m), ("emp", "employee", e), ("emp2", "employee", o)):
+            db.add(User(username=uname, role=role, employee_id=emp.id,
                         password_hash=hash_password(PW), must_change_password=False))
         db.commit()
         ids = dict(year=y.id, m=m.id, e=e.id, o=o.id, dept=d.id)
