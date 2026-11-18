@@ -102,6 +102,9 @@ a { color: var(--brand-2); }
   background: var(--sidebar); color: var(--sidebar-text); padding: 1.25rem .9rem; position: sticky; top: 0; height: 100vh; overflow-y: auto;
   border-inline-end: 1px solid var(--sidebar-border);
 }
+a.brand, a.t-logo { text-decoration: none; color: inherit; border-radius: 12px; }
+a.brand:hover .wordmark, a.t-logo:hover b { opacity: .85; }
+a.brand:focus-visible, a.t-logo:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .brand { display: flex; gap: .7rem; align-items: center; margin: 0 .25rem 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--sidebar-border); }
 .brand .mark {
   width: 42px; height: 42px; flex: none; border-radius: 10px;

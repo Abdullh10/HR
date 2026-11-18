@@ -286,14 +286,14 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="40" height="40"></div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <a class="brand" href="#/" title="الصفحة الرئيسية"><div class="mark" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="40" height="40"></div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></a>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
     ${bannerHidden() ? "" : `<div class="demo-banner" role="note"><span>نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية.</span> <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button><button class="banner-x" data-act="hideBanner" type="button" aria-label="إخفاء الشريط" title="إخفاء الشريط">×</button></div>`}
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
-      <span class="t-logo" aria-hidden="true"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></span>
+      <a class="t-logo" href="#/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></a>
       <span class="title">${h(title)}</span><span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>

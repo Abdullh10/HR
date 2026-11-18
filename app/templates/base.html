@@ -20,10 +20,10 @@
 <a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand">
+    <a class="brand" href="/" title="الصفحة الرئيسية">
       <div class="mark" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="40" height="40"></div>
       <div><b class="wordmark">{{ org.system_title or "إتمام" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
-    </div>
+    </a>
     {% set here = path ~ ('?' ~ request.url.query if request.url.query else '') %}
     {% macro item(href, label, icon, badge=None) -%}
       <li><a href="{{ href }}" title="{{ label }}" {% if here == href or (href == '/employees' and path.startswith('/employees/') and not path.endswith('/new/form')) %}aria-current="page"{% endif %}>{{ ico(icon) }}<span class="lbl">{{ label }}</span>{% if badge %}<span class="badge count">{{ badge }}</span>{% endif %}</a></li>
@@ -68,7 +68,7 @@
   <div class="main">
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
-      <span class="t-logo" aria-hidden="true"><img src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="30" height="30"><b>{{ org.system_title or "إتمام" }}</b></span>
+      <a class="t-logo" href="/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="30" height="30"><b>{{ org.system_title or "إتمام" }}</b></a>
       <span class="title">{% block heading %}{% endblock %}</span>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
