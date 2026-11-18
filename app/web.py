@@ -42,7 +42,7 @@ templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "5"
+ASSET_V = "6"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"

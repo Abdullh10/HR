@@ -708,6 +708,46 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
   #entry tr { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* ---------- ملاءمة صفحة الدخول للشاشة: كل شيء ظاهر دون تمرير، والتذييل ثابت أسفل الشاشة */
+.gate { min-height: 100vh; min-height: 100dvh; }
+.gate-foot { position: sticky; bottom: 0; z-index: 3; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.gate-foot-in { padding-block: .6rem; }
+.gate-main { padding-block: clamp(.9rem, 3vh, 2.25rem); }
+.gate-card { padding-block: clamp(1rem, 2.6vh, 1.6rem); }
+.gate-card .card-brand { gap: .35rem; margin: 0 0 clamp(.6rem, 1.8vh, 1rem); padding-bottom: clamp(.6rem, 1.8vh, 1rem); }
+.gate-card .card-brand .logo-img { width: clamp(50px, 7vh, 64px); height: clamp(50px, 7vh, 64px); }
+.gate-card .card-brand .wordmark { font-size: clamp(1.5rem, 1.1rem + 1.6vh, 1.85rem); }
+.gate-card .card-brand small { font-size: .86rem; margin-top: 0; }
+.gate-card .login-h { font-size: 1.15rem; }
+.gate-card .sub { margin: .15rem 0 clamp(.7rem, 2vh, 1.15rem); font-size: .88rem; }
+.gate-card .field { margin-bottom: clamp(.65rem, 1.8vh, 1rem); }
+.gate-help { margin-top: clamp(.7rem, 2vh, 1.1rem); padding-top: clamp(.6rem, 1.6vh, .9rem); }
+@media (min-width: 769px) and (max-height: 860px) {
+  .gate-hero { max-height: 26vh; margin-block: 0 .4rem; }
+  .gate-intro h2 { margin-block: .5rem .35rem; }
+  .gate-intro .lead { margin-bottom: 1rem; font-size: .95rem; }
+  .gate-features span { display: none; }
+}
+@media (min-width: 769px) and (max-height: 700px) { .gate-hero { display: none; } }
+@media (min-width: 769px) and (max-height: 860px) {
+  .gate-card .card-brand { flex-direction: row; justify-content: center; text-align: start; gap: .7rem; }
+  .gate-card .card-brand .logo-img { width: 50px; height: 50px; }
+  .gate-card .sub { display: none; }
+  .gate-card .login-h { margin-bottom: .6rem; }
+}
+@media (max-width: 768px) {
+  .gate-intro { display: none; }
+  .gate-main { align-items: flex-start; padding: .75rem .75rem 1rem; }
+  .gate-foot-in { justify-content: center; text-align: center; gap: .2rem 1rem; padding-block: .5rem; font-size: .78rem; }
+  .gate-card .card-brand { flex-direction: row; justify-content: center; text-align: start; gap: .65rem; }
+  .gate-card .card-brand .logo-img { width: 48px; height: 48px; }
+  .gate-card .card-brand .wordmark { font-size: 1.55rem; }
+  .gate-card .card-brand small { font-size: .8rem; }
+  .gate-card .sub { display: none; }
+  .gate-card .login-h { margin-bottom: .6rem; }
+  .gate-help { font-size: .8rem; }
+}
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
