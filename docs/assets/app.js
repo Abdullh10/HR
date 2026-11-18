@@ -216,14 +216,14 @@
     return `<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-    <div class="brand"><div class="mark" aria-hidden="true">${ico("logo")}</div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
+    <div class="brand"><div class="mark" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=3" alt="" width="40" height="40"></div><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.university)} · ${h(s.college)}</small></div></div>
     <ul class="nav">${nav}</ul>
   </aside>
   <div class="main">
     <div class="demo-banner" role="note">نسخة عرض: البيانات محفوظة في متصفحك فقط ولا تُشارك مع أحد. لا تُدخل بيانات حقيقية. <button class="btn sm" data-act="reset" type="button">استعادة بيانات العرض</button></div>
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
-      ${ico("logo", "t-logo")}
+      <span class="t-logo" aria-hidden="true"><img src="assets/logo.svg?v=3" alt="" width="30" height="30"><b>${h(DB.settings.system_title)}</b></span>
       <span class="title">${h(title)}</span><span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
@@ -258,7 +258,7 @@
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
   <header class="gate-head"><div class="gate-head-in">
-    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true">${ico("logo")}</span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
+    <a class="gate-org" href="#/login" aria-label="${h(s.system_title)} – ${h(s.tagline)}"><span class="emblem" aria-hidden="true"><img class="logo-img" src="assets/logo.svg?v=3" alt="" width="40" height="40"></span><span><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></span></a>
     <span class="gate-sys hide-sm">${h(s.university)} · ${h(s.college)}</span>
     <button class="btn ghost icon-btn" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
   </div></header>

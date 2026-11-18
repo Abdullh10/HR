@@ -20,7 +20,7 @@
 <div class="layout">
   <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
     <div class="brand">
-      <div class="mark" aria-hidden="true">{{ ico('logo') }}</div>
+      <div class="mark" aria-hidden="true"><img class="logo-img" src="/static/logo.svg?v=3" alt="" width="40" height="40"></div>
       <div><b class="wordmark">{{ org.system_title or "إتمام" }}</b><small>{{ org.university }} · {{ org.college }}</small></div>
     </div>
     {% macro item(href, label, icon, badge=None) -%}
@@ -59,7 +59,7 @@
   <div class="main">
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
-      {{ ico('logo', 't-logo') }}
+      <span class="t-logo" aria-hidden="true"><img src="/static/logo.svg?v=3" alt="" width="30" height="30"><b>{{ org.system_title or "إتمام" }}</b></span>
       <span class="title">{% block heading %}{% endblock %}</span>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
