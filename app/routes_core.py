@@ -763,3 +763,95 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
                 if isinstance(c.value, date):
                     c.number_format = "yyyy-mm-dd"
     return _xlsx_response(wb, name)
+
+
+# ================================================================ الأرشيف (الإداري والأدمن)
+def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, kind: str, q: str):
+    ids = [e.id for e in db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True))]
+    recs, reqs = [], []
+    if kind in ("", "recs"):
+        st = select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
+                                          Recommendation.employee_id.in_(ids) if ids else false())
+        if emp:
+            st = st.where(Recommendation.employee_id == emp)
+        recs = list(db.scalars(st.order_by(Recommendation.rec_date.desc(), Recommendation.id.desc())))
+    if kind in ("", "reqs"):
+        st = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id,
+                                        LeaveRequest.employee_id.in_(ids) if ids else false())
+        if emp:
+            st = st.where(LeaveRequest.employee_id == emp)
+        reqs = list(db.scalars(st.order_by(LeaveRequest.start_date.desc(), LeaveRequest.id.desc())))
+    if q.strip():
+        k = q.strip()
+        recs = [r for r in recs if k in (r.employee.full_name + r.employee.employee_no + r.subject + r.ref_no)]
+        reqs = [r for r in reqs if k in (r.employee.full_name + r.employee.employee_no + r.reason)]
+    return ids, recs, reqs
+
+
+@router.get("/archive")
+def archive(request: Request, year_id: int | None = None, emp: int | None = None, kind: str = "", q: str = "",
+            user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    year = pick_year(db, year_id)
+    ids, recs, reqs = _archive_rows(db, user, year, emp, kind, q)
+    msgs = [] if kind else list(db.scalars(select(Message).where(
+        or_(Message.sender_id == user.id, Message.recipient_id == user.id),
+        Message.created_at >= datetime.combine(year.start_date, datetime.min.time()),
+        Message.created_at <= datetime.combine(year.end_date, datetime.max.time()))
+        .order_by(Message.created_at.desc()).limit(500)))
+    return render(request, db, "archive.html", user=user, sel_year=year, years=years(db), recs=recs, reqs=reqs,
+                  msgs=msgs, emp=emp, kind=kind, q=q,
+                  employees=list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True))))
+
+
+@router.get("/archive/export.zip")
+def archive_export(request: Request, year_id: int | None = None, user: User = Depends(require(*STAFF)),
+                   db: Session = Depends(get_db)):
+    """حزمة أرشيف للسنة: ملف Excel فهرس (التوصيات، الطلبات، الأرصدة) + ملفات PDF المرفقة."""
+    import zipfile
+    from urllib.parse import quote
+
+    from fastapi.responses import Response
+    from openpyxl import Workbook
+
+    year = pick_year(db, year_id)
+    ids, recs, reqs = _archive_rows(db, user, year, None, "", "")
+    wb = Workbook()
+    wb.remove(wb.active)
+    _sheet(wb, "التوصيات", ["رقم", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة", "رقم التوصية",
+           "الموضوع", "الحالة", "ملف PDF"],
+           [[r.id, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
+             r.subject, r.status_label, f"pdf/REC-{r.id}.pdf" if r.attachment_id else ""] for r in recs])
+    _sheet(wb, "الطلبات", ["رقم", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات", "الحالة",
+           "السبب", "ملاحظة القرار"],
+           [[r.id, r.employee.full_name, r.employee.employee_no, r.kind_label, r.start_date, r.end_date,
+             r.days if r.unit == "days" else "", r.hours if r.unit == "hours" else "", r.status_label, r.reason,
+             r.decision_note] for r in reqs])
+    bal = []
+    for e in db.scalars(select(Employee).where(Employee.id.in_(ids) if ids else false()).order_by(Employee.full_name)):
+        b = compute_balance(db, e.id, year)
+        bal.append([e.full_name, e.employee_no, b.granted_days, b.granted_hours, b.days_left, b.hours_left,
+                    b.total_left_days, b.total_left_rem])
+    _sheet(wb, "الأرصدة", ["اسم الموظف", "الرقم الوظيفي", "أيام ممنوحة", "ساعات ممنوحة", "رصيد الأيام", "رصيد الساعات",
+           "الإجمالي (أيام)", "+ ساعات"], bal)
+    for ws in wb.worksheets:
+        for row in ws.iter_rows(min_row=2):
+            for c in row:
+                if isinstance(c.value, date):
+                    c.number_format = "yyyy-mm-dd"
+    xbuf = io.BytesIO()
+    wb.save(xbuf)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(f"فهرس الأرشيف {year.name}.xlsx", xbuf.getvalue())
+        for r, prefix in [(r, "REC") for r in recs] + [(r, "REQ") for r in reqs]:
+            if r.attachment_id:
+                att = db.get(Attachment, r.attachment_id)
+                p = UPLOAD_DIR / att.stored_name if att else None
+                if p and p.exists():
+                    z.write(p, f"pdf/{prefix}-{r.id}.pdf")
+    audit(db, user, "archive_exported", "archive", None, ip=client_ip(request), year=year.name,
+          recs=len(recs), reqs=len(reqs))
+    db.commit()
+    name = f"أرشيف بدل الراحة {year.name}.zip"
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})

@@ -392,3 +392,77 @@ async def import_commit(request: Request, user: User = Depends(admin_only), db: 
                    + (f"، وتغيير منصب {res.roles_changed}" if res.roles_changed else "")
                    + (f". تُجووز {res.skipped} صف تغيّر وضعه." if res.skipped else "."))
     return render(request, db, "admin_users_created.html", user=user, made=res.accounts)
+
+
+# ================================================================ النسخ الاحتياطي والحذف الكامل
+WIPE_WORD = "حذف"
+RESTORE_WORD = "استعادة"
+
+
+@router.get("/data")
+def data_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from .models import LeaveRequest as LR, Message as Msg, Recommendation as Rec
+    counts = dict(employees=db.scalar(select(func.count(Employee.id))) or 0,
+                  users=db.scalar(select(func.count(User.id))) or 0,
+                  recs=db.scalar(select(func.count(Rec.id))) or 0,
+                  reqs=db.scalar(select(func.count(LR.id))) or 0,
+                  msgs=db.scalar(select(func.count(Msg.id))) or 0)
+    last = db.scalar(select(AuditLog).where(AuditLog.action == "backup_downloaded").order_by(AuditLog.id.desc()))
+    return render(request, db, "admin_data.html", user=user, counts=counts, last_backup=last,
+                  wipe_word=WIPE_WORD, restore_word=RESTORE_WORD)
+
+
+@router.get("/backup.zip")
+def backup_download(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from datetime import datetime
+    from urllib.parse import quote
+
+    from fastapi.responses import Response
+
+    from . import backup
+    blob = backup.dump(db)
+    audit(db, user, "backup_downloaded", "system", None, ip=client_ip(request), size=len(blob))
+    db.commit()
+    name = f"نسخة احتياطية إتمام {datetime.now():%Y-%m-%d %H%M}.zip"
+    return Response(blob, media_type="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
+
+
+@router.post("/restore")
+async def backup_restore(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from . import backup
+    form = await request.form()
+    up = form.get("file")
+    if str(form.get("confirm") or "").strip() != RESTORE_WORD:
+        flash(request, f"للتأكيد اكتب كلمة «{RESTORE_WORD}» في الحقل المخصص.", "error")
+        return redirect("/admin/data")
+    if not getattr(up, "filename", ""):
+        flash(request, "اختر ملف النسخة الاحتياطية (ZIP).", "error")
+        return redirect("/admin/data")
+    blob = await up.read(200 * 1024 * 1024 + 1)
+    try:
+        counts = backup.restore(db, blob)
+        audit(db, None, "backup_restored", "system", None, ip=client_ip(request), by=user.username,
+              employees=counts.get("employees", 0))
+        db.commit()
+    except ValueError as e:
+        db.rollback()
+        flash(request, str(e), "error")
+        return redirect("/admin/data")
+    request.session.clear()
+    flash(request, f"تمت استعادة النسخة الاحتياطية ({counts.get('employees', 0)} موظف، {counts.get('users', 0)} حساب). سجّل الدخول من جديد.")
+    return redirect("/login")
+
+
+@router.post("/wipe")
+def data_wipe(request: Request, confirm: str = Form(""), user: User = Depends(admin_only),
+              db: Session = Depends(get_db)):
+    from . import backup
+    if confirm.strip() != WIPE_WORD:
+        flash(request, f"لم يُحذف شيء: للتأكيد اكتب كلمة «{WIPE_WORD}» كما هي.", "error")
+        return redirect("/admin/data")
+    backup.wipe(db, user.id)
+    audit(db, user, "all_data_wiped", "system", None, ip=client_ip(request))
+    db.commit()
+    flash(request, "تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط.")
+    return redirect("/admin/data")

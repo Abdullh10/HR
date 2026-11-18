@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico, kind_badge, rec_amount, status_badge %}
+{% block title %}الأرشيف{% endblock %}
+{% block heading %}الأرشيف{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('archive', 'h-ico') }} الأرشيف</h1><p>سجل موثّق لكل التوصيات والطلبات والمراسلات{{ ' للموظفين المسندين إليك' if user.role == 'officer' else '' }} — السنة {{ sel_year.name }}</p></div>
+  <div class="actions"><a class="btn primary" href="/archive/export.zip?year_id={{ sel_year.id }}">تنزيل أرشيف السنة (ZIP)</a></div></div>
+<form method="get" class="card filters">
+  <div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="اسم، رقم وظيفي، موضوع، رقم توصية"></div>
+  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="recs" {% if kind=='recs' %}selected{% endif %}>التوصيات</option><option value="reqs" {% if kind=='reqs' %}selected{% endif %}>الطلبات</option></select></div>
+  <div class="field"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
+  <button class="btn primary">عرض</button>
+</form>
+<p class="hint">حزمة الأرشيف تضم ملف Excel فهرساً (التوصيات، الطلبات، الأرصدة) مع ملفات PDF المرفقة، لحفظها في أرشيف الوحدة.</p>
+{% if kind in ('', 'recs') %}
+<section class="card flush"><h2>التوصيات ({{ recs|length }})</h2><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>رقم</th><th>التاريخ</th><th>الموظف</th><th>النوع</th><th>القيمة</th><th>رقم التوصية</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="رقم" class="num">REC-{{ r.id }}</td><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}</td><td data-label="رقم التوصية">{{ r.ref_no }}</td><td data-label="الموضوع">{{ r.subject }}</td><td data-label="الحالة">{{ status_badge('approved' if r.status == 'active' else 'cancelled', r.status_label) }}</td>
+    <td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">إشعار</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="9" class="empty">لا توجد توصيات.</td></tr>{% endfor %}
+  </tbody></table></div></section>
+{% endif %}
+{% if kind in ('', 'reqs') %}
+<section class="card flush"><h2>الطلبات ({{ reqs|length }})</h2><div class="table-wrap"><table class="responsive">
+  <thead><tr><th>رقم</th><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for r in reqs %}<tr><td data-label="رقم" class="num">REQ-{{ r.id }}</td><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}</td>
+    <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">نموذج</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
+  </tbody></table></div></section>
+{% endif %}
+{% if msgs %}
+<section class="card flush"><h2>مراسلاتي ({{ msgs|length }})</h2><ul class="msg-list">
+  {% for m in msgs %}<li><a href="/messages/{{ m.id }}"><span class="who">{{ 'إلى: ' ~ m.recipient.display_name if m.sender_id == user.id else (m.sender.display_name if m.sender else 'إشعار النظام') }}</span><b class="subj">{{ m.subject }}</b><span class="snip">{{ m.body[:110] }}</span><time class="num">{{ m.created_at|d }}</time></a></li>{% endfor %}
+</ul></section>
+{% endif %}
+{% endblock %}

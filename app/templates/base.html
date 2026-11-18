@@ -40,6 +40,7 @@
         {{ item('/recommendations/new?kind=hours', 'توصية بالساعات', 'clock-plus') }}
         {{ item('/recommendations', 'سجل التوصيات', 'cal-check') }}
         {{ item('/requests', 'طلبات الموظفين', 'calendar') }}
+        {{ item('/archive', 'الأرشيف', 'archive') }}
       {% endif %}
       {% if user.employee_id %}
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
@@ -62,6 +63,7 @@
         {{ item('/admin/holidays', 'العطل الرسمية', 'holiday') }}
         {{ item('/admin/settings', 'هوية الجهة', 'palette') }}
         {{ item('/admin/audit', 'سجل التدقيق', 'audit') }}
+        {{ item('/admin/data', 'النسخ الاحتياطي والبيانات', 'database') }}
       {% endif %}
     </ul>
   </aside>

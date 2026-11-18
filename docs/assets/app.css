@@ -852,6 +852,11 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
 .official .letter-foot { margin-top: 2rem; padding-top: .6rem; border-top: 1px solid #c3d0dd; font-size: .78rem; color: #555; text-align: center; }
 .official .stamp-void { color: #b42318; border: 2px solid #b42318; display: inline-block; padding: .2rem .8rem; font-weight: 700; transform: rotate(-3deg); }
 
+/* ---------- النسخ الاحتياطي والحذف */
+.sm-ico { width: 30px; height: 30px; vertical-align: middle; color: var(--ic-brand); margin-inline-end: .2rem; }
+.danger-zone { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); background: color-mix(in srgb, var(--err-soft) 55%, var(--surface)); }
+.danger-zone h2 { color: var(--err); }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

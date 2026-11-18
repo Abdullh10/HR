@@ -251,7 +251,7 @@
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
   // الأيقونات تُضمَّن في الصفحة (inline sprite): مراجع <use> لملف خارجي لا تحلّ التدرجات في Safari/iOS فتختفي الرموز.
-  const ASSET_V = "5";
+  const ASSET_V = "6";
   let SPRITE_INLINE = false, HERO_INLINE = false;
   const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="${SPRITE_INLINE ? "" : "assets/icons.svg?v=" + ASSET_V}#i-${n}"/></svg>`;
   async function inlineSprite(file) {
@@ -275,10 +275,10 @@
     const item = (href, label, icon, badge) => `<li><a href="${href}" title="${label}" ${here === href || (href === "#/employees" && sg[0] === "employee") ? 'aria-current="page"' : ""}>${ico(icon)}<span class="lbl">${label}</span>${badge ? `<span class="badge count">${badge}</span>` : ""}</a></li>`;
     const nav = [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "موظفيّ", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
-        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}` : "",
+        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}${item("#/archive", "الأرشيف", "archive")}` : "",
       u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? item("#/requests/new?kind=use", "طلب استبدال", u.role === "employee" ? "calendar-plus" : "idcard") + item("#/requests/new?kind=compensation", "طلب تعويض غياب", "adjust") : ""}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
-      u.role === "admin" ? `<li class="sep">الإدارة</li>${item("#/admin/users", "المستخدمون والصلاحيات", "shield")}${item("#/admin/import", "استيراد الموظفين", "upload")}${item("#/admin/years", "السنة وقواعد الرصيد", "gear")}${item("#/admin/depts", "الأقسام", "building")}${item("#/admin/holidays", "العطل الرسمية", "holiday")}${item("#/admin/settings", "هوية الجهة", "palette")}${item("#/admin/audit", "سجل التدقيق", "audit")}` : "",
+      u.role === "admin" ? `<li class="sep">الإدارة</li>${item("#/admin/users", "المستخدمون والصلاحيات", "shield")}${item("#/admin/import", "استيراد الموظفين", "upload")}${item("#/admin/years", "السنة وقواعد الرصيد", "gear")}${item("#/admin/depts", "الأقسام", "building")}${item("#/admin/holidays", "العطل الرسمية", "holiday")}${item("#/admin/settings", "هوية الجهة", "palette")}${item("#/admin/audit", "سجل التدقيق", "audit")}${item("#/admin/data", "النسخ الاحتياطي والبيانات", "database")}` : "",
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
     flashQ = [];
@@ -687,6 +687,26 @@
       <article class="card msg-body">${h(m.body)}</article>`);
   }
 
+  V.archive = (u, q) => {
+    need(u, STAFF);
+    const y = pickYear(q), kind = q.get("kind") || "", emp = Number(q.get("emp") || 0), qs = (q.get("q") || "").trim(), emps = managedEmps(u, true), ids = new Set(emps.map((e) => e.id));
+    const match = (r, txt) => !qs || txt.includes(qs);
+    const recs = kind === "reqs" ? [] : DB.recs.filter((r) => r.year === y.id && ids.has(r.emp) && (!emp || r.emp === emp)).filter((r) => { const e = byId("emps", r.emp); return match(r, e.name + e.no + r.subject + r.ref); }).sort((a, b) => b.date.localeCompare(a.date));
+    const reqs = kind === "recs" ? [] : DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!emp || r.emp === emp)).filter((r) => { const e = byId("emps", r.emp); return match(r, e.name + e.no + r.reason); }).sort((a, b) => b.start.localeCompare(a.start));
+    const msgs = kind ? [] : DB.msgs.filter((m) => (m.from === u.id || m.to === u.id) && m.at.slice(0, 10) >= y.start && m.at.slice(0, 10) <= y.end).sort((a, b) => b.at.localeCompare(a.at));
+    return layout(u, "الأرشيف", `<div class="page-head"><div><h1>${ico("archive", "h-ico")} الأرشيف</h1><p>سجل موثّق لكل التوصيات والطلبات والمراسلات${u.role === "officer" ? " للموظفين المسندين إليك" : ""} — السنة ${h(y.name)}</p></div>
+      <div class="actions"><button class="btn primary" type="button" data-act="archive-export" data-year="${y.id}">تنزيل أرشيف السنة (Excel)</button></div></div>
+      <form class="card filters" data-form="filter" data-route="archive"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(qs)}" placeholder="اسم، رقم وظيفي، موضوع، رقم توصية"></div>
+        <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="recs" ${kind === "recs" ? "selected" : ""}>التوصيات</option><option value="reqs" ${kind === "reqs" ? "selected" : ""}>الطلبات</option></select></div>
+        <div class="field"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(emps, emp, "الكل")}</select></div>${yearSelect(y)}<button class="btn primary">عرض</button></form>
+      <p class="hint">في النظام الفعلي تُنزَّل حزمة ZIP تضم ملف Excel فهرساً مع ملفات PDF المرفقة، لحفظها في أرشيف الوحدة.</p>
+      ${kind !== "reqs" ? `<section class="card flush"><h2>التوصيات (${recs.length})</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>رقم</th><th>التاريخ</th><th>الموظف</th><th>النوع</th><th>القيمة</th><th>رقم التوصية</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead><tbody>
+        ${recs.map((r) => { const e = byId("emps", r.emp); return `<tr class="${r.status !== "active" ? "muted-row" : ""}"><td data-label="رقم" class="num">REC-${r.id}</td><td data-label="التاريخ" class="num">${r.date}</td><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="القيمة">${recAmount(r)}</td><td data-label="رقم التوصية">${h(r.ref)}</td><td data-label="الموضوع">${h(r.subject)}</td><td data-label="الحالة">${statusBadge(r.status === "active" ? "approved" : "cancelled", r.status === "active" ? "سارية" : "ملغاة")}</td><td class="actions-cell"><a class="btn sm" href="#/print/rec/${r.id}">إشعار</a> ${pdfChip(r.att)}</td></tr>`; }).join("") || '<tr><td colspan="9" class="empty">لا توجد توصيات.</td></tr>'}</tbody></table></div></section>` : ""}
+      ${kind !== "recs" ? `<section class="card flush"><h2>الطلبات (${reqs.length})</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>رقم</th><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
+        ${reqs.map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="رقم" class="num">REQ-${r.id}</td><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة">${leaveAmount(r)}</td><td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="الحالة">${statusBadge(r.status, REQ_ST[r.status])}</td><td class="actions-cell"><a class="btn sm" href="#/print/req/${r.id}">نموذج</a></td></tr>`; }).join("") || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>` : ""}
+      ${msgs.length ? `<section class="card flush"><h2>مراسلاتي (${msgs.length})</h2><ul class="msg-list">${msgs.map((m) => `<li><a href="#/messages/${m.id}"><span class="who">${m.from === u.id ? "إلى: " + h(displayName(byId("users", m.to))) : h(displayName(m.from ? byId("users", m.from) : null))}</span><b class="subj">${h(m.subject)}</b><span class="snip">${h(m.body.slice(0, 110))}</span><time class="num">${m.at}</time></a></li>`).join("")}</ul></section>` : ""}`);
+  };
+
   V.reports = (u, q) => {
     need(u, STAFF);
     const y = pickYear(q), ids = new Set(managedEmps(u, true).map((e) => e.id));
@@ -820,6 +840,28 @@
       <div class="field"><label for="s4">سطر الحقوق <span class="hint">(اختياري)</span></label><input id="s4" name="credit" value="${h(s.credit)}"></div>
       <button class="btn primary">حفظ</button></form>`); };
 
+  const WIPE_WORD = "حذف", RESTORE_WORD = "استعادة";
+  A.data = (u) => {
+    const last = DB.audit.find((a) => a.action === "backup_downloaded");
+    return layout(u, "النسخ الاحتياطي والبيانات", `<div class="page-head"><div><h1>${ico("database", "h-ico")} النسخ الاحتياطي والبيانات</h1>
+      <p>البيانات الحالية: ${DB.emps.length} موظف · ${DB.users.length} حساب · ${DB.recs.length} توصية · ${DB.leaves.length} طلب · ${DB.msgs.length} رسالة</p></div></div>
+      <div class="grid two">
+        <section class="card"><h2>${ico("archive", "sm-ico")} أخذ نسخة احتياطية</h2>
+          <p>ملف واحد يضم كل البيانات (الموظفين، الحسابات، التوصيات، الطلبات، المراسلات، الإعدادات، سجل التدقيق). في النظام الفعلي يضم أيضاً ملفات PDF المرفقة.</p>
+          <p class="hint">${last ? "آخر نسخة نُزّلت: " + h(last.at) + " بواسطة " + h(last.user) + "." : "لم تُنزَّل أي نسخة احتياطية بعد."} احفظ الملف في مكان آمن.</p>
+          <button class="btn primary" type="button" data-act="backup">تنزيل نسخة احتياطية الآن</button></section>
+        <section class="card"><h2>${ico("upload", "sm-ico")} استعادة نسخة احتياطية</h2>
+          <p>تستبدل <b>كل</b> البيانات الحالية بمحتوى النسخة، ثم يُطلب تسجيل الدخول من جديد.</p>
+          <form data-form="restore"><div class="field"><label for="bf">ملف النسخة</label><input id="bf" type="file" name="file" accept=".json,application/json" required></div>
+            <div class="field"><label for="rc">للتأكيد اكتب كلمة «${RESTORE_WORD}»</label><input id="rc" name="confirm" autocomplete="off" required></div>
+            <button class="btn">استعادة</button></form></section></div>
+      <section class="card danger-zone"><h2>⚠ حذف جميع البيانات</h2>
+        <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والأقسام، والعطل، وسجل التدقيق. تبقى السنوات وهوية الجهة وحسابك فقط. <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
+        <p class="hint">ننصح بتنزيل نسخة احتياطية أولاً. (في نسخة العرض يمكنك إرجاع البيانات التجريبية من «استعادة بيانات العرض».)</p>
+        <form class="filters" data-form="wipe"><div class="field grow"><label for="wc">للتأكيد اكتب كلمة «${WIPE_WORD}»</label><input id="wc" name="confirm" autocomplete="off" required placeholder="${WIPE_WORD}"></div>
+          <button class="btn danger">حذف جميع البيانات</button></form></section>`);
+  };
+
   A.audit = (u, q) => { const qs = (q.get("q") || "").trim(); const rows = DB.audit.filter((a) => !qs || [a.user, a.action, a.entity, a.details].join(" ").includes(qs)).slice(0, 300);
     return layout(u, "سجل التدقيق", `<div class="page-head"><div><h1>سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد.</p></div></div>
       <form class="card filters" data-form="filter" data-route="admin/audit"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(qs)}"></div><button class="btn primary">بحث</button></form>
@@ -916,6 +958,10 @@
       rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp)).sort((a, b) => a.start.localeCompare(b.start)).map((r, i) => { const e = byId("emps", r.emp); return [i + 1, e.name, e.no, LEAVE_KINDS[r.kind], r.start, r.end, r.unit === "days" ? r.days : "", r.unit === "hours" ? r.hours : "", REQ_ST[r.status], r.reason, r.note]; });
       name = "طلبات بدل الراحة " + y.name; }
     download([head, ...rows], name);
+  }
+  function downloadBook(sheets, name) {
+    if (window.XLSX) { const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; sheets.forEach(([title, aoa]) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!views"] = [{ RTL: true }]; XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30)); }); XLSX.writeFile(wb, name + ".xlsx"); return; }
+    download(sheets.reduce((all, [title, aoa]) => all.concat([[title]], aoa, [[]]), []), name);
   }
   function download(aoa, name) {
     if (window.XLSX) { const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!views"] = [{ RTL: true }]; const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 30)); XLSX.writeFile(wb, name + ".xlsx"); return; }
@@ -1040,6 +1086,24 @@
   F["dept-edit"] = (form) => { const d = fd(form), x = byId("depts", form.dataset.id), nm = String(d.get("name")).trim(); if (!nm || DB.depts.some((y) => y.id !== x.id && norm(y.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); x.name = nm; x.active = !!d.get("active"); save(); flash("تم حفظ القسم."); render(); };
   F["dept-merge"] = (form) => { const d = fd(form), s = Number(d.get("src")), t = Number(d.get("dst")); if (s === t) throw new RuleError("اختر قسمين مختلفين."); if (!confirm("دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟")) return; let c = 0; DB.emps.forEach((e) => { if (e.dept === s) { e.dept = t; c++; } }); const src = byId("depts", s); DB.depts = DB.depts.filter((x) => x.id !== s); audit("department_merged", "department", t, { source: src.name, moved: c }); save(); flash("تم الدمج ونقل " + c + " موظف."); render(); };
   F.holiday = (form) => { const d = fd(form), s = parseISO(d.get("start")), e = parseISO(d.get("end") || d.get("start")), nm = String(d.get("name")).trim(); if (!s || !e || e < s || (e - s) / 864e5 > 60 || !nm) throw new RuleError("بيانات العطلة غير صحيحة."); let c = 0; for (let x = new Date(s); x <= e; x.setDate(x.getDate() + 1)) { const k = iso(x); if (!DB.holidays.some((y) => y.day === k)) { DB.holidays.push({ id: nid(), day: k, name: nm }); c++; } } audit("holiday_added", "holiday", null, { name: nm }); save(); flash("تمت إضافة " + c + " يوم عطلة."); render(); };
+  F.restore = async (form, u) => {
+    const d = fd(form), file = d.get("file");
+    if (String(d.get("confirm") || "").trim() !== RESTORE_WORD) throw new RuleError("للتأكيد اكتب كلمة «" + RESTORE_WORD + "» في الحقل المخصص.");
+    if (!file || !file.name) throw new RuleError("اختر ملف النسخة الاحتياطية.");
+    let data; try { data = JSON.parse(await file.text()); } catch (e) { throw new RuleError("الملف ليس نسخة احتياطية صالحة من النظام."); }
+    if (!data || data.format !== "itmam-demo-backup" || !data.db || !Array.isArray(data.db.users) || !data.db.users.length) throw new RuleError("الملف ليس نسخة احتياطية صالحة من النظام.");
+    if (!confirm("استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟")) return;
+    DB = data.db; DB.audit.unshift({ id: nid(), at: nowStr(), user: u.username, action: "backup_restored", entity: "system", entityId: null, details: "" });
+    save(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة النسخة الاحتياطية (" + DB.emps.length + " موظف، " + DB.users.length + " حساب). سجّل الدخول من جديد."); go("#/login");
+  };
+  F.wipe = (form, u) => {
+    need(u, ["admin"]);
+    if (String(fd(form).get("confirm") || "").trim() !== WIPE_WORD) throw new RuleError("لم يُحذف شيء: للتأكيد اكتب كلمة «" + WIPE_WORD + "» كما هي.");
+    if (!confirm("تأكيد أخير: حذف جميع البيانات نهائياً؟")) return;
+    u.emp = null;
+    Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [] });
+    audit("all_data_wiped", "system"); save(); flash("تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط."); render();
+  };
   F.settings = (form) => { const d = fd(form); ["university", "college", "system_title", "tagline", "credit"].forEach((k) => (DB.settings[k] = String(d.get(k) || "").trim())); audit("settings_saved", "settings"); save(); flash("تم حفظ الإعدادات."); render(); };
 
   // ============================================================ الإجراءات
@@ -1105,6 +1169,24 @@
   ACT["bulk-users"] = async () => { if (!confirm("إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟")) return; const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); const made = [];
     for (const e of DB.emps.filter((x) => x.active && !linked.has(x.id) && !isTmp(x))) { const un = String(e.no).toLowerCase(); if (DB.users.some((x) => x.username.toLowerCase() === un)) continue; const pw = rand(); const role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee"; DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true }); made.push([e.name, un, pw, role]); }
     audit("users_bulk_created", "user", null, { count: made.length }); save(); createdAccounts = made; go("#/admin/import"); };
+  ACT.backup = (b, u) => {
+    need(u, ["admin"]);
+    audit("backup_downloaded", "system"); save();
+    const blob = new Blob([JSON.stringify({ format: "itmam-demo-backup", version: 1, created_at: nowStr(), db: DB }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "itmam-backup-" + nowStr().replace(/[: ]/g, "-") + ".json"; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
+    flash("تم تنزيل النسخة الاحتياطية."); render();
+  };
+  ACT["archive-export"] = (b, u) => {
+    need(u, STAFF);
+    const y = byId("years", b.dataset.year) || activeYear(), ids = new Set(managedEmps(u, true).map((e) => e.id));
+    const recs = DB.recs.filter((r) => r.year === y.id && ids.has(r.emp)), reqs = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp));
+    downloadBook([
+      ["التوصيات", [["رقم", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة", "رقم التوصية", "الموضوع", "الحالة", "ملف PDF"], ...recs.map((r) => { const e = byId("emps", r.emp); return ["REC-" + r.id, e.name, e.no, r.date, REC_KINDS[r.kind], r.amount, r.ref, r.subject, r.status === "active" ? "سارية" : "ملغاة", r.att || ""]; })]],
+      ["الطلبات", [["رقم", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات", "الحالة", "السبب", "ملاحظة القرار"], ...reqs.map((r) => { const e = byId("emps", r.emp); return ["REQ-" + r.id, e.name, e.no, LEAVE_KINDS[r.kind], r.start, r.end, r.unit === "days" ? r.days : "", r.unit === "hours" ? r.hours : "", REQ_ST[r.status], r.reason, r.note]; })]],
+      ["الأرصدة", [["اسم الموظف", "الرقم الوظيفي", "أيام ممنوحة", "ساعات ممنوحة", "رصيد الأيام", "رصيد الساعات", "الإجمالي (أيام)", "+ ساعات"], ...managedEmps(u, true).map((e) => { const x = balance(e.id, y); return [e.name, e.no, x.gDays, x.gHours, x.daysLeft, x.hoursLeft, x.totalDays, x.totalRem]; })]],
+    ], "أرشيف بدل الراحة " + y.name);
+    audit("archive_exported", "archive", null, { year: y.name }); save();
+  };
   ACT["del-holiday"] = (b) => { if (!confirm("حذف هذا اليوم؟")) return; DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); save(); render(); };
 
   // ============================================================ الأحداث
