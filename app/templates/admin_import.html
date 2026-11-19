@@ -14,6 +14,12 @@
   <div class="grid two">
     <section class="card">
       <h2>1) رفع ملف Excel أو CSV</h2>
+      <ol class="steps">
+        <li><b>نزّل النموذج</b> وعبّئه (فيه قوائم منسدلة للمنصب والأقسام وأرقام الإداريين، وورقة تعليمات):
+          <div class="actions mt-sm"><a class="btn primary sm" href="/admin/import/template.xlsx">نموذج فارغ للتعبئة</a><a class="btn sm" href="/admin/import/template.xlsx?filled=1">الموظفون الحاليون (للتعديل)</a></div></li>
+        <li><b>احفظه</b> بصيغة ‎.xlsx دون تغيير صف العناوين.</li>
+        <li><b>ارفعه هنا</b> ثم اضغط «معاينة قبل الحفظ».</li>
+      </ol>
       <div class="field"><label for="f">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label>
         <input id="f" type="file" name="file" accept=".xlsx,.xlsm,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
       <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، المنصب، رقم الإداري المسؤول، المسمى الوظيفي، البريد.</p>

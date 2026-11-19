@@ -35,12 +35,18 @@ def users(request: Request, user: User = Depends(admin_only), db: Session = Depe
     rows = list(db.scalars(select(User).order_by(User.role, User.username)))
     linked = {u.employee_id for u in rows if u.employee_id}
     emps = list(db.scalars(select(Employee).where(Employee.is_active.is_(True)).order_by(Employee.full_name)))
-    return render(request, db, "admin_users.html", user=user, rows=rows, emps=emps, linked=linked)
+    team_count = {}
+    for e in emps:
+        if e.manager_id:
+            team_count[e.manager_id] = team_count.get(e.manager_id, 0) + 1
+    return render(request, db, "admin_users.html", user=user, rows=rows, emps=emps, linked=linked,
+                  team_count=team_count)
 
 
 @router.post("/users/save")
 def user_save(request: Request, user_id: int | None = Form(None), username: str = Form(...), role: str = Form(...),
               employee_id: int | None = Form(None), password: str = Form(""), is_active: str = Form(""),
+              assign: list[int] = Form([]), assign_present: str = Form(""),
               user: User = Depends(admin_only), db: Session = Depends(get_db)):
     username = username.strip().lower()
     if role not in ROLES:
@@ -71,12 +77,31 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
     if u.id == user.id and (role != "admin" or not is_active):
         flash(request, "لا يمكنك إزالة صلاحية الأدمن أو تعطيل حسابك بنفسك.", "error")
         return redirect("/admin/users")
+    prev_role, prev_emp = (u.role, u.employee_id) if user_id else (None, None)
     u.username, u.role, u.employee_id = username, role, employee_id or None
     u.is_active = bool(is_active) if user_id else True
     db.flush()
+    # إسناد الموظفين للإداري (اختيار متعدد)
+    moved = 0
+    if prev_role == "officer" and prev_emp and (role != "officer" or prev_emp != u.employee_id):
+        moved = db.execute(update(Employee).where(Employee.manager_id == prev_emp).values(manager_id=None)).rowcount
+    assigned = None
+    if role == "officer" and u.employee_id and assign_present:
+        wanted = {i for i in assign if i != u.employee_id}
+        db.execute(update(Employee).where(Employee.manager_id == u.employee_id, Employee.id.not_in(wanted or {0}))
+                   .values(manager_id=None))
+        if wanted:
+            db.execute(update(Employee).where(Employee.id.in_(wanted)).values(manager_id=u.employee_id))
+        assigned = len(wanted)
     audit(db, user, "user_saved", "user", u.id, ip=client_ip(request), username=username, role=role,
-          employee_id=employee_id, active=u.is_active)
+          employee_id=employee_id, active=u.is_active, assigned=assigned, unassigned=moved or None)
     db.commit()
+    if assigned is not None:
+        flash(request, f"عدد الموظفين المسندين إلى {username}: {assigned}.")
+    elif role == "officer" and prev_role != "officer" and user_id:
+        flash(request, "أصبح الحساب «إداري». افتح «الموظفون المسندون» تحت الحساب لاختيار موظفيه.", "info")
+    if moved:
+        flash(request, f"أُلغي إسناد {moved} موظف لأن الحساب لم يعد «إداري» لنفس السجل. أسندهم لإداري آخر.", "warn")
     if generated:
         flash(request, f"تم إنشاء الحساب {username}. كلمة المرور المؤقتة: {generated} (سيُطلب تغييرها عند أول دخول).")
     else:
@@ -337,11 +362,12 @@ def import_page(request: Request, user: User = Depends(admin_only), db: Session 
 
 
 @router.get("/import/template.xlsx")
-def import_template(user: User = Depends(admin_only)):
+def import_template(filled: int = 0, user: User = Depends(admin_only), db: Session = Depends(get_db)):
     from .bulk import template_workbook
     from .routes_core import _xlsx_response
 
-    return _xlsx_response(template_workbook(), "نموذج استيراد الموظفين.xlsx")
+    name = "الموظفون الحاليون (للتعديل وإعادة الرفع).xlsx" if filled else "نموذج استيراد الموظفين.xlsx"
+    return _xlsx_response(template_workbook(db, bool(filled)), name)
 
 
 @router.post("/import/preview")

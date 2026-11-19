@@ -139,6 +139,35 @@
   });
   document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("[data-leave-form]").forEach(syncUnit); });
 
+  // إسناد الموظفين للإداري: إظهار القائمة عند اختيار دور «إداري» + البحث والعدّ
+  function assignSync(form) {
+    var sel = form.querySelector("[data-role-select]");
+    form.querySelectorAll("[data-role-dep]").forEach(function (box) {
+      var on = sel && sel.value === box.getAttribute("data-role-dep");
+      box.hidden = !on;
+      box.querySelectorAll("input").forEach(function (i) { i.disabled = !on; });
+      var c = box.querySelector("[data-assign-count]");
+      if (c) c.textContent = box.querySelectorAll('input[name="assign"]:checked').length + " محدد";
+    });
+  }
+  document.addEventListener("change", function (ev) {
+    if (ev.target.matches("[data-role-select], input[name='assign']") && ev.target.form) assignSync(ev.target.form);
+  });
+  document.addEventListener("input", function (ev) {
+    var f = ev.target.closest("[data-assign-filter]");
+    if (!f) return;
+    var q = f.value.trim();
+    f.closest(".assign-box").querySelectorAll(".check-list .check").forEach(function (l) { l.hidden = q && l.getAttribute("data-text").indexOf(q) === -1; });
+  });
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-assign-all]");
+    if (!b) return;
+    var box = b.closest(".assign-box"), on = b.getAttribute("data-assign-all") === "1";
+    box.querySelectorAll(".check-list .check").forEach(function (l) { if (!l.hidden) l.querySelector("input").checked = on; });
+    assignSync(b.form);
+  });
+  document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("form").forEach(function (f) { if (f.querySelector("[data-role-select]")) assignSync(f); }); });
+
   // إضافة تاريخ آخر في طلب بدل الراحة
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-add-date]");

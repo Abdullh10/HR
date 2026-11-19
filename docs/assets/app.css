@@ -857,6 +857,21 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
 .danger-zone { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); background: color-mix(in srgb, var(--err-soft) 55%, var(--surface)); }
 .danger-zone h2 { color: var(--err); }
 
+/* ---------- إسناد الموظفين للإداري ونموذج الاستيراد */
+.assign-wrap { flex-basis: 100%; }
+.assign-wrap > summary { cursor: pointer; color: var(--brand-2); font-weight: 600; font-size: .88rem; padding: .2rem 0; }
+.assign-box { flex-basis: 100%; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: .75rem .85rem; margin: .5rem 0 .75rem; }
+.assign-head { display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-bottom: .45rem; }
+.assign-filter { width: 100%; margin-bottom: .45rem; }
+.assign-actions { display: flex; gap: .4rem; margin-bottom: .45rem; }
+.check-list { max-height: 260px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .15rem .9rem; padding: .25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.check-list .check { margin: 0; padding: .35rem .3rem; border-radius: 8px; align-items: flex-start; }
+.check-list .check:hover { background: var(--brand-soft); }
+.check-list .check small { display: block; font-size: .76rem; }
+.steps { margin: 0 0 1rem; padding-inline-start: 1.2rem; line-height: 1.9; }
+.steps li { margin-bottom: .35rem; }
+.mt-sm { margin-top: .35rem; }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

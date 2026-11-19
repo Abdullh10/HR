@@ -302,41 +302,85 @@ def apply(db: Session, rows: list[Row], create_accounts: bool, update_roles: boo
     return res
 
 
-def template_workbook():
+def template_workbook(db=None, filled: bool = False):
+    """نموذج Excel قابل للتعبئة وإعادة الرفع. filled=True يملؤه بالموظفين الحاليين لتعديلهم ثم رفعه."""
     import openpyxl
-    from openpyxl.styles import Font, PatternFill
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.worksheet.datavalidation import DataValidation
 
+    head_fill, head_font = PatternFill("solid", fgColor="00427A"), Font(bold=True, color="FFFFFF")
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "الموظفون"
     ws.sheet_view.rightToLeft = True
     ws.append(["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول", "المسمى الوظيفي", "البريد"])
     for c in ws[1]:
-        c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor="00427A")
+        c.font, c.fill = head_font, head_fill
+        c.alignment = Alignment(horizontal="center")
+    ws.freeze_panes = "A2"
+    depts, officers = [], []
+    if db is not None:
+        from sqlalchemy import select
+        from .models import Department, Employee, User
+        depts = [d.name for d in db.scalars(select(Department).where(Department.is_active.is_(True)).order_by(Department.name))]
+        officers = [(e.employee_no, e.full_name) for e in db.scalars(
+            select(Employee).join(User, User.employee_id == Employee.id).where(User.role == "officer")
+            .order_by(Employee.full_name))]
+        if filled:
+            roles = {u.employee_id: u.role for u in db.scalars(select(User)) if u.employee_id}
+            for e in db.scalars(select(Employee).where(Employee.is_active.is_(True)).order_by(Employee.full_name)):
+                if e.is_temp_no:
+                    continue
+                ws.append([e.full_name, e.employee_no, e.department.name if e.department else "",
+                           "إداري" if roles.get(e.id) == "officer" else "موظف",
+                           e.manager.employee_no if e.manager else "", e.job_title, e.email])
+    # ورقة القوائم: تُستخدم في القوائم المنسدلة (يمكن الكتابة بقيم أخرى أيضاً)
+    lists = wb.create_sheet("القوائم")
+    lists.sheet_view.rightToLeft = True
+    lists.append(["الأقسام الحالية", "", "رقم الإداري", "اسم الإداري"])
+    for c in lists[1]:
+        c.font, c.fill = head_font, head_fill
+    for i in range(max(len(depts), len(officers))):
+        no, nm = officers[i] if i < len(officers) else ("", "")
+        lists.append([depts[i] if i < len(depts) else "", "", no, nm])
+    for col, w in zip("ABCD", (34, 4, 16, 32)):
+        lists.column_dimensions[col].width = w
     help_ws = wb.create_sheet("تعليمات")
     help_ws.sheet_view.rightToLeft = True
     for line in (
-        ["عبّئ ورقة «الموظفون» بدءاً من السطر الثاني، ولا تغيّر صف العناوين."],
-        ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."],
-        ["المنصب: موظف أو إداري (الافتراضي: موظف)."],
-        ["رقم الإداري المسؤول: الرقم الوظيفي للإداري الذي يرفع توصيات الموظف ويعتمد طلباته."],
-        ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."],
-        ["يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، وكلمة مرور مؤقتة تُعرض بعد الاستيراد."],
+        ["طريقة الاستخدام"],
+        ["1) عبّئ ورقة «الموظفون» بدءاً من السطر الثاني، ولا تغيّر صف العناوين."],
+        ["2) احفظ الملف بصيغة Excel ‏(‎.xlsx) ثم ارفعه من صفحة «استيراد الموظفين» واضغط «معاينة قبل الحفظ»."],
+        ["3) راجع المعاينة: الصفوف السليمة تُستورد، والصفوف التي فيها أخطاء تظهر لتصحيحها وإعادة الرفع."],
         [""],
-        ["مثال:"],
-        ["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول"],
-        ["محمد أحمد العتيبي", "100500", "وحدة الشؤون الإدارية", "موظف", "100400"],
-        ["سارة علي القحطاني", "100400", "وحدة الشؤون الإدارية", "إداري", ""],
+        ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."],
+        ["المنصب: موظف أو إداري (قائمة منسدلة، والافتراضي: موظف)."],
+        ["القسم: اختر من القائمة أو اكتب اسم قسم جديد فيُنشأ تلقائياً."],
+        ["رقم الإداري المسؤول: الرقم الوظيفي للإداري الذي يرفع توصيات الموظف ويعتمد طلباته (انظر ورقة «القوائم»)، ويمكن أن يكون إدارياً جديداً في الملف نفسه."],
+        ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."],
+        ["الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل تكراره، لذا يمكن تنزيل «الموظفين الحاليين» وتعديلهم ثم رفع الملف."],
+        ["يُنشأ لكل موظف جديد حساب اسم المستخدم فيه رقمه الوظيفي، وكلمة مرور مؤقتة تُعرض بعد الاستيراد."],
     ):
         help_ws.append(line)
-    help_ws.column_dimensions["A"].width = 60
+    help_ws["A1"].font = Font(bold=True, size=13, color="00427A")
+    help_ws.column_dimensions["A"].width = 110
     dv = DataValidation(type="list", formula1='"موظف,إداري"', allow_blank=True)
+    dv.error, dv.errorTitle = "اختر: موظف أو إداري", "قيمة غير صحيحة"
     ws.add_data_validation(dv)
-    dv.add("D2:D2001")
-    for col, w in zip("ABCDEFG", (32, 16, 30, 16, 20, 22, 26)):
+    dv.add("D2:D3000")
+    if depts:
+        dvd = DataValidation(type="list", formula1=f"=القوائم!$A$2:$A${len(depts) + 1}", allow_blank=True,
+                             showErrorMessage=False)
+        ws.add_data_validation(dvd)
+        dvd.add("C2:C3000")
+    if officers:
+        dvo = DataValidation(type="list", formula1=f"=القوائم!$C$2:$C${len(officers) + 1}", allow_blank=True,
+                             showErrorMessage=False)
+        ws.add_data_validation(dvo)
+        dvo.add("E2:E3000")
+    for col, w in zip("ABCDEFG", (32, 16, 30, 14, 22, 24, 28)):
         ws.column_dimensions[col].width = w
-    for c in ws["B"][1:] + ws["E"][1:]:
-        c.number_format = "@"
+    for row in ws.iter_rows(min_row=2, max_row=3000, min_col=2, max_col=5):
+        row[0].number_format = "@"
+        row[3].number_format = "@"
     return wb

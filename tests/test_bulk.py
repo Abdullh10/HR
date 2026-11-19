@@ -85,3 +85,40 @@ def test_paste_import(world):
     post(adm, "/admin/import/commit", {"payload": html.unescape(payload), "create_accounts": "1"})
     with SessionLocal() as db:
         assert db.query(User).filter_by(username="6002").one().role == "employee"
+
+
+def test_template_and_officer_assignment(world):
+    import io
+
+    import openpyxl
+    adm = login("admin")
+    wb = openpyxl.load_workbook(io.BytesIO(adm.get("/admin/import/template.xlsx").content))
+    assert wb.sheetnames[0] == "الموظفون" and "القوائم" in wb.sheetnames
+    filled = openpyxl.load_workbook(io.BytesIO(adm.get("/admin/import/template.xlsx?filled=1").content))
+    nos = [r[1].value for r in filled["الموظفون"].iter_rows(min_row=2)]
+    assert "1002" in nos
+    # إعادة رفع ملف «الموظفين الحاليين» دون تعديل = تحديث فقط بلا أخطاء
+    buf = io.BytesIO()
+    filled.save(buf)
+    r = post(adm, "/admin/import/preview", files={"file": ("x.xlsx", buf.getvalue(),
+             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    assert "⚠" not in r.text.split("<tbody>")[1]
+    # إسناد أكثر من موظف للإداري من شاشة المستخدمين
+    with SessionLocal() as db:
+        mgr = db.query(User).filter_by(username="mgr").one()
+        mid, memp = mgr.id, mgr.employee_id
+    post(adm, "/admin/users/save", {"user_id": str(mid), "username": "mgr", "role": "officer",
+                                    "employee_id": str(memp), "is_active": "1", "assign_present": "1",
+                                    "assign": [str(world["e"]), str(world["o"])]})
+    with SessionLocal() as db:
+        assert {e.id for e in db.query(Employee).filter_by(manager_id=memp)} == {world["e"], world["o"]}
+    post(adm, "/admin/users/save", {"user_id": str(mid), "username": "mgr", "role": "officer",
+                                    "employee_id": str(memp), "is_active": "1", "assign_present": "1",
+                                    "assign": [str(world["o"])]})
+    with SessionLocal() as db:
+        assert {e.id for e in db.query(Employee).filter_by(manager_id=memp)} == {world["o"]}
+    # تحويل الحساب إلى موظف يلغي الإسناد
+    post(adm, "/admin/users/save", {"user_id": str(mid), "username": "mgr", "role": "employee",
+                                    "employee_id": str(memp), "is_active": "1"})
+    with SessionLocal() as db:
+        assert db.query(Employee).filter_by(manager_id=memp).count() == 0

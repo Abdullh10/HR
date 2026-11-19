@@ -770,7 +770,10 @@
     return layout(u, "استيراد الموظفين", `<div class="page-head"><div><h1>استيراد الموظفين وإنشاء حساباتهم</h1><p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع المنصب المحدد.</p></div>
       <button class="btn" type="button" data-act="template">تنزيل نموذج Excel</button></div>
       <form data-form="import"><div class="grid two">
-        <section class="card"><h2>1) رفع ملف Excel أو CSV</h2><div class="field"><label for="if">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label><input id="if" type="file" name="file" accept=".xlsx,.xlsm,.csv"></div>
+        <section class="card"><h2>1) رفع ملف Excel أو CSV</h2>
+          <ol class="steps"><li><b>نزّل النموذج</b> وعبّئه (فيه ورقة «القوائم» بالأقسام وأرقام الإداريين، وورقة تعليمات):
+            <div class="actions mt-sm"><button class="btn primary sm" type="button" data-act="template">نموذج فارغ للتعبئة</button><button class="btn sm" type="button" data-act="template" data-filled="1">الموظفون الحاليون (للتعديل)</button></div></li>
+            <li><b>احفظه</b> بصيغة ‎.xlsx دون تغيير صف العناوين.</li><li><b>ارفعه هنا</b> ثم اضغط «معاينة قبل الحفظ».</li></ol><div class="field"><label for="if">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label><input id="if" type="file" name="file" accept=".xlsx,.xlsm,.csv"></div>
           <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، المنصب، رقم الإداري المسؤول، المسمى الوظيفي، البريد.</p></section>
         <section class="card"><h2>2) أو النسخ واللصق</h2><div class="field"><label for="ip">انسخ الأعمدة من Excel والصقها هنا <span class="hint">(سطر لكل موظف)</span></label>
           <textarea id="ip" name="pasted" rows="8" placeholder="محمد أحمد العتيبي	100500	وحدة الشؤون الإدارية	موظف	100100"></textarea></div>
@@ -792,22 +795,33 @@
     const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp));
     const emps = DB.emps.filter((e) => e.active).sort((a, b) => a.name.localeCompare(b.name, "ar"));
     const roleOpts = (sel) => Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
+    const teamCount = (empId) => DB.emps.filter((e) => e.active && empId && e.mgr === empId).length;
+    const assignBox = (offEmp, open) => `<div class="assign-box" data-role-dep="officer" ${open ? "" : "hidden"}><input type="hidden" name="assign_present" value="1">
+      <div class="assign-head"><b>الموظفون المسندون لهذا الإداري</b><span class="hint" data-assign-count></span></div>
+      <input type="search" class="assign-filter" placeholder="بحث بالاسم أو الرقم أو القسم" data-assign-filter aria-label="بحث في الموظفين">
+      <div class="assign-actions"><button type="button" class="btn sm" data-assign-all="1">تحديد الظاهر</button><button type="button" class="btn sm" data-assign-all="0">إلغاء التحديد</button></div>
+      <div class="check-list">${emps.filter((e) => e.id !== offEmp).map((e) => `<label class="check" data-text="${h(e.name + " " + e.no + " " + deptName(e))}"><input type="checkbox" name="assign" value="${e.id}" ${offEmp && e.mgr === offEmp ? "checked" : ""}>
+        <span>${h(e.name)} <small class="muted">(${h(e.no)})${deptName(e) ? " · " + h(deptName(e)) : ""}${e.mgr && e.mgr !== offEmp ? " · حالياً لدى: " + h(mgrName(e)) : ""}</small></span></label>`).join("") || '<p class="hint">لا يوجد موظفون. أضفهم من «استيراد الموظفين».</p>'}</div>
+      <span class="hint">اختيار موظف مسند لإداري آخر ينقله إلى هذا الإداري.</span></div>`;
     return layout(u, "المستخدمون والصلاحيات", `<div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
       <button class="btn" type="button" data-act="bulk-users">إنشاء حسابات الموظفين دفعة واحدة</button></div>
       <div class="grid two"><section class="card"><h2>الأدوار</h2><ul>
         <li><b>مدير النظام:</b> إدارة المنصة: المستخدمون والصلاحيات، إسناد الموظفين للإداريين، السنة وقواعد الرصيد، المؤشرات والاعتمادات، الإعدادات وسجل التدقيق.</li>
         <li><b>إداري:</b> يُسند له موظفون؛ يرفع توصيات العميد (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات الاستبدال والتعويض، ويراسل موظفيه والأدمن.</li>
-        <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات الاستبدال أو تعويض الغياب، ويراسل الإداري المسؤول عنه.</li></ul></section>
+        <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات الاستبدال أو تعويض الغياب، ويراسل الإداري المسؤول عنه.</li></ul>
+        <p class="hint">عند اختيار دور «إداري» تظهر قائمة لاختيار الموظفين المسندين إليه (أكثر من موظف)، ويمكن أيضاً الإسناد من بطاقة الموظف أو ملف الاستيراد.</p></section>
       <section class="card"><h2>إضافة حساب</h2><form data-form="user-new"><div class="form-grid">
         <div class="field"><label for="un">اسم المستخدم</label><input id="un" name="username" required></div>
-        <div class="field"><label for="rl">الدور</label><select id="rl" name="role">${roleOpts("employee")}</select></div>
+        <div class="field"><label for="rl">الدور</label><select id="rl" name="role" data-role-select>${roleOpts("employee")}</select></div>
         <div class="field"><label for="ue">سجل الموظف المرتبط</label><select id="ue" name="emp">${empOptions(emps.filter((e) => !linked.has(e.id)), "", "—")}</select></div></div>
+        ${assignBox(null, false)}
         <button class="btn primary">إنشاء الحساب</button></form></section></div>
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>اسم المستخدم</th><th>الدور والموظف</th><th></th></tr></thead><tbody>
       ${DB.users.map((x) => `<tr><td data-label="المستخدم"><b>${h(x.username)}</b>${x.mustChange ? '<div class="hint">بانتظار تغيير كلمة المرور</div>' : ""}</td>
-        <td data-label="تعديل"><form class="filters" data-form="user-edit" data-id="${x.id}"><div class="field"><label class="sr-only" for="r${x.id}">الدور</label><select id="r${x.id}" name="role">${roleOpts(x.role)}</select></div>
+        <td data-label="تعديل"><form class="filters" data-form="user-edit" data-id="${x.id}"><div class="field"><label class="sr-only" for="r${x.id}">الدور</label><select id="r${x.id}" name="role" data-role-select>${roleOpts(x.role)}</select></div>
           <div class="field grow"><label class="sr-only" for="e${x.id}">الموظف</label><select id="e${x.id}" name="emp">${empOptions(emps.filter((e) => !linked.has(e.id) || e.id === x.emp), x.emp || "", "—")}</select></div>
-          <label class="check" style="margin:0"><input type="checkbox" name="active" value="1" ${x.active ? "checked" : ""}> نشط</label><button class="btn sm">حفظ</button></form></td>
+          <label class="check" style="margin:0"><input type="checkbox" name="active" value="1" ${x.active ? "checked" : ""}> نشط</label><button class="btn sm">حفظ</button>
+          ${x.role === "officer" ? `<details class="assign-wrap" ${teamCount(x.emp) ? "" : "open"}><summary>الموظفون المسندون (${teamCount(x.emp)})</summary>${assignBox(x.emp, true)}</details>` : ""}</form></td>
         <td><button class="btn sm" type="button" data-act="reset-pw" data-id="${x.id}">إعادة تعيين كلمة المرور</button></td></tr>`).join("")}
       </tbody></table></div></div>`);
   };
@@ -961,12 +975,12 @@
   }
   function downloadBook(sheets, name) {
     if (window.XLSX) { const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; sheets.forEach(([title, aoa]) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!views"] = [{ RTL: true }]; XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30)); }); XLSX.writeFile(wb, name + ".xlsx"); return; }
-    download(sheets.reduce((all, [title, aoa]) => all.concat([[title]], aoa, [[]]), []), name);
+    download(sheets[0][1], name); // بديل CSV: الورقة الأولى فقط حتى يبقى الملف قابلاً لإعادة الرفع
   }
   function download(aoa, name) {
     if (window.XLSX) { const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!views"] = [{ RTL: true }]; const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 30)); XLSX.writeFile(wb, name + ".xlsx"); return; }
     const csv = "﻿" + aoa.map((r) => r.map((c) => '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"').join(",")).join("\r\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = name + ".csv"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = name + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
   }
 
   // ============================================================ النماذج
@@ -1069,18 +1083,35 @@
     save(); importPreview = null; createdAccounts = res.accounts;
     flash("تمت إضافة " + res.created + " موظف وتحديث " + res.updated + "، وإنشاء " + res.accounts.length + " حساب" + (res.roles ? "، وتغيير منصب " + res.roles : "") + "."); render();
   };
+  // إسناد الموظفين للإداري (اختيار متعدد). يعيد عدد المسندين أو null إن لم تُرسل القائمة
+  function applyAssign(d, role, emp, prevRole, prevEmp) {
+    if (prevRole === "officer" && prevEmp && (role !== "officer" || prevEmp !== emp)) {
+      const moved = DB.emps.filter((e) => e.mgr === prevEmp); moved.forEach((e) => (e.mgr = null));
+      if (moved.length) flash("أُلغي إسناد " + moved.length + " موظف لأن الحساب لم يعد «إداري» لنفس السجل. أسندهم لإداري آخر.", "warn");
+    }
+    if (role !== "officer" || !emp || !d.get("assign_present")) return null;
+    const wanted = new Set(d.getAll("assign").map(Number).filter((id) => id !== emp));
+    DB.emps.forEach((e) => { if (wanted.has(e.id)) e.mgr = emp; else if (e.mgr === emp) e.mgr = null; });
+    return wanted.size;
+  }
   F["user-new"] = async (form, u) => {
     const d = fd(form), un = String(d.get("username")).trim().toLowerCase(), role = d.get("role"), emp = Number(d.get("emp") || 0) || null;
     if (!un || DB.users.some((x) => x.username.toLowerCase() === un)) throw new RuleError("اسم المستخدم فارغ أو مستخدم مسبقاً.");
     if (["employee", "officer"].includes(role) && !emp) throw new RuleError("يجب ربط حساب الموظف/الإداري بسجل موظف.");
+    if (emp && DB.users.some((x) => x.emp === emp)) throw new RuleError("هذا الموظف مرتبط مسبقاً بحساب آخر.");
     const pw = rand(); DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp, active: true, mustChange: true });
-    audit("user_saved", "user", null, { username: un, role }); save(); flash("تم إنشاء الحساب " + un + ". كلمة المرور المؤقتة: " + pw); render();
+    const n_ = applyAssign(d, role, emp, null, null);
+    audit("user_saved", "user", null, { username: un, role, assigned: n_ }); save(); flash("تم إنشاء الحساب " + un + ". كلمة المرور المؤقتة: " + pw + (n_ != null ? " · الموظفون المسندون: " + n_ : "")); render();
   };
   F["user-edit"] = (form, u) => {
     const d = fd(form), x = byId("users", form.dataset.id), role = d.get("role"), emp = Number(d.get("emp") || 0) || null, active = !!d.get("active");
     if (["employee", "officer"].includes(role) && !emp) throw new RuleError("يجب ربط حساب الموظف/الإداري بسجل موظف.");
     if (x.id === u.id && (role !== "admin" || !active)) throw new RuleError("لا يمكنك إزالة صلاحية الأدمن أو تعطيل حسابك بنفسك.");
-    Object.assign(x, { role, emp, active }); audit("user_saved", "user", x.id, { role, active }); save(); flash("تم حفظ الحساب."); render();
+    const prevRole = x.role, prevEmp = x.emp;
+    Object.assign(x, { role, emp, active });
+    const n_ = applyAssign(d, role, emp, prevRole, prevEmp);
+    audit("user_saved", "user", x.id, { role, active, assigned: n_ }); save();
+    flash("تم حفظ الحساب." + (n_ != null ? " الموظفون المسندون: " + n_ + "." : "")); if (role === "officer" && prevRole !== "officer") flash("أصبح الحساب «إداري». افتح «الموظفون المسندون» تحت الحساب لاختيار موظفيه.", "info"); render();
   };
   F["dept-new"] = (form) => { const nm = String(fd(form).get("name")).replace(/\s+/g, " ").trim(); if (!nm || DB.depts.some((d) => norm(d.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); DB.depts.push({ id: nid(), name: nm, active: true }); audit("department_saved", "department", null, { name: nm }); save(); flash("تم حفظ القسم."); render(); };
   F["dept-edit"] = (form) => { const d = fd(form), x = byId("depts", form.dataset.id), nm = String(d.get("name")).trim(); if (!nm || DB.depts.some((y) => y.id !== x.id && norm(y.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); x.name = nm; x.active = !!d.get("active"); save(); flash("تم حفظ القسم."); render(); };
@@ -1159,7 +1190,17 @@
     let ok = 0; const errs = []; rs.forEach((id) => { try { decideLeave(u, byId("leaves", id), a, note); ok++; } catch (e) { errs.push(byId("emps", byId("leaves", id).emp).name + ": " + e.message); } });
     save(); flash("تمت معالجة " + ok + " طلب." + (errs.length ? " تعذّر " + errs.length + "." : ""), errs.length ? "error" : "ok"); errs.slice(0, 5).forEach((m) => flash(m, "error")); render(); };
   ACT.export = (b) => exportXlsx(b.dataset.kind, b.dataset.year);
-  ACT.template = () => download([["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول", "المسمى الوظيفي", "البريد"], ["محمد أحمد العتيبي", "100500", "وحدة الشؤون الإدارية", "موظف", "100100", "", "mohammed@example.com"]], "نموذج استيراد الموظفين");
+  ACT.template = (b) => {
+    const filled = b && b.dataset.filled === "1";
+    const head = ["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم الإداري المسؤول", "المسمى الوظيفي", "البريد"];
+    const rows = filled ? DB.emps.filter((e) => e.active && !isTmp(e)).sort((x, y) => x.name.localeCompare(y.name, "ar")).map((e) => { const usr = DB.users.find((x) => x.emp === e.id); const m = e.mgr ? byId("emps", e.mgr) : null; return [e.name, e.no, deptName(e), usr && usr.role === "officer" ? "إداري" : "موظف", m ? m.no : "", e.title || "", e.email || ""]; }) : [];
+    const depts = DB.depts.filter((d) => d.active).map((d) => d.name), offs = officers();
+    const lists = [["الأقسام الحالية", "", "رقم الإداري", "اسم الإداري"]];
+    for (let i = 0; i < Math.max(depts.length, offs.length); i++) lists.push([depts[i] || "", "", offs[i] ? offs[i].no : "", offs[i] ? offs[i].name : ""]);
+    const help = [["طريقة الاستخدام"], ["1) عبّئ ورقة «الموظفون» بدءاً من السطر الثاني، ولا تغيّر صف العناوين."], ["2) احفظ الملف بصيغة Excel ‏(‎.xlsx) ثم ارفعه من صفحة «استيراد الموظفين» واضغط «معاينة قبل الحفظ»."], ["3) راجع المعاينة: الصفوف السليمة تُستورد، والصفوف التي فيها أخطاء تظهر لتصحيحها وإعادة الرفع."], [""],
+      ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."], ["المنصب: موظف أو إداري (الافتراضي: موظف)."], ["القسم: اكتب اسم القسم كما في ورقة «القوائم» أو اسم قسم جديد فيُنشأ تلقائياً."], ["رقم الإداري المسؤول: الرقم الوظيفي للإداري (انظر ورقة «القوائم»)، ويمكن أن يكون إدارياً جديداً في الملف نفسه."], ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."], ["الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل تكراره."]];
+    downloadBook([["الموظفون", [head, ...rows]], ["القوائم", lists], ["تعليمات", help]], filled ? "الموظفون الحاليون للتعديل" : "نموذج استيراد الموظفين");
+  };
   ACT["import-back"] = () => { importPreview = null; render(); };
   ACT["activate-year"] = (b) => { DB.years.forEach((y) => (y.active = y.id === Number(b.dataset.id))); audit("year_activated", "fiscal_year", Number(b.dataset.id)); save(); flash("تم تغيير السنة النشطة."); render(); };
   ACT["lock-year"] = (b) => { const y = byId("years", b.dataset.id);
@@ -1214,7 +1255,15 @@
     const all = t.closest("[data-check-all]"); if (all) document.querySelectorAll(`input[name="${all.dataset.checkAll}"]`).forEach((c) => (c.checked = all.checked));
   });
   function syncUnit(form) { const u = form.querySelector("[data-unit]:checked"); if (!u) return; form.querySelectorAll("[data-for-unit]").forEach((el) => { const on = el.dataset.forUnit === u.value; el.hidden = !on; el.querySelectorAll("input").forEach((i) => (i.required = on && i.name === "hours")); }); }
+  function assignSync(form) {
+    const sel = form.querySelector("[data-role-select]");
+    form.querySelectorAll("[data-role-dep]").forEach((box) => { const on = !!sel && sel.value === box.dataset.roleDep; box.hidden = !on; box.querySelectorAll("input").forEach((i) => (i.disabled = !on));
+      const c = box.querySelector("[data-assign-count]"); if (c) c.textContent = box.querySelectorAll('input[name="assign"]:checked').length + " محدد"; });
+  }
+  document.addEventListener("input", (ev) => { const f = ev.target.closest("[data-assign-filter]"); if (!f) return; const q = f.value.trim(); f.closest(".assign-box").querySelectorAll(".check-list .check").forEach((l) => (l.hidden = !!q && !l.dataset.text.includes(q))); });
+  document.addEventListener("click", (ev) => { const b = ev.target.closest("[data-assign-all]"); if (!b) return; const on = b.dataset.assignAll === "1"; b.closest(".assign-box").querySelectorAll(".check-list .check").forEach((l) => { if (!l.hidden) l.querySelector("input").checked = on; }); assignSync(b.form); });
   document.addEventListener("change", (ev) => {
+    if (ev.target.matches("[data-role-select], input[name='assign']") && ev.target.form) assignSync(ev.target.form);
     if (ev.target.matches("[data-unit]")) syncUnit(ev.target.form);
     if (ev.target.matches("[data-yearnav]") && !ev.target.closest("form[data-form]")) { const { seg, q } = parts(); q.set("year", ev.target.value); go("#/" + seg.join("/") + "?" + q); }
     if (ev.target.matches("[data-reqemp]") && ev.target.value) go("#/requests/new?kind=" + ev.target.dataset.reqemp + "&emp=" + ev.target.value);
@@ -1243,6 +1292,7 @@
     if (html === "" || html == null) return;
     $app.innerHTML = html;
     document.querySelectorAll("[data-leave-form]").forEach(syncUnit);
+    document.querySelectorAll("form").forEach((f) => { if (f.querySelector("[data-role-select]")) assignSync(f); });
     const main = document.getElementById("main"); if (main && seg[0] !== "login") main.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }

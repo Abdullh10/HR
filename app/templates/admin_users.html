@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}المستخدمون والصلاحيات{% endblock %}
 {% block heading %}المستخدمون والصلاحيات{% endblock %}
+{% macro assign_box(officer_emp, open=False) %}
+  <div class="assign-box" data-role-dep="officer"{% if not open %} hidden{% endif %}>
+    <input type="hidden" name="assign_present" value="1">
+    <div class="assign-head"><b>الموظفون المسندون لهذا الإداري</b><span class="hint" data-assign-count></span></div>
+    <input type="search" class="assign-filter" placeholder="بحث بالاسم أو الرقم أو القسم" data-assign-filter aria-label="بحث في الموظفين">
+    <div class="assign-actions"><button type="button" class="btn sm" data-assign-all="1">تحديد الظاهر</button><button type="button" class="btn sm" data-assign-all="0">إلغاء التحديد</button></div>
+    <div class="check-list">
+      {% for e in emps if e.id != officer_emp %}
+      <label class="check" data-text="{{ e.full_name }} {{ e.employee_no }} {{ e.department.name if e.department else '' }}"><input type="checkbox" name="assign" value="{{ e.id }}" {% if officer_emp and e.manager_id == officer_emp %}checked{% endif %}>
+        <span>{{ e.full_name }} <small class="muted">({{ e.employee_no }}){% if e.department %} · {{ e.department.name }}{% endif %}{% if e.manager and e.manager_id != officer_emp %} · حالياً لدى: {{ e.manager.full_name }}{% endif %}</small></span></label>
+      {% else %}<p class="hint">لا يوجد موظفون. أضفهم من «استيراد الموظفين».</p>{% endfor %}
+    </div>
+    <span class="hint">اختيار موظف مسند لإداري آخر ينقله إلى هذا الإداري.</span>
+  </div>
+{% endmacro %}
 {% block content %}
 <div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>{{ rows|length }} حساب</p></div>
   <form method="post" action="/admin/users/bulk-create" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}">
@@ -13,7 +28,7 @@
     <li><b>إداري:</b> يُسند له موظفون؛ يرفع توصيات العميد (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات الاستبدال والتعويض، ويراسل موظفيه والأدمن.</li>
     <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات الاستبدال أو تعويض الغياب، ويراسل الإداري المسؤول عنه.</li>
   </ul>
-  <p class="hint">لا يبتّ أحد في طلب يخصّه. إسناد الموظف للإداري يتم من بطاقة الموظف (حقل «الإداري المسؤول») أو من ملف الاستيراد.</p>
+  <p class="hint">لا يبتّ أحد في طلب يخصّه. عند اختيار دور «إداري» تظهر قائمة لاختيار الموظفين المسندين إليه (أكثر من موظف)، ويمكن أيضاً الإسناد من بطاقة الموظف أو ملف الاستيراد.</p>
 </section>
 <section class="card">
   <h2>إضافة حساب</h2>
@@ -21,10 +36,11 @@
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     <div class="form-grid">
       <div class="field"><label for="un">اسم المستخدم</label><input id="un" name="username" required></div>
-      <div class="field"><label for="rl">الدور</label><select id="rl" name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == 'employee' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="rl">الدور</label><select id="rl" name="role" data-role-select>{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == 'employee' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
       <div class="field"><label for="ei">سجل الموظف المرتبط</label><select id="ei" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked %}<option value="{{ e.id }}">{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}</select></div>
       <div class="field"><label for="pw">كلمة مرور مؤقتة <span class="hint">(فارغ = توليد تلقائي)</span></label><input id="pw" name="password" type="text" autocomplete="off"></div>
     </div>
+    {{ assign_box(None) }}
     <button class="btn primary">إنشاء الحساب</button>
   </form>
 </section>
@@ -37,11 +53,13 @@
     <td colspan="4" data-label="تعديل">
       <form method="post" action="/admin/users/save" class="filters">
         <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="user_id" value="{{ u.id }}"><input type="hidden" name="username" value="{{ u.username }}">
-        <div class="field"><label class="sr-only" for="r{{ u.id }}">الدور</label><select id="r{{ u.id }}" name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == u.role %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+        <div class="field"><label class="sr-only" for="r{{ u.id }}">الدور</label><select id="r{{ u.id }}" name="role" data-role-select>{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == u.role %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
         <div class="field grow"><label class="sr-only" for="e{{ u.id }}">الموظف</label><select id="e{{ u.id }}" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked or e.id == u.employee_id %}<option value="{{ e.id }}" {% if e.id == u.employee_id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>
         <label class="check" style="margin:0"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> نشط</label>
         <span class="hint">{{ u.last_login|d if u.last_login else 'لم يدخل' }}{% if u.must_change_password %} · بانتظار تغيير كلمة المرور{% endif %}</span>
         <button class="btn sm">حفظ</button>
+        {% if u.role == 'officer' %}<details class="assign-wrap"{% if not team_count.get(u.employee_id) %} open{% endif %}><summary>الموظفون المسندون ({{ team_count.get(u.employee_id, 0) }})</summary>{{ assign_box(u.employee_id, True) }}</details>
+        {% endif %}
       </form></td>
     <td colspan="2"><form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إعادة تعيين كلمة مرور {{ u.username }}؟">إعادة تعيين كلمة المرور</button></form></td></tr>
   {% endfor %}
