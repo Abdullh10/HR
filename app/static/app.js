@@ -1,6 +1,7 @@
 // تفاعلات بسيطة دون مكتبات خارجية
 (function () {
   "use strict";
+  document.documentElement.classList.add("js");
   // الوضع الداكن/الفاتح
   try {
     var t = localStorage.getItem("theme");
@@ -20,9 +21,14 @@
       var sb = document.getElementById("sidebar");
       var open = sb.classList.toggle("open");
       mb.setAttribute("aria-expanded", open ? "true" : "false");
+      document.body.classList.toggle("nav-open", open);
     } else if (!ev.target.closest("#sidebar")) {
       var s = document.getElementById("sidebar");
-      if (s && s.classList.contains("open")) s.classList.remove("open");
+      if (s && s.classList.contains("open")) {
+        s.classList.remove("open");
+        document.body.classList.remove("nav-open");
+        var mbb = document.querySelector("[data-menu]"); if (mbb) mbb.setAttribute("aria-expanded", "false");
+      }
     }
     // إغلاق قائمة الحساب عند النقر خارجها
     document.querySelectorAll("details.acct[open]").forEach(function (d) { if (!d.contains(ev.target)) d.removeAttribute("open"); });
@@ -40,7 +46,7 @@
     if (ev.key !== "Escape") return;
     document.querySelectorAll("details.acct[open]").forEach(function (d) { d.removeAttribute("open"); });
     var s = document.getElementById("sidebar");
-    if (s && s.classList.contains("open")) { s.classList.remove("open"); var b = document.querySelector("[data-menu]"); if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); } }
+    if (s && s.classList.contains("open")) { s.classList.remove("open"); document.body.classList.remove("nav-open"); var b = document.querySelector("[data-menu]"); if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); } }
   });
 
   // تأكيد قبل الإجراءات الحساسة + إلزام السبب
@@ -210,6 +216,62 @@
     });
   }
   document.addEventListener("DOMContentLoaded", function () { enhanceSelects(document); });
+
+  // ---------------------------------------------------------- طيّ مجموعات القائمة الجانبية
+  var NAVKEY = "nav_groups";
+  function navState() { try { return JSON.parse(localStorage.getItem(NAVKEY) || "{}"); } catch (e) { return {}; } }
+  function setGroup(g, open) {
+    var btn = g.querySelector(".nav-toggle"), ul = g.querySelector(".nav-sub");
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    ul.hidden = !open;
+  }
+  function initNavGroups() {
+    var st = navState();
+    document.querySelectorAll(".nav-group").forEach(function (g) {
+      var k = g.getAttribute("data-group");
+      var open = g.hasAttribute("data-active") ? true : (k in st ? st[k] : g.getAttribute("data-default") !== "closed");
+      setGroup(g, open);
+    });
+  }
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest(".nav-toggle");
+    if (!b) return;
+    var g = b.closest(".nav-group"), open = b.getAttribute("aria-expanded") !== "true";
+    setGroup(g, open);
+    var st = navState(); st[g.getAttribute("data-group")] = open;
+    try { localStorage.setItem(NAVKEY, JSON.stringify(st)); } catch (e) {}
+  });
+  document.addEventListener("DOMContentLoaded", initNavGroups);
+
+  // ---------------------------------------------------------- تطبيق الفلترة تلقائياً (نماذج GET)
+  var FKEY = "filter_focus";
+  function submitFilter(form, keepEl) {
+    if (keepEl && keepEl.id) {
+      try { sessionStorage.setItem(FKEY, JSON.stringify({ id: keepEl.id, pos: keepEl.selectionStart || keepEl.value.length })); } catch (e) {}
+    }
+    // لا تُرسل الحقول الفارغة حتى يبقى الرابط نظيفاً وقابلاً للمشاركة
+    form.querySelectorAll("[name]").forEach(function (el) { if (!el.value) el.disabled = true; });
+    if (form.requestSubmit) form.requestSubmit(); else form.submit();
+  }
+  var ftimer = null;
+  document.addEventListener("change", function (ev) {
+    var f = ev.target.closest("form[data-autofilter]");
+    if (!f || !ev.target.matches("select[name], input[type=date][name], input[type=checkbox][name]")) return;
+    submitFilter(f, null);
+  });
+  document.addEventListener("input", function (ev) {
+    var f = ev.target.closest("form[data-autofilter]");
+    if (!f || !ev.target.matches("input[type=search][name]") || ev.isComposing) return;
+    clearTimeout(ftimer);
+    var v = ev.target.value.trim();
+    if (v.length === 1) return;
+    ftimer = setTimeout(function () { submitFilter(f, ev.target); }, 500);
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    var st = null;
+    try { st = JSON.parse(sessionStorage.getItem(FKEY) || "null"); sessionStorage.removeItem(FKEY); } catch (e) {}
+    if (st) { var el = document.getElementById(st.id); if (el) { el.focus({ preventScroll: true }); try { el.setSelectionRange(st.pos, st.pos); } catch (e) {} } }
+  });
 
   // إضافة تاريخ آخر في طلب بدل الراحة
   document.addEventListener("click", function (ev) {

@@ -225,3 +225,11 @@ def test_pages_render(world):
                     (emp, ["/me", "/requests", "/requests/new?kind=use", "/messages/new"])):
         for u in urls:
             assert c.get(u).status_code == 200, u
+
+
+def test_empty_filter_params(world):
+    adm = login("admin")
+    for u in ("/employees?q=&dept=&officer=&state=&year_id=", "/recommendations?kind=&emp=&year_id=",
+              "/requests?status=&kind=&emp=", "/archive?q=&kind=&emp=&year_id="):
+        assert adm.get(u).status_code == 200, u
+    assert "موظف أول" in adm.get("/employees?q=%D9%85%D9%88%D8%B8%D9%81&dept=").text

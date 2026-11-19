@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import settings_tabs %}
 {% block title %}الأقسام{% endblock %}
-{% block heading %}الأقسام{% endblock %}
+{% block heading %}الإعدادات{% endblock %}
 {% block content %}
+{{ settings_tabs('departments') }}
 <div class="page-head"><div><h1>الأقسام والوحدات</h1><p>وحّد الأسماء المتشابهة بالدمج.</p></div></div>
 <div class="grid two">
 <section class="card"><h2>إضافة قسم</h2>

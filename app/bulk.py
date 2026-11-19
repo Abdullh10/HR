@@ -181,6 +181,10 @@ def validate(db: Session, rows: list[Row]) -> list[Row]:
     file_nos = {r.no for r in rows if r.no}
     by_no = {e.employee_no: e for e in db.scalars(select(Employee))}
     by_name = {norm_ar(e.full_name): e for e in by_no.values()}
+    from .models import Department
+    dnames = [d.name for d in db.scalars(select(Department))]
+    depts_exact = {norm_ar(d) for d in dnames}
+    depts_core = {_dept_core(d): d for d in dnames}
     for r in rows:
         if not r.name:
             r.errors.append("الاسم فارغ")
@@ -218,7 +222,22 @@ def validate(db: Session, rows: list[Row]) -> list[Row]:
             r.errors.append(f"الاسم مسجل مسبقاً برقم آخر ({same_name.employee_no})")
         else:
             r.action = "new"
+        # تنبيه: قسم جديد اسمه قريب من قسم موجود (تفادياً لتكرار الأقسام)
+        if r.dept and norm_ar(r.dept) not in depts_exact:
+            near = depts_core.get(_dept_core(r.dept))
+            if near:
+                tip = f"القسم «{r.dept}» قريب من القسم الموجود «{near}» — وحّد الاسم أو ادمجهما لاحقاً من الإعدادات"
+                r.note = f"{r.note} · {tip}" if r.note else tip
     return rows
+
+
+_DEPT_WORDS = ("قسم", "وحده", "وحدة", "اداره", "إدارة", "مكتب", "شعبه", "شعبة")
+
+
+def _dept_core(name: str) -> str:
+    """اسم القسم بعد حذف الكلمات العامة و«ال» التعريف، لمقارنة الأسماء المتقاربة."""
+    words = [w for w in norm_ar(name).split() if w not in {norm_ar(x) for x in _DEPT_WORDS}]
+    return " ".join(w[2:] if w.startswith("ال") and len(w) > 3 else w for w in words)
 
 
 @dataclass

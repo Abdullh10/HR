@@ -9,15 +9,15 @@
     {% if user.role == 'admin' %}<a class="btn primary" href="/employees/new/form">+ إضافة موظف</a>{% endif %}
   </div>
 </div>
-<form method="get" class="card filters" role="search">
+<form method="get" class="card filters" role="search" data-autofilter>
   <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="{{ q }}"></div>
-  <div class="field"><label for="dept">القسم</label><select id="dept" name="dept"><option value="">الكل</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="dept">القسم{% if user.role == 'admin' %} <a class="hint" href="/admin/departments">إدارة الأقسام</a>{% endif %}</label><select id="dept" name="dept"><option value="">الكل</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
   {% if user.role == 'admin' %}<div class="field"><label for="of">الإداري</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officers %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="state">تصفية</label><select id="state" name="state">
     <option value="">النشطون</option><option value="cap" {% if state=='cap' %}selected{% endif %}>بلغوا الحد الأقصى</option>
     <option value="none" {% if state=='none' %}selected{% endif %}>بلا توصيات</option><option value="inactive" {% if state=='inactive' %}selected{% endif %}>غير النشطين</option></select></div>
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
-  <button class="btn primary" type="submit">عرض</button>
+  <button class="btn primary btn-apply" type="submit">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
   <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>الإداري</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">الإجمالي</th><th>من الحد الأقصى</th><th></th></tr></thead>

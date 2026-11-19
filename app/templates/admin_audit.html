@@ -3,7 +3,7 @@
 {% block heading %}سجل التدقيق{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد. السجل للقراءة فقط.</p></div></div>
-<form method="get" class="card filters"><div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}"></div><button class="btn primary">بحث</button></form>
+<form method="get" class="card filters" data-autofilter><div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}"></div><button class="btn primary btn-apply">بحث</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}</form>
 <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th><th>IP</th></tr></thead><tbody>
 {% for a in rows %}<tr><td class="num nowrap" data-label="الوقت">{{ a.created_at|d }}</td><td data-label="المستخدم">{{ a.username }}</td><td data-label="العملية"><code>{{ a.action }}</code></td>
 <td data-label="الكيان">{{ a.entity }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td><td data-label="التفاصيل"><small>{{ a.details }}</small></td><td data-label="IP" class="num">{{ a.ip }}</td></tr>

@@ -58,3 +58,11 @@
 </header>
 <h2 class="letter-title">{{ title }}</h2>
 {%- endmacro %}
+
+{% macro settings_tabs(active) -%}
+<nav class="tabs" aria-label="أقسام الإعدادات">
+  {% for href, key, label in [('/admin/years','years','السنة وقواعد الرصيد'),('/admin/departments','departments','الأقسام'),('/admin/holidays','holidays','العطل الرسمية'),('/admin/settings','identity','هوية الجهة')] %}
+  <a href="{{ href }}" {% if active == key %}aria-current="page" class="on"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{%- endmacro %}

@@ -122,3 +122,11 @@ def test_template_and_officer_assignment(world):
                                     "employee_id": str(memp), "is_active": "1"})
     with SessionLocal() as db:
         assert db.query(Employee).filter_by(manager_id=memp).count() == 0
+
+
+def test_dept_near_duplicate_note(world):
+    from app import bulk as b
+    with SessionLocal() as db:
+        rows = b.validate(db, b.rows_from_dicts([{"name": "س", "no": "7001", "dept": "قسم الشؤون الإدارية"},
+                                                 {"name": "ع", "no": "7002", "dept": "وحدة الشؤون الإدارية"}]))
+    assert "قريب من القسم الموجود" in rows[0].note and not rows[1].note

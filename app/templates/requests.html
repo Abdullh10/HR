@@ -10,12 +10,12 @@
     {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new?kind=use">+ طلب استبدال</a><a class="btn primary" href="/requests/new?kind=compensation">+ طلب تعويض</a>{% endif %}
   </div>
 </div>
-<form method="get" class="card filters">
+<form method="get" class="card filters" data-autofilter>
   <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" {% if kind=='use' %}selected{% endif %}>استبدال</option><option value="compensation" {% if kind=='compensation' %}selected{% endif %}>تعويض غياب</option></select></div>
   <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
   {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
-  <button class="btn primary">عرض</button>
+  <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
   <thead><tr><th>رقم</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>

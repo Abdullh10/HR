@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "_macros.html" import settings_tabs %}
 {% block title %}السنة وقواعد الرصيد{% endblock %}
-{% block heading %}السنة وقواعد الرصيد{% endblock %}
+{% block heading %}الإعدادات{% endblock %}
 {% macro year_form(y) %}
 <form method="post" action="/admin/years/save">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">{% if y %}<input type="hidden" name="year_id" value="{{ y.id }}">{% endif %}
@@ -29,6 +30,7 @@
 </form>
 {% endmacro %}
 {% block content %}
+{{ settings_tabs('years') }}
 <div class="page-head"><div><h1>السنة وقواعد الرصيد</h1><p>الرصيد سنوي (سنة ميلادية): يُمنح بتوصيات العميد التي يرفعها الإداري، ولا يُرحَّل إلى السنة التالية.</p></div></div>
 <div class="alert info">تغيير عدد الساعات المعادلة لليوم يعيد حساب أرصدة السنة فوراً (الرصيد يُحسب من التوصيات والطلبات). يُسجَّل كل تغيير في سجل التدقيق.</div>
 {% for y in rows %}

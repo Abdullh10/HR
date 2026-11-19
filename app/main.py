@@ -27,6 +27,23 @@ app.add_middleware(
     https_only=os.environ.get("HR_HTTPS") == "1",  # فعّلها عند النشر خلف HTTPS
     max_age=8 * 3600,
 )
+
+
+class DropEmptyQuery:
+    """يحذف معاملات الرابط الفارغة (مثل dept= عند اختيار «الكل») حتى لا تفشل قراءة الأرقام."""
+
+    def __init__(self, app_):
+        self.app = app_
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("query_string"):
+            from urllib.parse import parse_qsl, urlencode
+            pairs = [(k, v) for k, v in parse_qsl(scope["query_string"].decode("latin-1"), keep_blank_values=True) if v != ""]
+            scope = dict(scope, query_string=urlencode(pairs).encode("latin-1"))
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(DropEmptyQuery)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 

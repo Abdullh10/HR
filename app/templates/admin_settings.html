@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import settings_tabs %}
 {% block title %}هوية الجهة{% endblock %}
-{% block heading %}هوية الجهة{% endblock %}
+{% block heading %}الإعدادات{% endblock %}
 {% block content %}
+{{ settings_tabs('identity') }}
 <div class="page-head"><div><h1>هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
 <form method="post" class="card" style="max-width:720px"><input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="field"><label for="u">الجامعة</label><input id="u" name="university" value="{{ org.university }}"></div>
