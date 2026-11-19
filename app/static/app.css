@@ -42,7 +42,7 @@
   --shadow-lg: 0 1px 1px rgba(16, 24, 40, .04), 0 4px 8px rgba(16, 24, 40, .05), 0 24px 48px -12px rgba(0, 66, 122, .22), inset 0 1px 0 rgba(255, 255, 255, .9);
   --ic-brand: #0b8fd4; --ic-accent: #006bb6; --ic-ok: #1c8a46; --ic-warn: #c27a12; --ic-err: #c43a2f; --ic-neutral: #4b6179;
   --hero-glow: 1;
-  --font: "IBM Plex Sans Arabic", Tahoma, "Segoe UI", "Noto Sans Arabic", sans-serif;
+  --font: "Cairo", Tahoma, "Segoe UI", "Noto Sans Arabic", sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -143,6 +143,7 @@ a.brand:focus-visible, a.t-logo:focus-visible { outline: 3px solid var(--focus);
 .page-head { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
 .page-head h1 { margin: 0; font-size: 1.45rem; color: var(--brand-ink); }
 .page-head p { margin: .2rem 0 0; color: var(--muted); }
+h1, h2, h3 { font-weight: 700; } /* خط Cairo: Bold للعناوين وRegular للنصوص (هوية «إتمام») */
 h2 { font-size: 1.1rem; margin: 0 0 .75rem; }
 
 /* ---------- البطاقات */
