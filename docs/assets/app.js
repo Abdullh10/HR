@@ -579,7 +579,7 @@
         <div class="field"><label for="no">الرقم الوظيفي *</label><input id="no" name="no" required value="${e ? h(e.no) : ""}"></div>
         <div class="field"><label for="nm">الاسم *</label><input id="nm" name="name" required value="${e ? h(e.name) : ""}"></div>
         <div class="field"><label for="dp">القسم</label><select id="dp" name="dept"><option value="">—</option>${DB.depts.filter((d) => d.active).map((d) => `<option value="${d.id}" ${e && e.dept === d.id ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select></div>
-        <div class="field"><label for="mg">الإداري المسؤول <span class="hint">(يرفع توصياته ويعتمد طلباته)</span></label><select id="mg" name="mgr"><option value="">— غير مُسند —</option>${offs.map((o) => `<option value="${o.id}" ${e && e.mgr === o.id ? "selected" : ""}>${h(o.name)}</option>`).join("")}</select></div>
+        <div class="field"><label for="mg">الإداري المسؤول <span class="hint">(يرفع توصياته ويعتمد طلباته)</span></label><select id="mg" name="mgr"><option value="">— غير مُسند —</option>${offs.map((o) => `<option value="${o.id}" ${e && e.mgr === o.id ? "selected" : ""}>${h(o.name)} (${h(o.no)})</option>`).join("")}</select></div>
         <div class="field"><label for="tt">المسمى الوظيفي</label><input id="tt" name="title" value="${e ? h(e.title) : ""}"></div>
         <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" type="email" name="email" value="${e ? h(e.email) : ""}"></div></div>
         ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : ""}
@@ -1257,6 +1257,47 @@
     if (t.closest("[data-print]")) { ev.preventDefault(); window.print(); return; }
     const all = t.closest("[data-check-all]"); if (all) document.querySelectorAll(`input[name="${all.dataset.checkAll}"]`).forEach((c) => (c.checked = all.checked));
   });
+  // بحث وتصفية داخل قوائم اختيار الموظف (بالاسم أو الرقم الوظيفي)
+  var EMP_SELECTS = 'select[name="emp"]:not([multiple]), select[name="employee_id"]:not([multiple]), select[name="mgr"]:not([multiple]), select[name="manager_id"]:not([multiple])';
+  function normAr(s) {
+    return String(s || "").replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
+      .replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }).replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  function enhanceSelects(root) {
+    (root || document).querySelectorAll(EMP_SELECTS).forEach(function (sel) {
+      if (sel.dataset.searchReady || sel.options.length < 4) return;
+      sel.dataset.searchReady = "1";
+      var all = Array.prototype.slice.call(sel.options);
+      var box = document.createElement("div");
+      box.className = "opt-search";
+      var inp = document.createElement("input");
+      inp.type = "search";
+      inp.placeholder = "ابحث بالاسم أو الرقم الوظيفي…";
+      inp.setAttribute("aria-label", "بحث في قائمة الموظفين");
+      inp.setAttribute("autocomplete", "off");
+      var cnt = document.createElement("small");
+      cnt.className = "hint";
+      box.appendChild(inp); box.appendChild(cnt);
+      sel.parentNode.insertBefore(box, sel);
+      inp.addEventListener("input", function () {
+        var q = normAr(inp.value), cur = sel.value, n = 0;
+        all.forEach(function (o) {
+          var keep = !o.value || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent).indexOf(q) !== -1;
+          if (keep && o.value) n++;
+          if (keep && o.parentNode !== sel) sel.appendChild(o);
+          if (!keep && o.parentNode === sel) sel.removeChild(o);
+        });
+        all.forEach(function (o) { if (o.parentNode === sel) sel.appendChild(o); }); // الحفاظ على الترتيب الأصلي
+        cnt.textContent = q ? n + " نتيجة" : "";
+        var real = all.filter(function (o) { return o.value && o.parentNode === sel; });
+        if (sel.dataset.auto && sel.value === "" ) sel.dataset.auto = "";
+        if (q && real.length === 1 && (!sel.value || sel.dataset.auto) && !sel.hasAttribute("data-reqemp") && !sel.hasAttribute("data-autosubmit-get")) { sel.value = real[0].value; sel.dataset.auto = sel.value; }
+        else if (sel.dataset.auto && real.indexOf(sel.selectedOptions[0]) === -1) { sel.value = ""; sel.dataset.auto = ""; }
+      });
+      inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); sel.focus(); } });
+      sel.addEventListener("change", function () { sel.dataset.auto = ""; });
+    });
+  }
   function syncUnit(form) { const u = form.querySelector("[data-unit]:checked"); if (!u) return; form.querySelectorAll("[data-for-unit]").forEach((el) => { const on = el.dataset.forUnit === u.value; el.hidden = !on; el.querySelectorAll("input").forEach((i) => (i.required = on && i.name === "hours")); }); }
   function assignSync(form) {
     const sel = form.querySelector("[data-role-select]");
@@ -1295,6 +1336,7 @@
     if (html === "" || html == null) return;
     $app.innerHTML = html;
     document.querySelectorAll("[data-leave-form]").forEach(syncUnit);
+    enhanceSelects($app);
     document.querySelectorAll("form").forEach((f) => { if (f.querySelector("[data-role-select]")) assignSync(f); });
     const main = document.getElementById("main"); if (main && seg[0] !== "login") main.focus({ preventScroll: true });
     window.scrollTo(0, 0);

@@ -168,6 +168,49 @@
   });
   document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("form").forEach(function (f) { if (f.querySelector("[data-role-select]")) assignSync(f); }); });
 
+  // بحث وتصفية داخل قوائم اختيار الموظف (بالاسم أو الرقم الوظيفي)
+  var EMP_SELECTS = 'select[name="emp"]:not([multiple]), select[name="employee_id"]:not([multiple]), select[name="mgr"]:not([multiple]), select[name="manager_id"]:not([multiple])';
+  function normAr(s) {
+    return String(s || "").replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
+      .replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }).replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  function enhanceSelects(root) {
+    (root || document).querySelectorAll(EMP_SELECTS).forEach(function (sel) {
+      if (sel.dataset.searchReady || sel.options.length < 4) return;
+      sel.dataset.searchReady = "1";
+      var all = Array.prototype.slice.call(sel.options);
+      var box = document.createElement("div");
+      box.className = "opt-search";
+      var inp = document.createElement("input");
+      inp.type = "search";
+      inp.placeholder = "ابحث بالاسم أو الرقم الوظيفي…";
+      inp.setAttribute("aria-label", "بحث في قائمة الموظفين");
+      inp.setAttribute("autocomplete", "off");
+      var cnt = document.createElement("small");
+      cnt.className = "hint";
+      box.appendChild(inp); box.appendChild(cnt);
+      sel.parentNode.insertBefore(box, sel);
+      inp.addEventListener("input", function () {
+        var q = normAr(inp.value), cur = sel.value, n = 0;
+        all.forEach(function (o) {
+          var keep = !o.value || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent).indexOf(q) !== -1;
+          if (keep && o.value) n++;
+          if (keep && o.parentNode !== sel) sel.appendChild(o);
+          if (!keep && o.parentNode === sel) sel.removeChild(o);
+        });
+        all.forEach(function (o) { if (o.parentNode === sel) sel.appendChild(o); }); // الحفاظ على الترتيب الأصلي
+        cnt.textContent = q ? n + " نتيجة" : "";
+        var real = all.filter(function (o) { return o.value && o.parentNode === sel; });
+        if (sel.dataset.auto && sel.value === "" ) sel.dataset.auto = "";
+        if (q && real.length === 1 && (!sel.value || sel.dataset.auto) && !sel.hasAttribute("data-reqemp") && !sel.hasAttribute("data-autosubmit-get")) { sel.value = real[0].value; sel.dataset.auto = sel.value; }
+        else if (sel.dataset.auto && real.indexOf(sel.selectedOptions[0]) === -1) { sel.value = ""; sel.dataset.auto = ""; }
+      });
+      inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); sel.focus(); } });
+      sel.addEventListener("change", function () { sel.dataset.auto = ""; });
+    });
+  }
+  document.addEventListener("DOMContentLoaded", function () { enhanceSelects(document); });
+
   // إضافة تاريخ آخر في طلب بدل الراحة
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-add-date]");

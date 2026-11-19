@@ -872,6 +872,11 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
 .steps li { margin-bottom: .35rem; }
 .mt-sm { margin-top: .35rem; }
 
+/* ---------- البحث داخل قوائم الموظفين */
+.opt-search { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
+.opt-search input { flex: 1; min-width: 0; padding-block: .4rem; font-size: .88rem; background: var(--surface-2); }
+.opt-search small { white-space: nowrap; }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
