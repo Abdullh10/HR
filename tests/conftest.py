@@ -27,6 +27,8 @@ def world():
     init_db()
     with SessionLocal() as db:
         y = db.query(FiscalYear).one()
+        from datetime import date as _d
+        y.name, y.start_date, y.end_date = "2027", _d(2027, 1, 1), _d(2027, 12, 31)
         y.require_task_attachment = False
         d = Department(name="وحدة الشؤون الإدارية")
         db.add(d)

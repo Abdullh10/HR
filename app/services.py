@@ -92,6 +92,9 @@ class BalanceInfo:
     used_hours: float
     pending_days: int
     pending_hours: float
+    converted_days_used: int = 0      # أيام معتمدة غُطّيت من رصيد الساعات (كل N ساعات = يوم)
+    converted_days_pending: int = 0   # أيام معلّقة ستُغطّى من رصيد الساعات
+    taken_days: int = 0               # مجموع أيام الإجازة المعتمدة (من الأيام + المحوّلة من الساعات)
 
     @property
     def days_left(self) -> float:
@@ -131,6 +134,33 @@ class BalanceInfo:
         return compute_earned(max(self.total_left_hours, 0), self.hours_per_day)[1]
 
     @property
+    def bookable_days(self) -> int:
+        """الأيام التي يمكن طلبها: رصيد الأيام المتاح + ما يعادله رصيد الساعات المتاح (تحويل الساعات إلى أيام)."""
+        return int(max(self.days_available, 0)) + compute_earned(max(self.hours_available, 0), self.hours_per_day)[0]
+
+    @property
+    def bookable_from_hours(self) -> int:
+        return max(self.bookable_days - int(max(self.days_available, 0)), 0)
+
+    @property
+    def alerts(self) -> list[tuple[str, str]]:
+        """تنبيهات الرصيد للموظف: (النوع، النص)."""
+        out = []
+        if self.cap_days > 0 and self.granted_equiv_days >= self.cap_days - 1e-9:
+            out.append(("warn", f"بلغت الحد الأقصى السنوي ({self.cap_days:g} يوماً)، فلا تُقبل توصيات جديدة هذه السنة."))
+        elif self.cap_days > 0 and self.cap_pct >= 80:
+            out.append(("info", f"اقتربت من الحد الأقصى السنوي: مُنحت {self.granted_equiv_days:g} من {self.cap_days:g} يوماً."))
+        granted = self.granted_days * self.hours_per_day + self.granted_hours
+        avail_h = max(self.days_available, 0) * self.hours_per_day + max(self.hours_available, 0)
+        if granted > 0 and avail_h <= 0:
+            out.append(("warn", "استنفدت رصيدك المتاح من بدل الراحة."))
+        elif granted > 0 and avail_h <= 2 * self.hours_per_day:
+            d, r = compute_earned(avail_h, self.hours_per_day)
+            left = (days_ar(d) + (" و" + hours_ar(r) if r else "")) if d else hours_ar(r)
+            out.append(("warn", f"رصيدك المتاح قارب على النفاد: بقي {left}."))
+        return out
+
+    @property
     def granted_equiv_days(self) -> float:
         return round(self.granted_days + self.granted_hours / self.hours_per_day, 2)
 
@@ -167,27 +197,55 @@ def compute_earned(hours: float, hours_per_day: float) -> tuple[int, float]:
     return days, rem
 
 
-def compute_balance(db: Session, employee_id: int, year: FiscalYear) -> BalanceInfo:
+def allocate(hpd: float, g_days: float, g_hours: float, a_days: float, a_hours: float,
+             p_days: float = 0, p_hours: float = 0) -> dict:
+    """توزيع الاستهلاك على الرصيدين: طلبات الأيام تُخصم من رصيد الأيام أولاً، وما زاد يُحوَّل
+    من رصيد الساعات (كل hpd ساعات = يوم). المعتمد يُخصَّص قبل المعلّق."""
+    from_days_a = min(a_days, g_days)
+    conv_a = a_days - from_days_a
+    from_days_p = min(p_days, g_days - from_days_a)
+    conv_p = p_days - from_days_p
+    return dict(used_days=int(from_days_a), used_hours=round(a_hours + conv_a * hpd, 2), conv_a=int(conv_a),
+                pending_days=int(from_days_p), pending_hours=round(p_hours + conv_p * hpd, 2), conv_p=int(conv_p))
+
+
+def compute_balance(db: Session, employee_id: int, year: FiscalYear, exclude_rec_id: int | None = None) -> BalanceInfo:
     def rec_sum(kind: str) -> float:
-        return float(db.scalar(select(func.coalesce(func.sum(Recommendation.amount), 0)).where(
+        q = select(func.coalesce(func.sum(Recommendation.amount), 0)).where(
             Recommendation.employee_id == employee_id, Recommendation.fiscal_year_id == year.id,
-            Recommendation.kind == kind, Recommendation.status == "active")) or 0)
+            Recommendation.kind == kind, Recommendation.status == "active")
+        if exclude_rec_id:
+            q = q.where(Recommendation.id != exclude_rec_id)
+        return float(db.scalar(q) or 0)
 
     def req_sum(col, unit: str, status: str) -> float:
         return float(db.scalar(select(func.coalesce(func.sum(col), 0)).where(
             LeaveRequest.employee_id == employee_id, LeaveRequest.fiscal_year_id == year.id,
             LeaveRequest.unit == unit, LeaveRequest.status == status)) or 0)
 
+    g_days, g_hours = rec_sum("days"), rec_sum("hours")
+    a_days = req_sum(LeaveRequest.days, "days", "approved")
+    al = allocate(year.hours_per_day, g_days, g_hours, a_days, req_sum(LeaveRequest.hours, "hours", "approved"),
+                  req_sum(LeaveRequest.days, "days", "pending"), req_sum(LeaveRequest.hours, "hours", "pending"))
     return BalanceInfo(
-        hours_per_day=year.hours_per_day,
-        cap_days=year.base_days,
-        granted_days=rec_sum("days"),
-        granted_hours=rec_sum("hours"),
-        used_days=int(req_sum(LeaveRequest.days, "days", "approved")),
-        used_hours=req_sum(LeaveRequest.hours, "hours", "approved"),
-        pending_days=int(req_sum(LeaveRequest.days, "days", "pending")),
-        pending_hours=req_sum(LeaveRequest.hours, "hours", "pending"),
+        hours_per_day=year.hours_per_day, cap_days=year.base_days, granted_days=g_days, granted_hours=g_hours,
+        used_days=al["used_days"], used_hours=al["used_hours"], pending_days=al["pending_days"],
+        pending_hours=al["pending_hours"], converted_days_used=al["conv_a"], converted_days_pending=al["conv_p"],
+        taken_days=int(a_days),
     )
+
+
+def alert_keys(b: "BalanceInfo") -> set[str]:
+    return {t.split(":")[0].split("(")[0].strip()[:20] for _, t in b.alerts}
+
+
+def notify_balance_alerts(db: Session, emp: Employee, year: FiscalYear, before: set[str],
+                          sender: User | None = None) -> None:
+    """يرسل للموظف تنبيهات الرصيد الجديدة فقط (عند الاقتراب من الحد السنوي أو نفاد الرصيد)."""
+    b = compute_balance(db, emp.id, year)
+    new = [t for _, t in b.alerts if t.split(":")[0].split("(")[0].strip()[:20] not in before]
+    if new:
+        notify(db, employee_user(db, emp), "تنبيه رصيد بدل الراحة", "\n".join(new), "/me", sender=sender)
 
 
 # ---------------------------------------------------------------- الصلاحيات
@@ -313,11 +371,9 @@ def check_can_cancel_recommendation(db: Session, rec: Recommendation) -> None:
     year = ensure_year_open(db.get(FiscalYear, rec.fiscal_year_id))
     if rec.status != "active":
         raise RuleError("التوصية ملغاة مسبقاً.")
-    b = compute_balance(db, rec.employee_id, year)
-    if rec.kind == "days" and b.days_left - rec.amount < 0:
-        raise RuleError("لا يمكن الإلغاء: الأيام الممنوحة بهذه التوصية مستخدمة في طلبات معتمدة.")
-    if rec.kind == "hours" and b.hours_left - rec.amount < -1e-9:
-        raise RuleError("لا يمكن الإلغاء: الساعات الممنوحة بهذه التوصية مستخدمة في طلبات معتمدة.")
+    after = compute_balance(db, rec.employee_id, year, exclude_rec_id=rec.id)
+    if after.hours_left < -1e-9 or after.days_left < 0:
+        raise RuleError("لا يمكن الإلغاء: الرصيد الممنوح بهذه التوصية مستخدم في طلبات معتمدة.")
 
 
 def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date, end: date | None,
@@ -353,8 +409,9 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
             LeaveRequest.id != (exclude_id or 0)))
         if overlap:
             raise RuleError("يوجد طلب فعّال يتداخل مع هذه المدة.")
-        if days > b.days_available:
-            raise RuleError(f"رصيد الأيام المتاح ({days_ar(max(b.days_available, 0))}) لا يكفي لمدة {days_ar(days)}.")
+        if days > b.bookable_days:
+            raise RuleError(f"الرصيد المتاح للحجز بالأيام ({days_ar(b.bookable_days)}، شاملاً تحويل الساعات: "
+                            f"كل {b.hours_per_day:g} ساعات = يوم) لا يكفي لمدة {days_ar(days)}.")
     else:
         end = start
         if hours is None or hours <= 0:
@@ -371,10 +428,13 @@ def check_can_approve_leave(db: Session, req: LeaveRequest) -> None:
     year = ensure_year_open(db.get(FiscalYear, req.fiscal_year_id))
     b = compute_balance(db, req.employee_id, year)
     # المعلّق يتضمن هذا الطلب نفسه؛ نتحقق أن الرصيد (دون المعلّقات الأخرى) يكفيه
-    if req.unit == "days" and req.days > b.days_left:
-        raise RuleError("اعتماد هذا الطلب يتجاوز رصيد الأيام.")
-    if req.unit == "hours" and req.hours > b.hours_left + 1e-9:
-        raise RuleError("اعتماد هذا الطلب يتجاوز رصيد الساعات.")
+    # نتحقق بالاعتماد الافتراضي لهذا الطلب وحده (دون بقية المعلّقات)
+    hpd = year.hours_per_day
+    a_days = b.taken_days + (req.days if req.unit == "days" else 0)
+    a_hours = (b.used_hours - b.converted_days_used * hpd) + (req.hours if req.unit == "hours" else 0)
+    al = allocate(hpd, b.granted_days, b.granted_hours, a_days, a_hours)
+    if b.granted_hours - al["used_hours"] < -1e-9:
+        raise RuleError("اعتماد هذا الطلب يتجاوز الرصيد المتاح (الأيام والساعات المحوّلة).")
 
 
 def check_can_cancel_leave(db: Session, req: LeaveRequest, user: User) -> None:

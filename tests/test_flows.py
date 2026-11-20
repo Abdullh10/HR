@@ -89,7 +89,9 @@ def test_recommendations_and_cap(world):
     assert rec(login("emp"), world["e"], "days", 1).status_code == 403
     with SessionLocal() as db:
         u = db.query(User).filter_by(username="emp").one()
-        assert db.query(Message).filter_by(recipient_id=u.id).count() == 3  # إشعار لكل توصية ناجحة
+        subjects = [m.subject for m in db.query(Message).filter_by(recipient_id=u.id)]
+        assert sum(x.startswith("منحك") for x in subjects) == 3  # إشعار لكل توصية ناجحة
+        assert "تنبيه رصيد بدل الراحة" in subjects  # تجاوز 80% من الحد السنوي
     # الأدمن يرفع لأي موظف
     rec(login("admin"), world["o"], "hours", 7)
     assert balance(world["o"], world["year"]).total_left_days == 1
@@ -233,3 +235,30 @@ def test_empty_filter_params(world):
               "/requests?status=&kind=&emp=", "/archive?q=&kind=&emp=&year_id="):
         assert adm.get(u).status_code == 200, u
     assert "موظف أول" in adm.get("/employees?q=%D9%85%D9%88%D8%B8%D9%81&dept=").text
+
+
+def test_hours_convert_to_days(world):
+    """تحويل الساعات إلى أيام: طلب الأيام يُخصم من الأيام أولاً ثم من الساعات (كل 7 ساعات = يوم)."""
+    mgr, emp = login("mgr"), login("emp")
+    rec(mgr, world["e"], "days", 1)
+    rec(mgr, world["e"], "hours", 15)
+    b = balance(world["e"], world["year"])
+    assert b.bookable_days == 3 and b.bookable_from_hours == 2
+    leave(emp, world["e"], "use", "days", MON, MON + timedelta(days=3))  # 4 أيام > 3
+    assert balance(world["e"], world["year"]).pending_days == 0
+    leave(emp, world["e"], "use", "days", MON, MON + timedelta(days=2))  # 3 أيام
+    b = balance(world["e"], world["year"])
+    assert (b.pending_days, b.pending_hours, b.converted_days_pending) == (1, 14, 2)
+    assert b.hours_available == 1
+    with SessionLocal() as db:
+        rid = db.query(LeaveRequest).one().id
+    post(mgr, f"/requests/{rid}/decide", {"action": "approve"})
+    b = balance(world["e"], world["year"])
+    assert (b.days_left, b.hours_left, b.taken_days, b.converted_days_used) == (0, 1, 3, 2)
+    # لا يمكن إلغاء توصية الساعات لأنها مستخدمة
+    with SessionLocal() as db:
+        hid = db.query(Recommendation).filter_by(kind="hours").one().id
+    post(mgr, f"/recommendations/{hid}/cancel", {"note": "خطأ"})
+    assert balance(world["e"], world["year"]).granted_hours == 15
+    # تنبيه نفاد الرصيد يظهر للموظف
+    assert "استنفدت رصيدك" in emp.get("/me").text or "قارب على النفاد" in emp.get("/me").text

@@ -78,3 +78,25 @@ def test_archive(world):
     assert any(n.endswith(".xlsx") for n in names) and any(n.startswith("pdf/REC-") for n in names)
     assert login("emp").get("/archive").status_code == 403
     assert "موظف أول" in login("admin").get("/archive").text
+
+
+def test_old_session_cannot_open_new_account(world):
+    """بعد الحذف الكامل وإنشاء حسابات جديدة بنفس الأرقام، لا تعمل الجلسة القديمة."""
+    from app.security import hash_password
+    emp = login("emp")
+    assert emp.get("/me").status_code == 200
+    adm = login("admin")
+    post(adm, "/admin/wipe", {"confirm": "حذف"})
+    with SessionLocal() as db:
+        for i in range(4):
+            db.add(User(username=f"new{i}", role="officer", password_hash=hash_password("Passw0rd99"),
+                        must_change_password=False))
+        db.commit()
+    r = emp.get("/me", follow_redirects=False)
+    assert r.status_code in (302, 303, 307) and "/login" in r.headers["location"]
+    # تغيير كلمة المرور يُبقي الجلسة الحالية صالحة
+    c = login("new0")
+    tok = c.tok
+    c.post("/change-password", data={"csrf_token": tok, "current": "Passw0rd99", "new": "NewPass123x",
+                                     "confirm": "NewPass123x"}, follow_redirects=False)
+    assert c.get("/messages").status_code == 200

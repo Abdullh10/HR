@@ -3,7 +3,7 @@
   "use strict";
 
   // ============================================================ أدوات
-  const KEY = "hr_demo_v2";
+  const KEY = "hr_demo_v3";
   const CREDIT = "تصميم وتطوير: مريم حمدي";
   const TAGLINE = "إدارة أيام بدل الراحة بكفاءة واحتراف";
   const $app = document.getElementById("app");
@@ -48,11 +48,12 @@
   }
 
   async function seed() {
+    const Y = new Date().getFullYear(); // بيانات العرض على السنة الميلادية الحالية
     const pw = await sha(DEMO_PW);
     const db = { seq: 0, settings: { university: "جامعة الملك سعود", college: "كلية التمريض", system_title: "إتمام", tagline: TAGLINE, credit: CREDIT },
       years: [], depts: [], emps: [], users: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [] };
     DB = db;
-    db.years.push({ id: nid(), name: "2027", start: "2027-01-01", end: "2027-12-31", active: true, locked: false, cap: 20, hpd: 7,
+    db.years.push({ id: nid(), name: String(Y), start: Y + "-01-01", end: Y + "-12-31", active: true, locked: false, cap: 20, hpd: 7,
       reqRecAtt: false, reqReqAtt: false, weekend: [5, 6], blockWeekends: true, allowLateCancel: false, empCanRequest: true });
     const depts = ["وحدة الشؤون الإدارية", "وحدة المعامل", "العلاقات العامة", "وكالة الشؤون الأكاديمية"];
     depts.forEach((name) => db.depts.push({ id: nid(), name, active: true }));
@@ -81,26 +82,26 @@
     addU("100102", "employee", byNo["100102"]);
     const y = db.years[0].id;
     const REC = (no, kind, amount, date, subject, ref, by) => db.recs.push({ id: nid(), emp: byNo[no].id, year: y, kind, amount, date, ref: ref || "", subject, status: "active", att: "توصية.pdf", by: by.id, cancelNote: "", created: date + " 10:00" });
-    REC("100101", "days", 2, "2027-01-17", "المراقبة في الاختبارات النهائية للفصل الأول", "ت/112", off);
-    REC("100101", "hours", 17.5, "2027-02-08", "تنظيم ملتقى التمريض السنوي", "ت/140", off);
-    REC("100101", "days", 3, "2027-03-03", "لجنة الاعتماد الأكاديمي", "ت/171", off);
-    REC("100102", "days", 4, "2027-01-20", "جرد العهد السنوي", "ت/118", off);
-    REC("100103", "hours", 10, "2027-02-14", "حفل الخريجات", "ت/151", off);
-    REC("100301", "days", 18, "2027-02-02", "تنظيم مؤتمر الكلية", "ت/133", off);
-    REC("100201", "hours", 21, "2027-01-25", "تجهيز المعامل للاختبارات العملية", "ت/126", off2);
-    REC("100202", "days", 2, "2027-02-22", "مناوبة المعامل", "ت/160", off2);
+    REC("100101", "days", 2, Y + "-01-17", "المراقبة في الاختبارات النهائية للفصل الأول", "ت/112", off);
+    REC("100101", "hours", 17.5, Y + "-02-08", "تنظيم ملتقى التمريض السنوي", "ت/140", off);
+    REC("100101", "days", 3, Y + "-03-03", "لجنة الاعتماد الأكاديمي", "ت/171", off);
+    REC("100102", "days", 4, Y + "-01-20", "جرد العهد السنوي", "ت/118", off);
+    REC("100103", "hours", 10, Y + "-02-14", "حفل الخريجات", "ت/151", off);
+    REC("100301", "days", 18, Y + "-02-02", "تنظيم مؤتمر الكلية", "ت/133", off);
+    REC("100201", "hours", 21, Y + "-01-25", "تجهيز المعامل للاختبارات العملية", "ت/126", off2);
+    REC("100202", "days", 2, Y + "-02-22", "مناوبة المعامل", "ت/160", off2);
     const LV = (no, kind, unit, start, end, days, hours, reason, status, by, dec) => db.leaves.push({ id: nid(), emp: byNo[no].id, year: y, kind, unit, start, end: end || start, days, hours, reason, status, att: "", by: by.id,
       decidedBy: status === "pending" ? null : dec.id, decidedAt: status === "pending" ? null : start + " 12:00", note: status === "rejected" ? "ضغط عمل في الوحدة" : "", created: start + " 08:30" });
-    LV("100101", "use", "days", "2027-02-01", "2027-02-01", 1, 0, "ظرف عائلي", "approved", emp, off);
-    LV("100101", "use", "hours", "2027-03-10", null, 0, 3, "موعد طبي", "approved", emp, off);
-    LV("100101", "compensation", "hours", "2027-03-15", null, 0, 4, "غياب صباحي اضطراري", "pending", emp, null);
-    LV("100102", "use", "days", "2027-03-21", "2027-03-22", 2, 0, "سفر", "pending", byNo["100102"] && db.users[4], null);
-    LV("100201", "compensation", "days", "2027-02-10", null, 1, 0, "غياب طارئ", "approved", off2, off2);
+    LV("100101", "use", "days", Y + "-02-01", Y + "-02-01", 1, 0, "ظرف عائلي", "approved", emp, off);
+    LV("100101", "use", "hours", Y + "-03-10", null, 0, 3, "موعد طبي", "approved", emp, off);
+    LV("100101", "compensation", "hours", Y + "-03-15", null, 0, 4, "غياب صباحي اضطراري", "pending", emp, null);
+    LV("100102", "use", "days", Y + "-03-21", Y + "-03-22", 2, 0, "سفر", "pending", byNo["100102"] && db.users[4], null);
+    LV("100201", "compensation", "days", Y + "-02-10", null, 1, 0, "غياب طارئ", "approved", off2, off2);
     const MSG = (from, to, subject, body, at, read) => db.msgs.push({ id: nid(), from: from ? from.id : null, to: to.id, subject, body, at, read: !!read, link: "" });
-    MSG(admin, off, "تعميم: رفع توصيات الفصل الأول", "نأمل رفع توصيات بدل الراحة الخاصة بأعمال الاختبارات النهائية للفصل الأول قبل نهاية الشهر، مع إرفاق خطاب العميد بصيغة PDF.\n\nمع الشكر.", "2027-01-10 09:00", true);
-    MSG(off, emp, "تمت إضافة توصية جديدة", "أُضيفت إلى رصيدك توصية بمنحك ثلاثة أيام بدل راحة (لجنة الاعتماد الأكاديمي). يمكنك الاطلاع على الإشعار وطباعته من صفحة رصيدك.", "2027-03-03 10:05", false);
-    MSG(emp, off, "استفسار عن رصيد الساعات", "السلام عليكم، هل يمكن استخدام رصيد الساعات لساعتين نهاية الدوام يوم الخميس؟", "2027-03-05 13:20", false);
-    db.holidays.push({ id: nid(), day: "2027-02-22", name: "يوم التأسيس" });
+    MSG(admin, off, "تعميم: رفع توصيات الفصل الأول", "نأمل رفع توصيات بدل الراحة الخاصة بأعمال الاختبارات النهائية للفصل الأول قبل نهاية الشهر، مع إرفاق خطاب العميد بصيغة PDF.\n\nمع الشكر.", Y + "-01-10 09:00", true);
+    MSG(off, emp, "تمت إضافة توصية جديدة", "أُضيفت إلى رصيدك توصية بمنحك ثلاثة أيام بدل راحة (لجنة الاعتماد الأكاديمي). يمكنك الاطلاع على الإشعار وطباعته من صفحة رصيدك.", Y + "-03-03 10:05", false);
+    MSG(emp, off, "استفسار عن رصيد الساعات", "السلام عليكم، هل يمكن استخدام رصيد الساعات لساعتين نهاية الدوام يوم الخميس؟", Y + "-03-05 13:20", false);
+    db.holidays.push({ id: nid(), day: Y + "-02-22", name: "يوم التأسيس" });
     DB = db;
     save();
   }
@@ -119,32 +120,47 @@
   // ============================================================ قواعد العمل
   function earned(hours, hpd) { if (hpd <= 0) return [0, 0]; const q = Math.round((hours / hpd) * 1e9) / 1e9; const d = Math.floor(q); return [d, Math.round((hours - d * hpd) * 100) / 100]; }
   // الرصيد: يُمنح بالتوصيات (أيام وساعات) ويُستهلك بالطلبات المعتمدة؛ الحد الأقصى السنوي للأيام والساعات معاً
-  function balance(empId, year) {
+  // توزيع الاستهلاك: طلبات الأيام تُخصم من رصيد الأيام أولاً، وما زاد يُحوَّل من الساعات (كل hpd ساعات = يوم)
+  function allocate(hpd, gD, gH, aD, aH, pD, pH) {
+    const fa = Math.min(aD, gD), ca = aD - fa, fp = Math.min(pD || 0, gD - fa), cp = (pD || 0) - fp;
+    return { uDays: fa, uHours: round2(aH + ca * hpd), convA: ca, pDays: fp, pHours: round2((pH || 0) + cp * hpd), convP: cp };
+  }
+  function balance(empId, year, excludeRec) {
     const hpd = year.hpd;
-    const recs = DB.recs.filter((r) => r.emp === empId && r.year === year.id && r.status === "active");
+    const recs = DB.recs.filter((r) => r.emp === empId && r.year === year.id && r.status === "active" && r.id !== excludeRec);
     const lv = DB.leaves.filter((r) => r.emp === empId && r.year === year.id);
     const sum = (arr, f) => arr.reduce((s, x) => s + Number(f(x) || 0), 0);
-    const b = {
-      hpd, cap: year.cap,
-      gDays: sum(recs.filter((r) => r.kind === "days"), (r) => r.amount),
-      gHours: round2(sum(recs.filter((r) => r.kind === "hours"), (r) => r.amount)),
-      uDays: sum(lv.filter((r) => r.unit === "days" && r.status === "approved"), (r) => r.days),
-      uHours: round2(sum(lv.filter((r) => r.unit === "hours" && r.status === "approved"), (r) => r.hours)),
-      pDays: sum(lv.filter((r) => r.unit === "days" && r.status === "pending"), (r) => r.days),
-      pHours: round2(sum(lv.filter((r) => r.unit === "hours" && r.status === "pending"), (r) => r.hours)),
-    };
+    const gDays = sum(recs.filter((r) => r.kind === "days"), (r) => r.amount), gHours = round2(sum(recs.filter((r) => r.kind === "hours"), (r) => r.amount));
+    const aD = sum(lv.filter((r) => r.unit === "days" && r.status === "approved"), (r) => r.days), aH = sum(lv.filter((r) => r.unit === "hours" && r.status === "approved"), (r) => r.hours);
+    const pD = sum(lv.filter((r) => r.unit === "days" && r.status === "pending"), (r) => r.days), pH = sum(lv.filter((r) => r.unit === "hours" && r.status === "pending"), (r) => r.hours);
+    const al = allocate(hpd, gDays, gHours, aD, aH, pD, pH);
+    const b = { hpd, cap: year.cap, gDays, gHours, uDays: al.uDays, uHours: al.uHours, pDays: al.pDays, pHours: al.pHours, convA: al.convA, convP: al.convP, taken: aD, rawAH: aH };
     b.daysLeft = b.gDays - b.uDays; b.hoursLeft = round2(b.gHours - b.uHours);
     b.daysAvail = b.daysLeft - b.pDays; b.hoursAvail = round2(b.hoursLeft - b.pHours);
     [b.hAsDays, b.hRem] = earned(Math.max(b.hoursLeft, 0), hpd);
+    b.bookable = Math.max(b.daysAvail, 0) + earned(Math.max(b.hoursAvail, 0), hpd)[0];
+    b.bookableFromHours = Math.max(b.bookable - Math.max(b.daysAvail, 0), 0);
     b.totalHours = round2(b.daysLeft * hpd + b.hoursLeft);
     [b.totalDays, b.totalRem] = earned(Math.max(b.totalHours, 0), hpd);
     b.grantedEq = round2(b.gDays + b.gHours / hpd);
-    b.usedEq = round2(b.uDays + b.uHours / hpd);
+    b.usedEq = round2(b.taken + b.rawAH / hpd);
     b.capLeftHours = round2(b.cap * hpd - (b.gDays * hpd + b.gHours));
     b.capPct = b.cap > 0 ? Math.min(100, Math.round((b.grantedEq / b.cap) * 100)) : 0;
     const granted = b.gDays * hpd + b.gHours;
     b.leftPct = granted > 0 ? Math.max(0, Math.min(100, Math.round((b.totalHours / granted) * 100))) : 0;
+    // تنبيهات الرصيد
+    b.alerts = [];
+    if (b.cap > 0 && b.grantedEq >= b.cap - 1e-9) b.alerts.push(["warn", "بلغت الحد الأقصى السنوي (" + b.cap + " يوماً)، فلا تُقبل توصيات جديدة هذه السنة."]);
+    else if (b.cap > 0 && b.capPct >= 80) b.alerts.push(["info", "اقتربت من الحد الأقصى السنوي: مُنحت " + n(b.grantedEq) + " من " + b.cap + " يوماً."]);
+    const availH = Math.max(b.daysAvail, 0) * hpd + Math.max(b.hoursAvail, 0);
+    if (granted > 0 && availH <= 0) b.alerts.push(["warn", "استنفدت رصيدك المتاح من بدل الراحة."]);
+    else if (granted > 0 && availH <= 2 * hpd) { const [d, rr] = earned(availH, hpd); b.alerts.push(["warn", "رصيدك المتاح قارب على النفاد: بقي " + (d ? daysAr(d) + (rr ? " و" + hoursAr(rr) : "") : hoursAr(rr)) + "."]); }
     return b;
+  }
+  const alertKeys = (b) => new Set(b.alerts.map(([, t]) => t.split(":")[0].split("(")[0].trim().slice(0, 20)));
+  function notifyAlerts(e, y, before, from) {
+    const b = balance(e.id, y), fresh = b.alerts.filter(([, t]) => !before.has(t.split(":")[0].split("(")[0].trim().slice(0, 20))).map(([, t]) => t);
+    if (fresh.length) notify(userOfEmp(e), "تنبيه رصيد بدل الراحة", fresh.join("\n"), "#/me", from);
   }
   const isOfficerOf = (u, e) => !!(u.role === "officer" && u.emp && e.mgr === u.emp);
   function canView(u, e) { return u.role === "admin" || u.emp === e.id || isOfficerOf(u, e); }
@@ -196,7 +212,7 @@
       if (yearFor(end) !== y) throw new RuleError("يجب أن تقع مدة الطلب ضمن سنة واحدة.");
       const wd = workingDays(y, start, end); if (!wd.length) throw new RuleError("المدة المختارة لا تتضمن أيام عمل (عطلة نهاية أسبوع أو عطلة رسمية).");
       if (DB.leaves.some((r) => r.emp === e.id && r.unit === "days" && ["pending", "approved"].includes(r.status) && r.start <= end && r.end >= start)) throw new RuleError("يوجد طلب فعّال يتداخل مع هذه المدة.");
-      if (wd.length > b.daysAvail) throw new RuleError("رصيد الأيام المتاح (" + daysAr(Math.max(b.daysAvail, 0)) + ") لا يكفي لمدة " + daysAr(wd.length) + ".");
+      if (wd.length > b.bookable) throw new RuleError("الرصيد المتاح للحجز بالأيام (" + daysAr(b.bookable) + "، شاملاً تحويل الساعات: كل " + n(y.hpd) + " ساعات = يوم) لا يكفي لمدة " + daysAr(wd.length) + ".");
       return { y, days: wd.length, hours: 0, end };
     }
     if (hours == null || hours <= 0) throw new RuleError("أدخل عدد ساعات أكبر من صفر.");
@@ -211,11 +227,13 @@
     if (r.status !== "pending") throw new RuleError("الطلب ليس بانتظار الاعتماد.");
     if (!canManage(u, e)) throw new RuleError("لا يمكنك البت في هذا الطلب: الاعتماد للإداري المسؤول عن الموظف.");
     const y = openYear(byId("years", r.year)), b = balance(e.id, y);
-    if (action === "approve") { if (r.unit === "days" ? r.days > b.daysLeft : r.hours > b.hoursLeft + 1e-9) throw new RuleError("اعتماد هذا الطلب يتجاوز الرصيد."); r.status = "approved"; }
+    const before = alertKeys(b);
+    if (action === "approve") { const al = allocate(y.hpd, b.gDays, b.gHours, b.taken + (r.unit === "days" ? r.days : 0), b.rawAH + (r.unit === "hours" ? r.hours : 0)); if (b.gHours - al.uHours < -1e-9) throw new RuleError("اعتماد هذا الطلب يتجاوز الرصيد المتاح (الأيام والساعات المحوّلة)."); r.status = "approved"; }
     else { if (!note) throw new RuleError("اذكر سبب الرفض."); r.status = "rejected"; }
     r.decidedBy = u.id; r.decidedAt = nowStr(); r.note = note || "";
     audit("leave_" + r.status, "leave_request", r.id, { note });
     notify(userOfEmp(e), "تم " + (r.status === "approved" ? "اعتماد" : "رفض") + " طلب " + LEAVE_KINDS[r.kind], "طلبك (" + leaveAmount(r) + " بتاريخ " + r.start + "): " + REQ_ST[r.status] + "." + (note ? " الملاحظة: " + note : ""), "#/requests", u);
+    if (r.status === "approved") notifyAlerts(e, y, before, u);
   }
   function cancelLeave(u, r, note) {
     const e = byId("emps", r.emp), own = r.emp === u.emp;
@@ -234,8 +252,8 @@
     if (!canManage(u, e)) throw new RuleError("ليست لديك صلاحية على هذه التوصية.");
     if (!note) throw new RuleError("اذكر سبب إلغاء التوصية.");
     const y = openYear(byId("years", r.year)); if (r.status !== "active") throw new RuleError("التوصية ملغاة مسبقاً.");
-    const b = balance(e.id, y);
-    if (r.kind === "days" ? b.daysLeft - r.amount < 0 : b.hoursLeft - r.amount < -1e-9) throw new RuleError("لا يمكن الإلغاء: الرصيد الممنوح بهذه التوصية مستخدم في طلبات معتمدة.");
+    const after = balance(e.id, y, r.id);
+    if (after.hoursLeft < -1e-9 || after.daysLeft < 0) throw new RuleError("لا يمكن الإلغاء: الرصيد الممنوح بهذه التوصية مستخدم في طلبات معتمدة.");
     r.status = "cancelled"; r.cancelNote = note; audit("recommendation_cancelled", "recommendation", r.id, { note });
     notify(userOfEmp(e), "إلغاء توصية بدل راحة", "أُلغيت التوصية (" + REC_KINDS[r.kind] + "). السبب: " + note, "#/me", u);
   }
@@ -332,11 +350,11 @@
   const months = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "يول", "أغس", "سبت", "أكت", "نوف", "ديس"];
 
   function board(b, big) {
-    return `<section class="board${big ? " big" : ""}">
+    return `${(b.alerts || []).map(([k, t]) => `<div class="alert ${k} balance-alert" role="status">⚠ ${h(t)}</div>`).join("")}<section class="board${big ? " big" : ""}">
   <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="الرصيد المتبقي ${b.totalDays} يوم و${n(b.totalRem)} ساعة">
-    <div class="gauge-in"><b class="num">${b.totalDays}</b><span>يوماً متاحاً</span>${b.totalRem ? `<small>+ ${hoursAr(b.totalRem)}</small>` : ""}</div></div>
+    <div class="gauge-in"><b class="num">${b.totalDays}</b><span>يوماً متبقياً</span>${b.totalRem ? `<small>+ ${hoursAr(b.totalRem)}</small>` : ""}</div></div>
   <div class="board-cards">
-    <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span></div></div>
+    <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span><span class="s book">${b.bookable ? `يمكن طلب <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}` : "لا توجد أيام قابلة للطلب حالياً"}</span></div></div>
     <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">= ${daysAr(b.hAsDays)}${b.hRem ? " و" + hoursAr(b.hRem) : ""} · كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}</span></div></div>
     <div class="bcard cap">${ico("pie")}<div><span class="l">من الحد الأقصى السنوي</span><b class="v num">${n(b.grantedEq)} <small class="of">من ${n(b.cap)} يوماً</small></b>
       <div class="progress" role="progressbar" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
@@ -655,11 +673,11 @@
       <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
         <fieldset class="unit-pick"><legend>الرصيد المستخدم *</legend>
-          <label class="radio-card"><input type="radio" name="unit" value="days" checked data-unit> ${ico("calendar")}<span><b>من رصيد الأيام</b>${b ? `<small>المتاح: ${n(b.daysAvail)} يوم</small>` : ""}</span></label>
-          <label class="radio-card"><input type="radio" name="unit" value="hours" data-unit> ${ico("clock")}<span><b>من رصيد الساعات</b>${b ? `<small>المتاح: ${n(b.hoursAvail)} ساعة</small>` : ""}</span></label></fieldset>
+          <label class="radio-card"><input type="radio" name="unit" value="days" checked data-unit> ${ico("calendar")}<span><b>بالأيام</b>${b ? `<small>المتاح: ${daysAr(b.bookable)}${b.bookableFromHours ? " (يشمل " + b.bookableFromHours + " بتحويل الساعات)" : ""}</small>` : ""}</span></label>
+          <label class="radio-card"><input type="radio" name="unit" value="hours" data-unit> ${ico("clock")}<span><b>بالساعات</b>${b ? `<small>المتاح: ${n(b.hoursAvail)} ساعة</small>` : ""}</span></label></fieldset>
         <div class="form-grid">
           <div class="field"><label for="sd">${isU ? "من تاريخ" : "تاريخ الغياب"} *</label><input id="sd" name="start" type="date" required ${mx}></div>
-          <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date" ${mx}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</span></div>
+          <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date" ${mx}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات (كل ${n(y.hpd)} ساعات = يوم).</span></div>
           <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.25" step="0.25" inputmode="decimal"><span class="hint">كل ${n(y.hpd)} ساعات = يوم.</span></div></div>
         <div class="field"><label for="rs">${isU ? "السبب / ملاحظات" : "سبب الغياب *"}</label><textarea id="rs" name="reason" ${isU ? "" : "required"}></textarea></div>
         <div class="field"><label for="fl">مستند مؤيد (PDF)${y.reqReqAtt ? " *" : ""}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" ${y.reqReqAtt ? "required" : ""}></div>
@@ -1050,10 +1068,11 @@
     const d = fd(form), kind = form.dataset.kind, e = byId("emps", d.get("emp"));
     if (!e || !canManage(u, e)) throw new RuleError("اختر موظفاً من الموظفين المسندين إليك.");
     const amount = toNum(d.get("amount")), date = String(d.get("date") || todayISO()), att = await pdfCheck(d.get("file"));
-    const y = validateRec(e, kind, amount, date, !!att);
+    const y = validateRec(e, kind, amount, date, !!att), beforeA = alertKeys(balance(e.id, y));
     const r = { id: nid(), emp: e.id, year: y.id, kind, amount, date, ref: String(d.get("ref") || "").trim(), subject: String(d.get("subject") || "").trim(), status: "active", att, by: u.id, cancelNote: "", created: nowStr() };
     DB.recs.push(r); audit("recommendation_added", "recommendation", r.id, { employee: e.no, kind, amount });
     notify(userOfEmp(e), "منحك بدل راحة: " + recAmount(r), "أُضيفت إلى رصيدك توصية بمنحك " + REC_KINDS[kind] + ": " + recAmount(r) + (r.subject ? " — " + r.subject : "") + ".", "#/me", u);
+    notifyAlerts(e, y, beforeA, u);
     save(); flash("تم رفع التوصية وإضافة " + recAmount(r) + " إلى رصيد " + e.name + "."); go("#/employee/" + e.id);
   };
   F.leave = async (form, u) => {
@@ -1391,7 +1410,7 @@
   (async function start() {
     DB = load();
     if (!DB || !DB.years || !DB.recs) await seed();
-    try { localStorage.removeItem("hr_demo_v1"); } catch (e) {}
+    try { localStorage.removeItem("hr_demo_v1"); localStorage.removeItem("hr_demo_v2"); } catch (e) {}
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null) DB.settings.tagline = TAGLINE;

@@ -27,17 +27,19 @@
 {% macro rec_amount(r) -%}{{ days_ar(r.amount) if r.kind == 'days' else hours_ar(r.amount) }}{%- endmacro %}
 {% macro balance_board(info, big=False) -%}
 {# مؤشر الرصيد: حلقة تجمع الأيام والساعات + بطاقتان مستقلتان #}
+{% for kind, text in info.alerts %}<div class="alert {{ kind }} balance-alert" role="status">⚠ {{ text }}</div>{% endfor %}
 <section class="board{{ ' big' if big }}">
   <div class="gauge" style="--p: {{ info.left_pct }}" role="img" aria-label="الرصيد المتبقي {{ info.total_left_days }} يوم و{{ info.total_left_rem|n }} ساعة">
     <div class="gauge-in">
-      <b class="num">{{ info.total_left_days }}</b><span>يوماً متاحاً</span>
+      <b class="num">{{ info.total_left_days }}</b><span>يوماً متبقياً</span>
       {% if info.total_left_rem %}<small>+ {{ hours_ar(info.total_left_rem) }}</small>{% endif %}
     </div>
   </div>
   <div class="board-cards">
     <div class="bcard days">
       {{ ico('calendar') }}
-      <div><span class="l">رصيد الأيام</span><b class="v num">{{ info.days_left|n }}</b><span class="s">ممنوح {{ info.granted_days|n }} · مستخدم {{ info.used_days }}{% if info.pending_days %} · معلّق {{ info.pending_days }}{% endif %}</span></div>
+      <div><span class="l">رصيد الأيام</span><b class="v num">{{ info.days_left|n }}</b><span class="s">ممنوح {{ info.granted_days|n }} · مستخدم {{ info.used_days }}{% if info.pending_days %} · معلّق {{ info.pending_days }}{% endif %}</span>
+        <span class="s book">{% if info.bookable_days %}يمكن طلب <b>{{ days_ar(info.bookable_days) }}</b>{% if info.bookable_from_hours %} (منها {{ info.bookable_from_hours }} بتحويل الساعات){% endif %}{% else %}لا توجد أيام قابلة للطلب حالياً{% endif %}</span></div>
     </div>
     <div class="bcard hours">
       {{ ico('clock') }}

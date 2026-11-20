@@ -17,12 +17,12 @@
     {% for e in managed %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }} — {{ e.employee_no }}</option>{% endfor %}</select></div>
   {% else %}<input type="hidden" name="emp" value="{{ emp }}">{% endif %}
   <fieldset class="unit-pick"><legend>الرصيد المستخدم *</legend>
-    <label class="radio-card"><input type="radio" name="unit" value="days" checked data-unit> {{ ico('calendar') }}<span><b>من رصيد الأيام</b>{% if info %}<small>المتاح: {{ info.days_available|n }} يوم</small>{% endif %}</span></label>
-    <label class="radio-card"><input type="radio" name="unit" value="hours" data-unit> {{ ico('clock') }}<span><b>من رصيد الساعات</b>{% if info %}<small>المتاح: {{ info.hours_available|n }} ساعة</small>{% endif %}</span></label>
+    <label class="radio-card"><input type="radio" name="unit" value="days" checked data-unit> {{ ico('calendar') }}<span><b>بالأيام</b>{% if info %}<small>المتاح: {{ days_ar(info.bookable_days) }}{% if info.bookable_from_hours %} (يشمل {{ info.bookable_from_hours }} بتحويل الساعات){% endif %}</small>{% endif %}</span></label>
+    <label class="radio-card"><input type="radio" name="unit" value="hours" data-unit> {{ ico('clock') }}<span><b>بالساعات</b>{% if info %}<small>المتاح: {{ info.hours_available|n }} ساعة</small>{% endif %}</span></label>
   </fieldset>
   <div class="form-grid">
     <div class="field"><label for="sd">{{ 'من تاريخ' if is_use else 'تاريخ الغياب' }} *</label><input id="sd" name="start_date" type="date" required {% if not is_use %}max="{{ today|d }}"{% endif %}></div>
-    <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date" {% if not is_use %}max="{{ today|d }}"{% endif %}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</span></div>
+    <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date" {% if not is_use %}max="{{ today|d }}"{% endif %}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات (كل {{ sel_year.hours_per_day|n }} ساعات = يوم).</span></div>
     <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.25" step="0.25" inputmode="decimal"><span class="hint">كل {{ sel_year.hours_per_day|n }} ساعات = يوم.</span></div>
   </div>
   <div class="field"><label for="rs">{{ 'السبب / ملاحظات' if is_use else 'سبب الغياب' }}{{ '' if is_use else ' *' }}</label><textarea id="rs" name="reason" {% if not is_use %}required{% endif %}></textarea></div>

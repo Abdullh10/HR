@@ -107,7 +107,8 @@ def init_db() -> None:
         if credit and credit.value in ("", "تطوير مريم حمدي"):
             credit.value = "تصميم وتطوير: مريم حمدي"
         if not db.scalar(select(FiscalYear)):
-            db.add(FiscalYear(name="2027", start_date=date(2027, 1, 1), end_date=date(2027, 12, 31),
+            y0 = date.today().year  # السنة الميلادية الحالية (كانت مثبتة على 2027)
+            db.add(FiscalYear(name=str(y0), start_date=date(y0, 1, 1), end_date=date(y0, 12, 31),
                               is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7,
                               require_task_attachment=True))
         # ترحيل الأدوار القديمة (مدير مباشر/متابع) إلى «إداري»

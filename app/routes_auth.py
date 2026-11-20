@@ -15,7 +15,7 @@ from .security import (
     verify_password,
 )
 from .services import audit
-from .web import _load_user, client_ip, current_user, current_user_any, flash, redirect, render
+from .web import start_session, _load_user, client_ip, current_user, current_user_any, flash, redirect, render
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         request.session.clear()  # تدوير الجلسة
         if csrf:
             request.session["csrf"] = csrf
-        request.session["uid"] = user.id
+        start_session(request, user)
         request.session["seen"] = datetime.now().isoformat(timespec="seconds")
         audit(db, user, "login", "user", user.id, ip=client_ip(request))
         db.commit()
@@ -89,6 +89,7 @@ def change_password(request: Request, current: str = Form(...), new: str = Form(
         return render(request, db, "change_password.html", user=user, error=err, status_code=400)
     user.password_hash = hash_password(new)
     user.must_change_password = False
+    start_session(request, user)  # كلمة المرور الجديدة تُغيّر البصمة فتُحدَّث الجلسة الحالية فقط
     audit(db, user, "password_changed", "user", user.id, ip=client_ip(request))
     db.commit()
     flash(request, "تم تغيير كلمة المرور بنجاح.")

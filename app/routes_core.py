@@ -40,6 +40,8 @@ from .services import (
     message_recipients,
     notify,
     officer_users_for,
+    alert_keys,
+    notify_balance_alerts,
     validate_leave,
     validate_recommendation,
     visible_employee_ids,
@@ -344,6 +346,7 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
     except (RuleError, ValueError) as e:
         flash(request, str(e), "error")
         return redirect(back_url + (f"&emp={form.get('emp')}" if form.get("emp") else ""))
+    before_alerts = alert_keys(compute_balance(db, emp.id, year))
     rec = Recommendation(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, amount=amount, rec_date=rec_date,
                          ref_no=str(form.get("ref_no") or "").strip()[:64],
                          subject=str(form.get("subject") or "").strip(), attachment_id=att.id if att else None,
@@ -356,6 +359,8 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
     notify(db, employee_user(db, emp), f"منحك بدل راحة: {amount_txt}",
            f"أُضيفت إلى رصيدك توصية بمنحك {rec.kind_label}: {amount_txt}"
            f"{' — ' + rec.subject if rec.subject else ''}.", f"/me", sender=user)
+    db.flush()
+    notify_balance_alerts(db, emp, year, before_alerts, sender=user)
     db.commit()
     flash(request, f"تم رفع التوصية وإضافة {amount_txt} إلى رصيد {emp.full_name}.")
     return redirect(f"/employees/{emp.id}" if emp.id != user.employee_id else "/me")
@@ -481,6 +486,7 @@ def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note:
         raise RuleError("لا يمكنك البت في هذا الطلب.")
     if action == "approve":
         check_can_approve_leave(db, req)
+        before_alerts = alert_keys(compute_balance(db, req.employee_id, db.get(FiscalYear, req.fiscal_year_id)))
         req.status = "approved"
     elif action == "reject":
         if not note.strip():
@@ -494,6 +500,9 @@ def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note:
     notify(db, employee_user(db, req.employee), f"تم {word} طلب {req.kind_label}",
            f"طلبك ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}): {req.status_label}."
            f"{' الملاحظة: ' + note.strip() if note.strip() else ''}", "/requests", sender=user)
+    if req.status == "approved":
+        db.flush()
+        notify_balance_alerts(db, req.employee, db.get(FiscalYear, req.fiscal_year_id), before_alerts, sender=user)
 
 
 @router.post("/requests/{req_id}/decide")

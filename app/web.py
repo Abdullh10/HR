@@ -42,7 +42,7 @@ templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "15"
+ASSET_V = "16"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"
@@ -126,6 +126,19 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
+def session_fp(user: User) -> str:
+    """بصمة الجلسة: تتغير إذا حُذف الحساب وأُنشئ غيره بنفس الرقم، أو تغيّرت كلمة المرور أو اسم المستخدم.
+    تمنع أن تفتح جلسة قديمة حساباً آخر بعد «حذف جميع البيانات» أو الاستعادة."""
+    import hashlib
+    raw = f"{user.id}|{user.username}|{user.password_hash}|{user.created_at}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:24]
+
+
+def start_session(request: Request, user: User) -> None:
+    request.session["uid"] = user.id
+    request.session["fp"] = session_fp(user)
+
+
 def _load_user(request: Request, db: Session) -> User | None:
     uid = request.session.get("uid")
     if not uid:
@@ -135,7 +148,7 @@ def _load_user(request: Request, db: Session) -> User | None:
         request.session.clear()
         return None
     user = db.get(User, uid)
-    if not user or not user.is_active:
+    if not user or not user.is_active or request.session.get("fp") != session_fp(user):
         request.session.clear()
         return None
     request.session["seen"] = datetime.now().isoformat(timespec="seconds")
