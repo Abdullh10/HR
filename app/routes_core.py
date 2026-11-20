@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import false, func, or_, select
+from sqlalchemy import false, func, or_, select, true
 from sqlalchemy.orm import Session
 
 from .db import UPLOAD_DIR, get_db
@@ -41,6 +41,7 @@ from .services import (
     notify,
     officer_users_for,
     alert_keys,
+    assign_ref,
     notify_balance_alerts,
     validate_leave,
     validate_recommendation,
@@ -161,7 +162,14 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     pending = [r for r in pending if can_manage(user, r.employee)]
     recent = list(db.scalars(select(Recommendation).where(Recommendation.employee_id.in_(ids) if ids else false())
                              .order_by(Recommendation.created_at.desc()).limit(6)))
-    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie,
+    backup_due = None
+    if user.role == "admin":
+        from .models import AuditLog
+        last = db.scalar(select(AuditLog.created_at).where(AuditLog.action == "backup_downloaded")
+                         .order_by(AuditLog.id.desc()))
+        if not last or (datetime.now() - last).days >= 7:
+            backup_due = (datetime.now() - last).days if last else -1
+    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie, backup_due=backup_due,
                   pie_total=g,
                   by_officer=sorted(by_officer.items(), key=lambda kv: -kv[1]["count"]),
                   monthly=monthly, monthly_max=max(monthly) or 1, pending=pending[:8],
@@ -280,6 +288,7 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
         flash(request, err, "error")
         return back(request, "/employees")
     before = dict(no=emp.employee_no, name=emp.full_name, dept=emp.department_id, officer=emp.manager_id) if emp_id else {}
+    was_active, old_officer = (emp.is_active, emp.manager_id) if emp_id else (True, None)
     emp.employee_no, emp.full_name = employee_no, full_name
     emp.department_id, emp.manager_id = department_id or None, manager_id or None
     emp.job_title, emp.email, emp.notes = job_title.strip(), email.strip(), notes.strip()
@@ -289,6 +298,18 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
         emp.is_active = True
         db.add(emp)
     db.flush()
+    from .services import notify_reassignment
+    if emp.manager_id and emp.manager_id != old_officer:
+        notify_reassignment(db, emp, emp.manager_id, sender=user)
+    if emp_id and was_active != emp.is_active:
+        acct = db.scalar(select(User).where(User.employee_id == emp.id))
+        pend = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.employee_id == emp.id,
+                                                                  LeaveRequest.status == "pending")) or 0
+        if acct and acct.role != "admin":
+            acct.is_active = emp.is_active
+            flash(request, f"{'عُطّل' if not emp.is_active else 'أُعيد تفعيل'} حساب الدخول ({acct.username}) تبعاً لحالة الموظف.", "info")
+        if not emp.is_active and pend:
+            flash(request, f"تنبيه: للموظف {pend} طلب بانتظار القرار — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn")
     audit(db, user, "employee_updated" if emp_id else "employee_created", "employee", emp.id,
           ip=client_ip(request), before=before,
           after=dict(no=employee_no, name=full_name, dept=department_id, officer=manager_id, active=emp.is_active))
@@ -353,6 +374,7 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
                          entered_by=user.id, created_at=datetime.now())
     db.add(rec)
     db.flush()
+    assign_ref(db, rec, "REC")
     amount_txt = days_ar(amount) if kind == "days" else hours_ar(amount)
     audit(db, user, "recommendation_added", "recommendation", rec.id, ip=client_ip(request),
           employee=emp.full_name, kind=kind, amount=amount)
@@ -380,6 +402,7 @@ def recommendation_cancel(request: Request, rec_id: int, note: str = Form(""),
         flash(request, str(e), "error")
         return back(request)
     rec.status, rec.cancelled_by, rec.cancel_note = "cancelled", user.id, note.strip()
+    rec.cancelled_at = datetime.now()
     audit(db, user, "recommendation_cancelled", "recommendation", rec.id, ip=client_ip(request), note=note)
     notify(db, employee_user(db, rec.employee), "إلغاء توصية بدل راحة",
            f"أُلغيت التوصية ({rec.kind_label}). السبب: {note.strip()}", "/me", sender=user)
@@ -396,7 +419,7 @@ def recommendation_print(request: Request, rec_id: int, user: User = Depends(cur
         raise HTTPException(404, "التوصية غير موجودة.")
     year = db.get(FiscalYear, rec.fiscal_year_id)
     return render(request, db, "recommendation_print.html", user=user, rec=rec, sel_year=year,
-                  info=compute_balance(db, rec.employee_id, year), ref=ref_no("REC", rec.id, rec.created_at))
+                  info=compute_balance(db, rec.employee_id, year), ref=rec.ref_code or ref_no("REC", rec.id, rec.created_at))
 
 
 # ================================================================ الطلبات (استبدال / تعويض)
@@ -467,6 +490,7 @@ async def request_create(request: Request, user: User = Depends(current_user), d
                        attachment_id=att.id if att else None, requested_by=user.id, created_at=datetime.now())
     db.add(req)
     db.flush()
+    assign_ref(db, req, "REQ")
     audit(db, user, "leave_requested", "leave_request", req.id, ip=client_ip(request),
           employee=emp.full_name, kind=kind, unit=unit, days=ndays, hours=nhours)
     if own:
@@ -539,7 +563,7 @@ def request_cancel(request: Request, req_id: int, note: str = Form(""), user: Us
         return back(request, "/requests")
     prev = req.status
     req.status = "cancelled"
-    req.decision_note = (req.decision_note + " | " if req.decision_note else "") + (note.strip() or "إلغاء")
+    req.cancelled_by, req.cancelled_at, req.cancel_note = user.id, datetime.now(), (note.strip() or "إلغاء")
     audit(db, user, "leave_cancelled", "leave_request", req.id, ip=client_ip(request), prev=prev, note=note)
     if not own:
         notify(db, employee_user(db, req.employee), f"إلغاء طلب {req.kind_label}",
@@ -557,7 +581,7 @@ def request_print(request: Request, req_id: int, user: User = Depends(current_us
         raise HTTPException(404, "الطلب غير موجود.")
     year = db.get(FiscalYear, req.fiscal_year_id)
     return render(request, db, "request_print.html", user=user, req=req, sel_year=year,
-                  info=compute_balance(db, req.employee_id, year), ref=ref_no("REQ", req.id, req.created_at))
+                  info=compute_balance(db, req.employee_id, year), ref=req.ref_code or ref_no("REQ", req.id, req.created_at))
 
 
 # ================================================================ الاعتمادات
@@ -785,7 +809,8 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
 
 
 # ================================================================ الأرشيف (الإداري والأدمن)
-def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, kind: str, q: str):
+def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, kind: str, q: str, status: str = ""):
+    from .services import norm_ar
     ids = [e.id for e in db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True))]
     recs, reqs = [], []
     if kind in ("", "recs"):
@@ -793,32 +818,43 @@ def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, ki
                                           Recommendation.employee_id.in_(ids) if ids else false())
         if emp:
             st = st.where(Recommendation.employee_id == emp)
+        if status in ("active", "cancelled"):
+            st = st.where(Recommendation.status == status)
+        elif status:
+            st = st.where(false())
         recs = list(db.scalars(st.order_by(Recommendation.rec_date.desc(), Recommendation.id.desc())))
     if kind in ("", "reqs"):
         st = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id,
                                         LeaveRequest.employee_id.in_(ids) if ids else false())
         if emp:
             st = st.where(LeaveRequest.employee_id == emp)
+        if status in ("pending", "approved", "rejected", "cancelled"):
+            st = st.where(LeaveRequest.status == status)
+        elif status:
+            st = st.where(false())
         reqs = list(db.scalars(st.order_by(LeaveRequest.start_date.desc(), LeaveRequest.id.desc())))
     if q.strip():
-        k = q.strip()
-        recs = [r for r in recs if k in (r.employee.full_name + r.employee.employee_no + r.subject + r.ref_no)]
-        reqs = [r for r in reqs if k in (r.employee.full_name + r.employee.employee_no + r.reason)]
+        words = norm_ar(q).lower().split()
+        hit = lambda txt: all(w in norm_ar(txt).lower() for w in words)  # noqa: E731
+        recs = [r for r in recs if hit(" ".join([r.employee.full_name, r.employee.employee_no, r.subject, r.ref_no,
+                                                 r.ref_code or "", r.cancel_note or ""]))]
+        reqs = [r for r in reqs if hit(" ".join([r.employee.full_name, r.employee.employee_no, r.reason, r.ref_code or "",
+                                                 r.decision_note or "", r.cancel_note or ""]))]
     return ids, recs, reqs
 
 
 @router.get("/archive")
 def archive(request: Request, year_id: int | None = None, emp: int | None = None, kind: str = "", q: str = "",
-            user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+            status: str = "", user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
-    ids, recs, reqs = _archive_rows(db, user, year, emp, kind, q)
+    ids, recs, reqs = _archive_rows(db, user, year, emp, kind, q, status)
     msgs = [] if kind else list(db.scalars(select(Message).where(
         or_(Message.sender_id == user.id, Message.recipient_id == user.id),
         Message.created_at >= datetime.combine(year.start_date, datetime.min.time()),
         Message.created_at <= datetime.combine(year.end_date, datetime.max.time()))
         .order_by(Message.created_at.desc()).limit(500)))
     return render(request, db, "archive.html", user=user, sel_year=year, years=years(db), recs=recs, reqs=reqs,
-                  msgs=msgs, emp=emp, kind=kind, q=q,
+                  msgs=msgs, emp=emp, kind=kind, q=q, status=status,
                   employees=list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True))))
 
 
@@ -836,15 +872,27 @@ def archive_export(request: Request, year_id: int | None = None, user: User = De
     ids, recs, reqs = _archive_rows(db, user, year, None, "", "")
     wb = Workbook()
     wb.remove(wb.active)
-    _sheet(wb, "التوصيات", ["رقم", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة", "رقم التوصية",
-           "الموضوع", "الحالة", "ملف PDF"],
-           [[r.id, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
-             r.subject, r.status_label, f"pdf/REC-{r.id}.pdf" if r.attachment_id else ""] for r in recs])
-    _sheet(wb, "الطلبات", ["رقم", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات", "الحالة",
-           "السبب", "ملاحظة القرار"],
-           [[r.id, r.employee.full_name, r.employee.employee_no, r.kind_label, r.start_date, r.end_date,
-             r.days if r.unit == "days" else "", r.hours if r.unit == "hours" else "", r.status_label, r.reason,
-             r.decision_note] for r in reqs])
+    D = lambda v: v.strftime("%Y-%m-%d %H:%M") if v else ""  # noqa: E731
+    pdf = lambda r: f"pdf/{r.ref_code}.pdf" if r.attachment_id else ""  # noqa: E731
+    _sheet(wb, "التوصيات", ["الرقم الصادر", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة",
+           "رقم خطاب العميد", "الموضوع", "رفعها", "تاريخ الرفع", "الحالة", "ألغاها", "تاريخ الإلغاء", "سبب الإلغاء", "ملف PDF"],
+           [[r.ref_code, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
+             r.subject, r.enterer.display_name if r.enterer else "", D(r.created_at), r.status_label,
+             r.canceller.display_name if r.canceller else "", D(r.cancelled_at), r.cancel_note, pdf(r)] for r in recs])
+    _sheet(wb, "الطلبات", ["الرقم الصادر", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات",
+           "السبب", "تاريخ الطلب", "الحالة", "صاحب القرار", "تاريخ القرار", "ملاحظة القرار", "ألغاه", "تاريخ الإلغاء",
+           "سبب الإلغاء", "مستند PDF"],
+           [[r.ref_code, r.employee.full_name, r.employee.employee_no, r.kind_label, r.start_date, r.end_date,
+             r.days if r.unit == "days" else "", r.hours if r.unit == "hours" else "", r.reason, D(r.created_at),
+             r.status_label, r.decider.display_name if r.decider else "", D(r.decided_at), r.decision_note,
+             r.canceller.display_name if r.canceller else "", D(r.cancelled_at), r.cancel_note, pdf(r)] for r in reqs])
+    msgs = list(db.scalars(select(Message).where(
+        or_(Message.sender_id == user.id, Message.recipient_id == user.id) if user.role != "admin" else true(),
+        Message.created_at >= datetime.combine(year.start_date, datetime.min.time()),
+        Message.created_at <= datetime.combine(year.end_date, datetime.max.time())).order_by(Message.created_at)))
+    _sheet(wb, "المراسلات", ["الرقم", "التاريخ", "من", "إلى", "الموضوع", "النص", "قُرئت"],
+           [[ref_no("MSG", m.id, m.created_at), D(m.created_at), m.sender.display_name if m.sender else "إشعار النظام",
+             m.recipient.display_name, m.subject, m.body, "نعم" if m.read_at else ""] for m in msgs])
     bal = []
     for e in db.scalars(select(Employee).where(Employee.id.in_(ids) if ids else false()).order_by(Employee.full_name)):
         b = compute_balance(db, e.id, year)
@@ -867,7 +915,7 @@ def archive_export(request: Request, year_id: int | None = None, user: User = De
                 att = db.get(Attachment, r.attachment_id)
                 p = UPLOAD_DIR / att.stored_name if att else None
                 if p and p.exists():
-                    z.write(p, f"pdf/{prefix}-{r.id}.pdf")
+                    z.write(p, f"pdf/{r.ref_code or prefix + '-' + str(r.id)}.pdf")
     audit(db, user, "archive_exported", "archive", None, ip=client_ip(request), year=year.name,
           recs=len(recs), reqs=len(reqs))
     db.commit()

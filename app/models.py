@@ -269,10 +269,13 @@ class Recommendation(Base):
     entered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     cancel_note: Mapped[str] = mapped_column(Text, default="")
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ref_code: Mapped[str] = mapped_column(String(32), default="", index=True)  # الرقم الصادر الدائم
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     employee: Mapped[Employee] = relationship()
     attachment: Mapped[Attachment | None] = relationship()
+    canceller: Mapped["User | None"] = relationship(foreign_keys="Recommendation.cancelled_by")
     enterer: Mapped["User | None"] = relationship(foreign_keys=[entered_by])
     __table_args__ = (CheckConstraint("amount > 0", name="ck_rec_amount"),)
 
@@ -305,10 +308,15 @@ class LeaveRequest(Base):
     decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime)
     decision_note: Mapped[str] = mapped_column(Text, default="")
+    cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancel_note: Mapped[str] = mapped_column(Text, default="")
+    ref_code: Mapped[str] = mapped_column(String(32), default="", index=True)  # الرقم الصادر الدائم
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     employee: Mapped[Employee] = relationship()
     attachment: Mapped[Attachment | None] = relationship()
+    canceller: Mapped["User | None"] = relationship(foreign_keys="LeaveRequest.cancelled_by")
     decider: Mapped["User | None"] = relationship(foreign_keys=[decided_by])
 
     @property
@@ -318,6 +326,14 @@ class LeaveRequest(Base):
     @property
     def status_label(self) -> str:
         return REQUEST_STATUSES.get(self.status, self.status)
+
+    @property
+    def note_text(self) -> str:
+        """ملاحظة القرار وسبب الإلغاء معاً (للعرض للموظف والأرشيف)."""
+        parts = [self.decision_note] if self.decision_note else []
+        if self.status == "cancelled" and self.cancel_note:
+            parts.append(f"سبب الإلغاء: {self.cancel_note}")
+        return " · ".join(parts)
 
     @property
     def amount_label(self) -> str:

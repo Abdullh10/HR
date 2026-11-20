@@ -27,7 +27,7 @@
     <h2>طلباتي</h2>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>النوع</th><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
-      {% for r in reqs %}<tr><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}</td>
+      {% for r in reqs %}<tr><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
         <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
       </tbody></table></div>

@@ -49,6 +49,70 @@
     if (s && s.classList.contains("open")) { s.classList.remove("open"); document.body.classList.remove("nav-open"); var b = document.querySelector("[data-menu]"); if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); } }
   });
 
+  // نافذة إدخال السبب (بدل window.prompt): حقل نصي متعدد الأسطر وأسباب جاهزة، تعمل جيداً على الجوال
+  var REASONS = {
+    reject: ["ضغط عمل في الوحدة", "تعارض مع جدول المناوبات أو التكليفات", "الرصيد غير كافٍ", "المستندات المؤيدة ناقصة"],
+    cancel: ["بناءً على طلب الموظف", "خطأ في الإدخال", "تغيّر موعد الإجازة"]
+  };
+  function askReason(btn, done) {
+    var kind = btn.value === "reject" ? "reject" : "cancel";
+    var d = document.getElementById("reason-dlg");
+    if (!d) {
+      d = document.createElement("dialog");
+      d.id = "reason-dlg"; d.className = "about-dlg reason-dlg";
+      d.innerHTML = '<form method="dialog" class="about-head"><h2 id="reason-title">اذكر السبب</h2><button class="btn ghost icon-btn" value="x" aria-label="إغلاق">×</button></form>' +
+        '<div class="about-doc"><div class="chips" data-chips></div><label class="sr-only" for="reason-text">السبب</label><textarea id="reason-text" rows="4" placeholder="اكتب السبب هنا…"></textarea>' +
+        '<p class="hint" data-reason-err hidden>السبب مطلوب.</p><div class="actions"><button type="button" class="btn primary" data-reason-ok>تأكيد</button><button type="button" class="btn" data-reason-cancel>تراجع</button></div></div>';
+      document.body.appendChild(d);
+      d.addEventListener("click", function (ev) {
+        var c = ev.target.closest("[data-chip]");
+        if (c) { var t = d.querySelector("#reason-text"); t.value = c.textContent; t.focus(); }
+        if (ev.target.closest("[data-reason-cancel]")) d.close();
+        if (ev.target.closest("[data-reason-ok]")) {
+          var v = d.querySelector("#reason-text").value.trim();
+          if (!v) { d.querySelector("[data-reason-err]").hidden = false; return; }
+          d.close(); if (d._done) d._done(v);
+        }
+      });
+    }
+    d.querySelector("#reason-title").textContent = kind === "reject" ? "سبب الرفض" : "سبب الإلغاء";
+    d.querySelector("[data-chips]").innerHTML = REASONS[kind].map(function (r) { return '<button type="button" class="chip" data-chip>' + r + "</button>"; }).join("");
+    d.querySelector("#reason-text").value = "";
+    d.querySelector("[data-reason-err]").hidden = true;
+    d._done = done;
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    d.querySelector("#reason-text").focus();
+  }
+
+  // حفظ ما كتبه المستخدم إذا رجع النموذج بخطأ تحقق (form[data-keep])
+  var DKEY = "form_draft";
+  document.addEventListener("submit", function (ev) {
+    var f = ev.target;
+    if (!f.matches("form[data-keep]")) return;
+    var vals = {};
+    Array.prototype.forEach.call(f.elements, function (el) {
+      if (!el.name || el.type === "file" || el.type === "hidden" || el.type === "submit") return;
+      if ((el.type === "radio" || el.type === "checkbox") && !el.checked) return;
+      vals[el.name] = el.value;
+    });
+    try { sessionStorage.setItem(DKEY, JSON.stringify({ action: f.getAttribute("action"), vals: vals })); } catch (e) {}
+  }, true);
+  document.addEventListener("DOMContentLoaded", function () {
+    var d = null;
+    try { d = JSON.parse(sessionStorage.getItem(DKEY) || "null"); sessionStorage.removeItem(DKEY); } catch (e) {}
+    if (!d || !document.querySelector(".alert.error")) return;
+    var f = document.querySelector('form[data-keep][action="' + d.action + '"]');
+    if (!f) return;
+    Object.keys(d.vals).forEach(function (k) {
+      f.querySelectorAll('[name="' + k + '"]').forEach(function (el) {
+        if (el.type === "radio" || el.type === "checkbox") el.checked = el.value === d.vals[k];
+        else if (!el.value || el.tagName === "TEXTAREA" || el.type !== "date") el.value = d.vals[k];
+        else el.value = d.vals[k];
+      });
+    });
+    if (f.matches("[data-leave-form]")) syncUnit(f);
+  });
+
   // تأكيد قبل الإجراءات الحساسة + إلزام السبب
   document.addEventListener("submit", function (ev) {
     var f = ev.target;
@@ -58,9 +122,9 @@
     if (sub && sub.hasAttribute("data-need-note")) {
       var note = f.querySelector('[name="note"]');
       if (note && !note.value.trim()) {
-        var v = window.prompt("اذكر السبب:");
-        if (!v || !v.trim()) { ev.preventDefault(); return; }
-        note.value = v.trim();
+        ev.preventDefault();
+        askReason(sub, function (v) { note.value = v; msg = null; if (f.requestSubmit) f.requestSubmit(sub); else f.submit(); });
+        return;
       }
     }
     if (msg && !window.confirm(msg)) ev.preventDefault();
@@ -271,6 +335,22 @@
     var st = null;
     try { st = JSON.parse(sessionStorage.getItem(FKEY) || "null"); sessionStorage.removeItem(FKEY); } catch (e) {}
     if (st) { var el = document.getElementById(st.id); if (el) { el.focus({ preventScroll: true }); try { el.setSelectionRange(st.pos, st.pos); } catch (e) {} } }
+  });
+
+  // تنزيل جدول كملف CSV يفتح في Excel (مثل بطاقات الدخول بعد الاستيراد)
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-table-csv]");
+    if (!b) return;
+    var t = document.querySelector(b.getAttribute("data-table-csv"));
+    if (!t) return;
+    var rows = Array.prototype.map.call(t.querySelectorAll("tr"), function (tr) {
+      return Array.prototype.map.call(tr.children, function (c) { return '"' + c.textContent.trim().replace(/"/g, '""') + '"'; }).join(",");
+    });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = (b.getAttribute("data-csv-name") || "table") + ".csv";
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
   });
 
   // إضافة تاريخ آخر في طلب بدل الراحة

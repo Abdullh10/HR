@@ -86,8 +86,29 @@ async def _http_error(request: Request, exc: HTTPException):
         db.close()
 
 
+# أعمدة أُضيفت بعد الإصدار الأول: تُضاف تلقائياً لقواعد البيانات القائمة (بلا أداة ترحيل)
+_NEW_COLUMNS = [
+    ("recommendations", "cancelled_at", "TIMESTAMP"),
+    ("recommendations", "ref_code", "VARCHAR(32) DEFAULT ''"),
+    ("leave_requests", "cancelled_by", "INTEGER"),
+    ("leave_requests", "cancelled_at", "TIMESTAMP"),
+    ("leave_requests", "cancel_note", "TEXT DEFAULT ''"),
+    ("leave_requests", "ref_code", "VARCHAR(32) DEFAULT ''"),
+]
+
+
+def _migrate() -> None:
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, col, typ in _NEW_COLUMNS:
+            if table in insp.get_table_names() and col not in {c["name"] for c in insp.get_columns(table)}:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {typ}"))
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    _migrate()
     with SessionLocal() as db:
         defaults = {
             "university": "جامعة الملك سعود",
@@ -122,6 +143,12 @@ def init_db() -> None:
             p.write_text(f"username: admin\npassword: {pw}\n")
             os.chmod(p, 0o600)
             print(f"[HR] تم إنشاء حساب الأدمن: admin / {pw}  (محفوظ في {p})")
+        # أرقام صادرة للسجلات القديمة التي لا تحملها
+        from .models import LeaveRequest, Recommendation
+        from .services import assign_ref
+        for model, prefix in ((Recommendation, "REC"), (LeaveRequest, "REQ")):
+            for obj in db.scalars(select(model).where((model.ref_code.is_(None)) | (model.ref_code == "")).order_by(model.id)):
+                assign_ref(db, obj, prefix)
         db.commit()
 
 

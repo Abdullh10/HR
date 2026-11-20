@@ -7,6 +7,7 @@
   <div><h1>لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
   {{ year_select(years, sel_year) }}
 </div>
+{% if backup_due is not none %}<div class="alert warn" role="status">⚠ {% if backup_due < 0 %}لم تُنزَّل أي نسخة احتياطية بعد.{% else %}مضى {{ days_ar(backup_due) }} على آخر نسخة احتياطية.{% endif %} <a href="/admin/data">تنزيل نسخة الآن</a></div>{% endif %}
 {% if user.role != 'admin' %}<nav class="action-tiles" aria-label="إجراءات سريعة">
   <a class="tile days" href="/recommendations/new?kind=days">{{ ico('calendar-plus') }}<span><b>توصية بدل راحة بالأيام</b><small>رفع توصية العميد بأيام ممنوحة</small></span></a>
   <a class="tile hours" href="/recommendations/new?kind=hours">{{ ico('clock-plus') }}<span><b>توصية بدل راحة بالساعات</b><small>كل {{ sel_year.hours_per_day|n }} ساعات = يوم</small></span></a>

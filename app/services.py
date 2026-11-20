@@ -235,6 +235,37 @@ def compute_balance(db: Session, employee_id: int, year: FiscalYear, exclude_rec
     )
 
 
+def assign_ref(db: Session, obj, prefix: str) -> str:
+    """رقم صادر دائم بصيغة موحدة PREFIX-السنة-تسلسل (مثل REC-2026-0007).
+    العدّاد محفوظ في الإعدادات فلا يتكرر الرقم حتى بعد «حذف جميع البيانات»."""
+    from .models import AppSetting
+    yr = (getattr(obj, "created_at", None) or datetime.now()).year
+    key = f"seq_{prefix}_{yr}"
+    st = db.get(AppSetting, key)
+    if st is None:
+        st = AppSetting(key=key, value="0")
+        db.add(st)
+        db.flush()  # حتى يراه الاستدعاء التالي في نفس المعاملة
+    n = int(st.value or 0) + 1
+    st.value = str(n)
+    obj.ref_code = f"{prefix}-{yr}-{n:04d}"
+    return obj.ref_code
+
+
+def notify_reassignment(db: Session, emp: Employee, new_officer_emp_id: int | None, sender: User | None = None) -> int:
+    """عند نقل موظف لإداري آخر: إشعار الإداري الجديد بطلباته المعلّقة. يعيد عددها."""
+    pend = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.employee_id == emp.id,
+                                                              LeaveRequest.status == "pending")) or 0
+    if not new_officer_emp_id:
+        return pend
+    for u in db.scalars(select(User).where(User.employee_id == new_officer_emp_id, User.is_active.is_(True))):
+        notify(db, u, f"أُسند إليك الموظف {emp.full_name}",
+               f"أصبحت الإداري المسؤول عن {emp.full_name} ({emp.employee_no})."
+               + (f" لديه {pend} طلب بانتظار قرارك." if pend else ""), "/approvals" if pend else f"/employees/{emp.id}",
+               sender=sender)
+    return pend
+
+
 def alert_keys(b: "BalanceInfo") -> set[str]:
     return {t.split(":")[0].split("(")[0].strip()[:20] for _, t in b.alerts}
 

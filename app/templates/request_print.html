@@ -15,6 +15,13 @@
     <tr><th>الحالة</th><td><b>{{ req.status_label }}</b></td><th>تاريخ القرار</th><td>{{ req.decided_at|d if req.decided_at else '—' }}</td></tr>
     <tr><th>صاحب القرار</th><td>{{ req.decider.display_name if req.decider else '—' }}</td><th>ملاحظة</th><td>{{ req.decision_note or '—' }}</td></tr>
   </tbody></table>
+  {% if req.status == 'cancelled' %}
+  <h3>الإلغاء</h3>
+  <table><tbody>
+    <tr><th>أُلغي بواسطة</th><td>{{ req.canceller.display_name if req.canceller else '—' }}</td><th>تاريخ الإلغاء</th><td>{{ req.cancelled_at|d if req.cancelled_at else '—' }}</td></tr>
+    <tr><th>سبب الإلغاء</th><td colspan="3">{{ req.cancel_note or '—' }}</td></tr>
+  </tbody></table>
+  {% endif %}
   <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام {{ info.days_left|n }} · الساعات {{ info.hours_left|n }} · الإجمالي {{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %}.</p>
   <div class="sign"><div>مقدم الطلب</div><div>الإداري المسؤول</div><div>الختم</div></div>
 {% endblock %}

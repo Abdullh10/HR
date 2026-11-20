@@ -9,7 +9,7 @@
   <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="/requests/new?kind=use{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_use }}">استبدال</a><a href="/requests/new?kind=compensation{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_use }}">تعويض غياب</a></div>
 </div>
 {% if info %}{{ balance_board(info) }}{% endif %}
-<form method="post" action="/requests/new" enctype="multipart/form-data" class="card form-narrow" data-leave-form>
+<form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form>
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
   {% if managed %}
   <div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-autosubmit-get="/requests/new?kind={{ kind }}&emp="><option value="">— اختر —</option>

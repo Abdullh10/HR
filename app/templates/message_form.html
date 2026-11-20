@@ -3,7 +3,7 @@
 {% block heading %}رسالة جديدة{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>رسالة جديدة</h1><p>{% if user.role == 'employee' %}تُرسل إلى الإداري المسؤول عنك.{% elif user.role == 'officer' %}إلى مدير النظام أو الموظفين المسندين إليك.{% else %}إلى أي مستخدم في المنصة.{% endif %}</p></div></div>
-<form method="post" action="/messages/new" class="card form-narrow">
+<form method="post" action="/messages/new" data-keep class="card form-narrow">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="field"><label for="to">إلى *</label>
     <select id="to" name="to" required {% if recipients|length > 1 %}multiple size="{{ [recipients|length, 6]|min }}"{% endif %}>

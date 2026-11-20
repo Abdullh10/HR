@@ -931,6 +931,15 @@ html.js form[data-autofilter] .btn-apply { display: none; }
 .bcard .s.book b { color: var(--brand-2); }
 .balance-alert { margin-bottom: .75rem; }
 
+/* ---------- نافذة السبب */
+.reason-dlg { width: min(520px, calc(100vw - 2rem)); }
+.reason-dlg textarea { width: 100%; margin: .5rem 0; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: .3rem .8rem; font: inherit; font-size: .85rem; cursor: pointer; }
+.chip:hover { border-color: var(--brand-solid); background: var(--brand-soft); color: var(--brand-2); }
+.confirm-impact { margin: .5rem 0 .8rem; padding: .55rem .7rem; border: 1px dashed var(--warn); border-radius: 10px; background: var(--warn-soft); color: var(--warn); }
+.plain { list-style: none; padding: 0; margin: .4rem 0 0; line-height: 1.9; }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

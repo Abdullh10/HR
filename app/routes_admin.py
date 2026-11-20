@@ -91,7 +91,13 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
         db.execute(update(Employee).where(Employee.manager_id == u.employee_id, Employee.id.not_in(wanted or {0}))
                    .values(manager_id=None))
         if wanted:
+            from .services import notify_reassignment
+            newly = list(db.scalars(select(Employee).where(Employee.id.in_(wanted),
+                                    (Employee.manager_id.is_(None)) | (Employee.manager_id != u.employee_id))))
             db.execute(update(Employee).where(Employee.id.in_(wanted)).values(manager_id=u.employee_id))
+            pend_total = sum(notify_reassignment(db, e, u.employee_id, sender=user) for e in newly)
+            if pend_total:
+                flash(request, f"نُقل مع الموظفين {pend_total} طلب معلّق، وأُشعر الإداري بها.", "info")
         assigned = len(wanted)
     audit(db, user, "user_saved", "user", u.id, ip=client_ip(request), username=username, role=role,
           employee_id=employee_id, active=u.is_active, assigned=assigned, unassigned=moved or None)
@@ -148,7 +154,9 @@ def users_bulk(request: Request, user: User = Depends(admin_only), db: Session =
 @router.get("/years")
 def years_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
     rows = list(db.scalars(select(FiscalYear).order_by(FiscalYear.start_date.desc())))
-    return render(request, db, "admin_years.html", user=user, rows=rows)
+    moves = {y.id: (db.scalar(select(func.count(Recommendation.id)).where(Recommendation.fiscal_year_id == y.id)) or 0)
+             + (db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.fiscal_year_id == y.id)) or 0) for y in rows}
+    return render(request, db, "admin_years.html", user=user, rows=rows, moves=moves)
 
 
 @router.post("/years/save")
@@ -186,6 +194,26 @@ async def year_save(request: Request, user: User = Depends(admin_only), db: Sess
     if y.id and y.is_locked:
         flash(request, "السنة مقفلة. افتح القفل أولاً لتعديل إعداداتها.", "error")
         return redirect("/admin/years")
+    # تغيير ساعات اليوم أو الحد السنوي في سنة فيها حركات يغيّر الأرصدة بأثر رجعي: معاينة وتأكيد إلزامي
+    if y.id and (float(hpd) != float(y.hours_per_day) or int(base) != int(y.base_days)):
+        n_moves = (db.scalar(select(func.count(Recommendation.id)).where(Recommendation.fiscal_year_id == y.id)) or 0) + \
+            (db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.fiscal_year_id == y.id)) or 0)
+        if n_moves and not f.get("confirm_impact"):
+            from .services import compute_balance
+            emp_ids = set(db.scalars(select(Recommendation.employee_id).where(Recommendation.fiscal_year_id == y.id)))
+            over = 0
+            for eid in emp_ids:
+                b = compute_balance(db, eid, y)
+                if b.granted_days + b.granted_hours / hpd > base + 1e-9:
+                    over += 1
+            msg = (f"تنبيه: في السنة {y.name} {n_moves} حركة، وتغيير "
+                   + ("ساعات اليوم " if float(hpd) != float(y.hours_per_day) else "")
+                   + ("والحد السنوي " if int(base) != int(y.base_days) else "")
+                   + f"سيعيد حساب أرصدة {len(emp_ids)} موظف بأثر رجعي"
+                   + (f"، و{over} موظف سيتجاوزون الحد الجديد" if over else "")
+                   + ". لم يُحفظ شيء: ضع علامة على «أؤكد تطبيق التغيير بأثر رجعي» ثم احفظ.")
+            flash(request, msg, "error")
+            return redirect("/admin/years")
     before = {k: getattr(y, k, None) for k in ("base_days", "hours_per_day")} if y.id else {}
     y.name, y.start_date, y.end_date = name, sd, ed
     y.base_days, y.hours_per_day = int(base), hpd
@@ -434,7 +462,8 @@ def data_page(request: Request, user: User = Depends(admin_only), db: Session = 
                   reqs=db.scalar(select(func.count(LR.id))) or 0,
                   msgs=db.scalar(select(func.count(Msg.id))) or 0)
     last = db.scalar(select(AuditLog).where(AuditLog.action == "backup_downloaded").order_by(AuditLog.id.desc()))
-    return render(request, db, "admin_data.html", user=user, counts=counts, last_backup=last,
+    from . import backup
+    return render(request, db, "admin_data.html", user=user, counts=counts, last_backup=last, autos=backup.list_auto(),
                   wipe_word=WIPE_WORD, restore_word=RESTORE_WORD)
 
 
@@ -467,13 +496,21 @@ async def backup_restore(request: Request, user: User = Depends(admin_only), db:
         return redirect("/admin/data")
     blob = await up.read(200 * 1024 * 1024 + 1)
     try:
-        counts = backup.restore(db, blob)
-        audit(db, None, "backup_restored", "system", None, ip=client_ip(request), by=user.username,
-              employees=counts.get("employees", 0))
+        auto = backup.auto_backup(db, "before-restore")
+        audit(db, user, "auto_backup", "system", None, ip=client_ip(request), file=auto, reason="before-restore")
         db.commit()
+        counts, files = backup.restore(db, blob)
+        audit(db, None, "backup_restored", "system", None, ip=client_ip(request), by=user.username,
+              employees=counts.get("employees", 0), auto_backup=auto)
+        db.commit()
+        backup.write_uploads(files)
     except ValueError as e:
         db.rollback()
         flash(request, str(e), "error")
+        return redirect("/admin/data")
+    except Exception:  # أي خطأ غير متوقع (بنية تالفة…) لا يُظهر صفحة خطأ؛ البيانات لم تتغير
+        db.rollback()
+        flash(request, "تعذّرت الاستعادة: ملف النسخة غير متوافق أو تالف. لم يتغير شيء في البيانات.", "error")
         return redirect("/admin/data")
     request.session.clear()
     flash(request, f"تمت استعادة النسخة الاحتياطية ({counts.get('employees', 0)} موظف، {counts.get('users', 0)} حساب). سجّل الدخول من جديد.")
@@ -487,8 +524,24 @@ def data_wipe(request: Request, confirm: str = Form(""), user: User = Depends(ad
     if confirm.strip() != WIPE_WORD:
         flash(request, f"لم يُحذف شيء: للتأكيد اكتب كلمة «{WIPE_WORD}» كما هي.", "error")
         return redirect("/admin/data")
+    auto = backup.auto_backup(db, "before-wipe")
     backup.wipe(db, user.id)
-    audit(db, user, "all_data_wiped", "system", None, ip=client_ip(request))
+    audit(db, user, "all_data_wiped", "system", None, ip=client_ip(request), auto_backup=auto)
     db.commit()
-    flash(request, "تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط.")
+    flash(request, f"تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط. حُفظت نسخة تلقائية قبل الحذف ({auto}).")
     return redirect("/admin/data")
+
+
+@router.get("/backups/{name}")
+def auto_backup_download(request: Request, name: str, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from fastapi.responses import FileResponse
+
+    from . import backup
+    if "/" in name or ".." in name or not name.startswith("auto-") or not name.endswith(".zip"):
+        raise HTTPException(404, "غير موجود")
+    p = backup.AUTO_DIR / name
+    if not p.exists():
+        raise HTTPException(404, "غير موجود")
+    audit(db, user, "backup_downloaded", "system", None, ip=client_ip(request), file=name)
+    db.commit()
+    return FileResponse(p, media_type="application/zip", filename=name)

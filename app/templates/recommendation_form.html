@@ -9,7 +9,7 @@
   <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="/recommendations/new?kind=days{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_days }}" aria-current="{{ 'page' if is_days else 'false' }}">بالأيام</a><a href="/recommendations/new?kind=hours{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_days }}" aria-current="{{ 'page' if not is_days else 'false' }}">بالساعات</a></div>
 </div>
 {% if not employees %}<div class="alert warn">لا يوجد موظفون مسندون إليك. يُسند مدير النظام الموظفين إلى الإداري من بطاقة الموظف.</div>{% else %}
-<form method="post" action="/recommendations/new" enctype="multipart/form-data" class="card form-narrow">
+<form method="post" action="/recommendations/new" data-keep enctype="multipart/form-data" class="card form-narrow">
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
   <div class="field"><label for="emp">الموظف *</label>
     <select id="emp" name="emp" required><option value="">— اختر —</option>

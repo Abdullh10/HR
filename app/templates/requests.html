@@ -25,7 +25,7 @@
     <td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة"><b>{{ r.amount_label }}</b></td>
     <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
     <td data-label="السبب">{{ r.reason }}</td>
-    <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.decision_note %}<small class="muted d-block">{{ r.decision_note }}</small>{% endif %}</td>
+    <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
     <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}
       {% if mg and r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/decide" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm ok" name="action" value="approve">اعتماد</button><button class="btn sm danger" name="action" value="reject" data-need-note>رفض</button></form>{% endif %}
       {% if (r.status == 'pending' and r.employee_id == user.employee_id) or (mg and r.status in ('pending','approved')) %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm" {% if r.status == 'approved' %}data-need-note{% endif %} data-confirm="إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
