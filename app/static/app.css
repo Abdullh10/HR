@@ -940,6 +940,14 @@ html.js form[data-autofilter] .btn-apply { display: none; }
 .confirm-impact { margin: .5rem 0 .8rem; padding: .55rem .7rem; border: 1px dashed var(--warn); border-radius: 10px; background: var(--warn-soft); color: var(--warn); }
 .plain { list-style: none; padding: 0; margin: .4rem 0 0; line-height: 1.9; }
 
+/* ---------- رؤوس جدولي الرصيد: ما أُضيف (+) وما استُخدم (−) */
+.card.flush > .ledger-head { display: flex; gap: .7rem; align-items: flex-start; padding: 1rem 1.25rem .7rem; }
+.ledger-head h2 { margin: 0; }
+.ledger-head .hint { margin: .15rem 0 0; }
+.ledger-sign { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; line-height: 1; }
+.ledger-sign.plus { background: var(--ok-soft); color: var(--ok); }
+.ledger-sign.minus { background: var(--warn-soft); color: var(--warn); }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

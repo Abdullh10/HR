@@ -18,9 +18,9 @@
   <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>رقم</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
+  <thead><tr><th>الرقم الصادر</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
   {% for r in rows %}{% set mg = can_manage(r.employee) %}<tr>
-    <td data-label="رقم" class="num">{{ r.id }}</td>
+    <td data-label="الرقم الصادر" class="num">{{ r.ref_code or r.id }}</td>
     {% if user.role != 'employee' %}<td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>{% endif %}
     <td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة"><b>{{ r.amount_label }}</b></td>
     <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>

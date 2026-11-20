@@ -16,15 +16,15 @@
 </nav>
 {% endif %}
 <section class="card flush">
-    <h2>التوصيات الممنوحة</h2>
+    <div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية العميد عن تكليف أنجزته، فزاد رصيدك.</p></div></div>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>الموضوع</th><th></th></tr></thead><tbody>
-      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">إشعار</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد توصيات بعد.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>
   <section class="card flush">
-    <h2>طلباتي</h2>
+    <div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات الاستبدال والتعويض التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>النوع</th><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
       {% for r in reqs %}<tr><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
