@@ -115,7 +115,7 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     emps = list(db.scalars(scoped_employees(db, user, managed_only=True)))
     ids = [e.id for e in emps]
     t = dict(employees=len(emps), granted_days=0.0, granted_hours=0.0, used_days=0, used_hours=0.0,
-             left_hours=0.0, at_cap=0, no_rec=0)
+             left_hours=0.0, at_cap=0, no_rec=0, granted_eq=0.0, used_eq=0.0, pending_eq=0.0)
     by_officer: dict[str, dict] = defaultdict(lambda: dict(count=0, granted=0.0, used=0.0, left=0.0))
     near_cap = []
     for e in emps:
@@ -125,6 +125,9 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
         t["used_days"] += b.used_days
         t["used_hours"] += b.used_hours
         t["left_hours"] += b.total_left_hours
+        t["granted_eq"] += b.granted_equiv_days
+        t["used_eq"] += b.used_equiv_days
+        t["pending_eq"] += b.pending_days + b.pending_hours / year.hours_per_day
         if b.cap_left_hours <= 0:
             t["at_cap"] += 1
         elif b.cap_pct >= 80:
@@ -138,6 +141,12 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
         o["left"] += b.total_left_hours / year.hours_per_day
     hpd = year.hours_per_day
     t["left_days"], t["left_rem"] = int(t["left_hours"] // hpd), round(t["left_hours"] % hpd, 2)
+    # توزيع الرصيد الممنوح (بالأيام المعادلة) للرسم الدائري
+    g = round(t["granted_eq"], 2)
+    used, pend = round(t["used_eq"], 2), round(t["pending_eq"], 2)
+    avail = round(max(g - used - pend, 0), 2)
+    pie = [("used", "مستخدم", used), ("pending", "معلّق بانتظار القرار", pend), ("avail", "متاح", avail)]
+    pie = [dict(key=k, label=l, value=v, pct=(round(v / g * 100) if g else 0)) for k, l, v in pie]
     monthly = [0.0] * 12
     for r in db.scalars(select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
                         Recommendation.status == "active",
@@ -150,7 +159,8 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     pending = [r for r in pending if can_manage(user, r.employee)]
     recent = list(db.scalars(select(Recommendation).where(Recommendation.employee_id.in_(ids) if ids else false())
                              .order_by(Recommendation.created_at.desc()).limit(6)))
-    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t,
+    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie,
+                  pie_total=g,
                   by_officer=sorted(by_officer.items(), key=lambda kv: -kv[1]["count"]),
                   monthly=monthly, monthly_max=max(monthly) or 1, pending=pending[:8],
                   pending_count=len(pending), recent=recent, near_cap=near_cap[:8])

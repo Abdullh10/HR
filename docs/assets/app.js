@@ -342,6 +342,15 @@
       <div class="progress" role="progressbar" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
   </div></section>`;
   }
+  // رسم دائري (حلقة): أجزاء من كل واحد، فجوة بين الأجزاء، والقيم ظاهرة في المفتاح
+  function donut(parts, total, unit, title) {
+    const C = 100, gap = parts.filter((p) => p.value > 0).length > 1 ? 0.8 : 0; let off = 25;
+    const segs = parts.filter((p) => total && p.value > 0).map((p) => { const len = (p.value / total) * C, d = Math.max(len - gap, 0.01); const html = `<circle class="seg seg-${p.key}" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2" stroke-dasharray="${d} ${C - d}" stroke-dashoffset="${off}"><title>${h(p.label)}: ${n(p.value)} ${unit} (${p.pct}%)</title></circle>`; off -= len; return html; }).join("");
+    return `<div class="donut-wrap"><svg class="donut" viewBox="0 0 42 42" role="img" aria-label="${h(title)}: ${parts.map((p) => h(p.label) + " " + n(p.value) + " " + unit + " (" + p.pct + "%)").join("، ")}">
+      <circle class="donut-track" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2"></circle>${segs}
+      <text x="21" y="20.2" class="donut-num">${n(Math.round(total * 10) / 10)}</text><text x="21" y="25.6" class="donut-cap">${unit} ممنوحة</text></svg>
+      <ul class="donut-legend">${parts.map((p) => `<li><span class="sw sw-${p.key}" aria-hidden="true"></span><span class="lbl">${h(p.label)}</span><b class="num">${n(Math.round(p.value * 10) / 10)}</b><span class="pct num">${p.pct}%</span></li>`).join("")}</ul></div>`;
+  }
   const tiles = (arr) => `<nav class="action-tiles" aria-label="إجراءات">${arr.map(([cls, href, icon, title, sub, badge]) => `<a class="tile ${cls}" href="${href}">${ico(icon)}<span><b>${title}</b><small>${sub}</small></span>${badge ? `<span class="badge warn">${badge}</span>` : ""}</a>`).join("")}</nav>`;
 
   // ---------------------------------------------------------- الشاشات
@@ -407,11 +416,12 @@
   V.dashboard = (u, q) => {
     if (u.role === "employee") { go("#/me"); return ""; }
     const y = pickYear(q), emps = managedEmps(u), ids = new Set(emps.map((e) => e.id));
-    const t = { gd: 0, gh: 0, ud: 0, uh: 0, lh: 0, cap: 0, none: 0 }; const near = [], byOff = {};
-    emps.forEach((e) => { const b = balance(e.id, y); t.gd += b.gDays; t.gh += b.gHours; t.ud += b.uDays; t.uh += b.uHours; t.lh += b.totalHours;
+    const t = { gd: 0, gh: 0, ud: 0, uh: 0, lh: 0, cap: 0, none: 0, geq: 0, ueq: 0, peq: 0 }; const near = [], byOff = {};
+    emps.forEach((e) => { const b = balance(e.id, y); t.gd += b.gDays; t.gh += b.gHours; t.ud += b.uDays; t.uh += b.uHours; t.lh += b.totalHours; t.geq += b.grantedEq; t.ueq += b.usedEq; t.peq += b.pDays + b.pHours / y.hpd;
       if (b.capLeftHours <= 0) t.cap++; else if (b.capPct >= 80) near.push([e, b]); if (!b.gDays && !b.gHours) t.none++;
       const k = mgrName(e) || "— غير مُسند —"; const o = byOff[k] || (byOff[k] = { c: 0, g: 0, u: 0, l: 0 }); o.c++; o.g += b.grantedEq; o.u += b.usedEq; o.l += b.totalHours / y.hpd; });
     const [ld, lr] = earned(Math.max(t.lh, 0), y.hpd);
+    const G = round2(t.geq), pie = [["used", "مستخدم", round2(t.ueq)], ["pending", "معلّق بانتظار القرار", round2(t.peq)], ["avail", "متاح", round2(Math.max(t.geq - t.ueq - t.peq, 0))]].map(([key, label, value]) => ({ key, label, value, pct: G ? Math.round((value / G) * 100) : 0 }));
     const monthly = Array(12).fill(0);
     DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)).forEach((r) => (monthly[Number(r.date.slice(5, 7)) - 1] += r.kind === "days" ? r.amount : r.amount / y.hpd));
     const mx = Math.max(...monthly) || 1;
@@ -428,7 +438,9 @@
         <div class="kpi ok">${ico("pie")}<div class="l">الرصيد المتاح (معادل)</div><div class="v">${ld}</div><div class="s">يوماً${lr ? " + " + hoursAr(lr) : ""}</div></div>
         <div class="kpi warn">${ico("hourglass")}<div class="l">بلغوا الحد الأقصى</div><div class="v">${t.cap}</div><div class="s">${daysAr(y.cap)} في السنة</div></div></div>
       <div class="grid two">
-        <section class="card"><h2>الممنوح شهرياً (بالأيام المعادلة)</h2><div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">${monthly.map((v, i) => `<div class="bar"><b>${v ? n(v) : ""}</b><span style="height:${Math.round((v / mx) * 100)}%"></span><small>${months[i]}</small></div>`).join("")}</div></section>
+        <section class="card"><h2>توزيع الرصيد الممنوح</h2><p class="hint chart-sub">بالأيام المعادلة (كل ${n(y.hpd)} ساعات = يوم) — السنة ${h(y.name)}</p>${G ? donut(pie, G, "يوم", "توزيع الرصيد الممنوح") : '<p class="empty">لم تُرفع توصيات في هذه السنة بعد.</p>'}</section>
+        <section class="card"><h2>الممنوح شهرياً (بالأيام المعادلة)</h2><div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">${monthly.map((v, i) => `<div class="bar"><b>${v ? n(v) : ""}</b><span style="height:${Math.round((v / mx) * 100)}%"></span><small>${months[i]}</small></div>`).join("")}</div></section></div>
+      <div class="grid two">
         <section class="card flush"><h2>طلبات بانتظار القرار</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
           ${pending.slice(0, 8).map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة">${leaveAmount(r)}</td><td data-label="التاريخ" class="num">${r.start}</td></tr>`; }).join("") || '<tr><td colspan="4" class="empty">لا توجد طلبات معلّقة.</td></tr>'}
         </tbody></table></div></section></div>

@@ -66,3 +66,25 @@
   {% endfor %}
 </nav>
 {%- endmacro %}
+
+{% macro donut(parts, total, unit='يوم', title='') -%}
+{# رسم دائري (حلقة): أجزاء من كل واحد، فجوة 2 بين الأجزاء، القيم ظاهرة في المفتاح (لا يعتمد على اللون وحده) #}
+{% set C = 100 %}{% set gap = 0.8 if (parts|selectattr('value')|list|length) > 1 else 0 %}
+<div class="donut-wrap">
+  <svg class="donut" viewBox="0 0 42 42" role="img" aria-label="{{ title }}: {% for p in parts %}{{ p.label }} {{ p.value|n }} {{ unit }} ({{ p.pct }}%){{ '، ' if not loop.last }}{% endfor %}">
+    <circle class="donut-track" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2"></circle>
+    {% set ns = namespace(off=25) %}
+    {% for p in parts if total and p.value > 0 %}
+      {% set len = (p.value / total * C) %}
+      <circle class="seg seg-{{ p.key }}" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2"
+        stroke-dasharray="{{ [len - gap, 0.01]|max }} {{ C - [len - gap, 0.01]|max }}" stroke-dashoffset="{{ ns.off }}"><title>{{ p.label }}: {{ p.value|n }} {{ unit }} ({{ p.pct }}%)</title></circle>
+      {% set ns.off = ns.off - len %}
+    {% endfor %}
+    <text x="21" y="20.2" class="donut-num">{{ total|round(1)|n }}</text>
+    <text x="21" y="25.6" class="donut-cap">{{ unit }} ممنوحة</text>
+  </svg>
+  <ul class="donut-legend">
+    {% for p in parts %}<li><span class="sw sw-{{ p.key }}" aria-hidden="true"></span><span class="lbl">{{ p.label }}</span><b class="num">{{ p.value|round(1)|n }}</b><span class="pct num">{{ p.pct }}%</span></li>{% endfor %}
+  </ul>
+</div>
+{%- endmacro %}

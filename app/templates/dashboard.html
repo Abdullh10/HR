@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select, kind_badge, rec_amount %}
+{% from "_macros.html" import ico, year_select, kind_badge, rec_amount, donut %}
 {% block title %}لوحة المؤشرات{% endblock %}
 {% block heading %}لوحة المؤشرات{% endblock %}
 {% block content %}
@@ -22,12 +22,19 @@
 </div>
 <div class="grid two">
   <section class="card">
+    <h2>توزيع الرصيد الممنوح</h2>
+    <p class="hint chart-sub">بالأيام المعادلة (كل {{ sel_year.hours_per_day|n }} ساعات = يوم) — السنة {{ sel_year.name }}</p>
+    {% if pie_total %}{{ donut(pie, pie_total, 'يوم', 'توزيع الرصيد الممنوح') }}{% else %}<p class="empty">لم تُرفع توصيات في هذه السنة بعد.</p>{% endif %}
+  </section>
+  <section class="card">
     <h2>الممنوح شهرياً (بالأيام المعادلة)</h2>
     <div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">
       {% set months = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'] %}
       {% for v in monthly %}<div class="bar"><b>{{ v|n if v else '' }}</b><span style="height: {{ (v / monthly_max * 100)|round(0) }}%"></span><small>{{ months[loop.index0] }}</small></div>{% endfor %}
     </div>
   </section>
+</div>
+<div class="grid two">
   <section class="card flush">
     <h2>طلبات بانتظار القرار</h2>
     <div class="table-wrap"><table class="responsive">
