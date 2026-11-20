@@ -266,6 +266,32 @@ def notify_reassignment(db: Session, emp: Employee, new_officer_emp_id: int | No
     return pend
 
 
+def save_login_cards(db: Session, made: list[tuple], reason: str, by: User | None) -> str:
+    """يحفظ بطاقات الدخول لحسابات أُنشئت أو أُعيدت كلمات مرورها. made: (الاسم، المستخدم، كلمة المرور، الدور).
+    يعيد اسم الدفعة. إعادة التعيين تُبطل كلمات المرور القديمة في بطاقات الحساب نفسه."""
+    from .models import LoginCard
+    labels = {"import": "استيراد", "bulk": "إنشاء جماعي", "single": "حساب جديد", "reset": "إعادة تعيين"}
+    batch = f"{labels.get(reason, reason)} — {datetime.now():%Y-%m-%d %H:%M}"
+    db.flush()
+    for name, uname, pw, role in made:
+        u = db.scalar(select(User).where(func.lower(User.username) == uname.lower()))
+        if u:
+            for old in db.scalars(select(LoginCard).where(LoginCard.user_id == u.id, LoginCard.temp_password.is_not(None))):
+                old.temp_password = None
+        emp = u.employee if u else None
+        db.add(LoginCard(user_id=u.id if u else None, username=uname, full_name=name or (emp.full_name if emp else uname),
+                         employee_no=emp.employee_no if emp else "", role=role, temp_password=pw, batch=batch,
+                         reason=reason, created_by=by.id if by else None, created_at=datetime.now()))
+    return batch
+
+
+def activate_login_cards(db: Session, user: User) -> None:
+    """بعد أن يغيّر المستخدم كلمة مروره: تُمسح المؤقتة من بطاقاته ويُسجّل تاريخ التفعيل."""
+    from .models import LoginCard
+    for c in db.scalars(select(LoginCard).where(LoginCard.user_id == user.id, LoginCard.temp_password.is_not(None))):
+        c.temp_password, c.activated_at = None, datetime.now()
+
+
 def alert_keys(b: "BalanceInfo") -> set[str]:
     return {t.split(":")[0].split("(")[0].strip()[:20] for _, t in b.alerts}
 

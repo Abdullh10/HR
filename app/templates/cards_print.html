@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بطاقات الدخول{{ ' — ' ~ batch if batch }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/static/app.css?v={{ ASSET_V }}"><script src="/static/app.js?v={{ ASSET_V }}"></script></head>
+<body class="print-page">
+<div class="actions no-print" style="justify-content:center;padding:1rem"><button class="btn primary" type="button" data-print>طباعة / حفظ PDF</button><a class="btn" href="/admin/cards">رجوع</a></div>
+{% if not rows %}<p class="empty no-print" style="text-align:center">لا توجد بطاقات بانتظار أول دخول.</p>{% endif %}
+<div class="login-cards">
+  {% for c in rows %}
+  <article class="login-card">
+    <header><img src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="34" height="34"><div><b>{{ org.system_title }}</b><small>{{ org.college }} · {{ org.university }}</small></div><span class="lc-tag">بطاقة دخول</span></header>
+    <h3>{{ c.full_name }}</h3>
+    <p class="lc-meta">{% if c.employee_no %}الرقم الوظيفي: {{ c.employee_no }} · {% endif %}{{ c.role_label }}</p>
+    <dl>
+      <dt>اسم المستخدم</dt><dd class="num">{{ c.username }}</dd>
+      <dt>كلمة المرور المؤقتة</dt><dd class="num">{% if c.temp_password %}{{ c.temp_password }}{% else %}— غُيّرت —{% endif %}</dd>
+    </dl>
+    <p class="lc-url">رابط الدخول: <span class="num">{{ login_url }}</span></p>
+    <p class="lc-note">يُطلب تغيير كلمة المرور عند أول دخول. احتفظ بالبطاقة بسرّية ولا تشاركها.</p>
+    <footer>أُصدرت: {{ c.created_at|d }}</footer>
+  </article>
+  {% endfor %}
+</div>
+</body></html>

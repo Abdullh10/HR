@@ -130,3 +130,32 @@ def test_dept_near_duplicate_note(world):
         rows = b.validate(db, b.rows_from_dicts([{"name": "س", "no": "7001", "dept": "قسم الشؤون الإدارية"},
                                                  {"name": "ع", "no": "7002", "dept": "وحدة الشؤون الإدارية"}]))
     assert "قريب من القسم الموجود" in rows[0].note and not rows[1].note
+
+
+def test_login_cards_saved_and_cleared(world):
+    import html
+    from app.models import LoginCard
+    adm = login("admin")
+    r = post(adm, "/admin/import/preview", {"pasted": "سلمان\t6001\nعهود\t6002"})
+    payload = r.text.split('name="payload" hidden>')[1].split("</textarea>")[0]
+    r = post(adm, "/admin/import/commit", {"payload": html.unescape(payload), "create_accounts": "1"})
+    assert "طباعة بطاقات الدخول" in r.text
+    with SessionLocal() as db:
+        cards = db.query(LoginCard).all()
+        assert len(cards) == 2 and all(c.temp_password for c in cards)
+        pw = next(c.temp_password for c in cards if c.username == "6001")
+    page = adm.get("/admin/cards").text
+    assert "6001" in page and pw in page
+    assert pw in adm.get("/admin/cards/print?state=pending").text
+    # بعد تغيير كلمة المرور تُمسح المؤقتة من البطاقة
+    from .conftest import TestClient, app, csrf
+    c = TestClient(app)
+    tok = csrf(c)
+    c.post("/login", data={"username": "6001", "password": pw, "csrf_token": tok})
+    tok = csrf(c, "/change-password")
+    c.post("/change-password", data={"csrf_token": tok, "current": pw, "new": "NewPass123x", "confirm": "NewPass123x"})
+    with SessionLocal() as db:
+        card = db.query(LoginCard).filter_by(username="6001").one()
+        assert card.temp_password is None and card.activated_at
+    assert pw not in adm.get("/admin/cards").text
+    assert login("mgr").get("/admin/cards").status_code == 403

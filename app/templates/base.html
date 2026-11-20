@@ -52,6 +52,7 @@
           <ul class="nav-sub" id="g-admin"{% if not in_admin %} hidden{% endif %}>
             {{ item('/admin/import', 'استيراد الموظفين', 'upload') }}
             {{ item('/admin/users', 'المستخدمون والصلاحيات', 'shield') }}
+            {{ item('/admin/cards', 'بطاقات الدخول', 'idcard', prefix='/admin/cards') }}
             <li><a href="/admin/years" title="الإعدادات" {% if in_settings %}aria-current="page"{% endif %}>{{ ico('gear') }}<span class="lbl">الإعدادات</span></a></li>
             {{ item('/admin/data', 'النسخ الاحتياطي والبيانات', 'database') }}
             {{ item('/admin/audit', 'سجل التدقيق', 'audit') }}

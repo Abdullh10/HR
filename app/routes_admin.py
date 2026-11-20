@@ -109,7 +109,12 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
     if moved:
         flash(request, f"أُلغي إسناد {moved} موظف لأن الحساب لم يعد «إداري» لنفس السجل. أسندهم لإداري آخر.", "warn")
     if generated:
-        flash(request, f"تم إنشاء الحساب {username}. كلمة المرور المؤقتة: {generated} (سيُطلب تغييرها عند أول دخول).")
+        from .services import save_login_cards
+        emp = db.get(Employee, employee_id) if employee_id else None
+        batch = save_login_cards(db, [(emp.full_name if emp else username, username, generated, role)], "single", user)
+        db.commit()
+        flash(request, f"تم إنشاء الحساب {username}. كلمة المرور المؤقتة: {generated} (سيُطلب تغييرها عند أول دخول). "
+                       f"حُفظت بطاقة دخوله في «بطاقات الدخول».")
     else:
         flash(request, "تم حفظ الحساب.")
     return redirect("/admin/users")
@@ -125,8 +130,10 @@ def user_reset(request: Request, uid: int, user: User = Depends(admin_only), db:
     u.must_change_password = True
     u.failed_logins, u.locked_until = 0, None
     audit(db, user, "password_reset", "user", u.id, ip=client_ip(request))
+    from .services import save_login_cards
+    save_login_cards(db, [(u.display_name, u.username, pw, u.role)], "reset", user)
     db.commit()
-    flash(request, f"كلمة المرور المؤقتة للحساب {u.username}: {pw}")
+    flash(request, f"كلمة المرور المؤقتة للحساب {u.username}: {pw} — حُفظت بطاقة دخول جديدة في «بطاقات الدخول».")
     return redirect("/admin/users")
 
 
@@ -146,8 +153,10 @@ def users_bulk(request: Request, user: User = Depends(admin_only), db: Session =
         db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=e.id))
         made.append((e.full_name, uname, pw, role))
     audit(db, user, "users_bulk_created", "user", None, ip=client_ip(request), count=len(made))
+    from .services import save_login_cards
+    batch = save_login_cards(db, made, "bulk", user) if made else None
     db.commit()
-    return render(request, db, "admin_users_created.html", user=user, made=made)
+    return render(request, db, "admin_users_created.html", user=user, made=made, batch=batch)
 
 
 # ================================================================ السنوات والإعدادات
@@ -441,11 +450,13 @@ async def import_commit(request: Request, user: User = Depends(admin_only), db: 
                      update_roles=bool(form.get("update_roles")))
     audit(db, user, "employees_imported", "employee", None, ip=client_ip(request), created=res.created,
           updated=res.updated, accounts=len(res.accounts), roles_changed=res.roles_changed, skipped=res.skipped)
+    from .services import save_login_cards
+    batch = save_login_cards(db, res.accounts, "import", user) if res.accounts else None
     db.commit()
     flash(request, f"تمت إضافة {res.created} موظف وتحديث {res.updated}، وإنشاء {len(res.accounts)} حساب"
                    + (f"، وتغيير منصب {res.roles_changed}" if res.roles_changed else "")
                    + (f". تُجووز {res.skipped} صف تغيّر وضعه." if res.skipped else "."))
-    return render(request, db, "admin_users_created.html", user=user, made=res.accounts)
+    return render(request, db, "admin_users_created.html", user=user, made=res.accounts, batch=batch)
 
 
 # ================================================================ النسخ الاحتياطي والحذف الكامل
@@ -545,3 +556,46 @@ def auto_backup_download(request: Request, name: str, user: User = Depends(admin
     audit(db, user, "backup_downloaded", "system", None, ip=client_ip(request), file=name)
     db.commit()
     return FileResponse(p, media_type="application/zip", filename=name)
+
+
+
+# ================================================================ بطاقات الدخول
+def _cards_query(batch: str = "", q: str = "", state: str = ""):
+    from .models import LoginCard
+    st = select(LoginCard).order_by(LoginCard.created_at.desc(), LoginCard.id)
+    if batch:
+        st = st.where(LoginCard.batch == batch)
+    if state == "pending":
+        st = st.where(LoginCard.temp_password.is_not(None))
+    elif state == "active":
+        st = st.where(LoginCard.temp_password.is_(None))
+    return st
+
+
+@router.get("/cards")
+def cards_page(request: Request, batch: str = "", q: str = "", state: str = "", user: User = Depends(admin_only),
+               db: Session = Depends(get_db)):
+    from .models import LoginCard
+    from .services import norm_ar
+    rows = list(db.scalars(_cards_query(batch, q, state)))
+    if q.strip():
+        k = norm_ar(q).lower()
+        rows = [c for c in rows if k in norm_ar(f"{c.full_name} {c.username} {c.employee_no}").lower()]
+    batches = list(db.execute(select(LoginCard.batch, func.count(LoginCard.id), func.max(LoginCard.created_at))
+                              .group_by(LoginCard.batch).order_by(func.max(LoginCard.created_at).desc())))
+    return render(request, db, "admin_cards.html", user=user, rows=rows, batches=batches, batch=batch, q=q, state=state)
+
+
+@router.get("/cards/print")
+def cards_print(request: Request, batch: str = "", ids: str = "", state: str = "", user: User = Depends(admin_only),
+                db: Session = Depends(get_db)):
+    from .models import LoginCard
+    if ids:
+        want = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        rows = list(db.scalars(select(LoginCard).where(LoginCard.id.in_(want)).order_by(LoginCard.id)))
+    else:
+        rows = list(db.scalars(_cards_query(batch, "", state or "pending")))
+    audit(db, user, "login_cards_printed", "login_card", None, ip=client_ip(request), count=len(rows), batch=batch)
+    db.commit()
+    login_url = str(request.base_url).rstrip("/") + "/login"
+    return render(request, db, "cards_print.html", user=user, rows=rows, login_url=login_url, batch=batch)

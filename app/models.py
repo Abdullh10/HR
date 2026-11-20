@@ -357,3 +357,30 @@ class Message(Base):
 
     sender: Mapped["User | None"] = relationship(foreign_keys=[sender_id])
     recipient: Mapped["User"] = relationship(foreign_keys=[recipient_id])
+
+
+class LoginCard(Base):
+    """بطاقة دخول تُنشأ مع كل حساب جديد أو إعادة تعيين كلمة مرور، وتبقى في حساب مدير النظام للحفظ والطباعة.
+    كلمة المرور المؤقتة تُمسح تلقائياً من البطاقة حين يغيّرها صاحبها (فلا تبقى كلمة مرور فعّالة مخزّنة)."""
+
+    __tablename__ = "login_cards"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    username: Mapped[str] = mapped_column(String(80))
+    full_name: Mapped[str] = mapped_column(String(160), default="")
+    employee_no: Mapped[str] = mapped_column(String(32), default="")
+    role: Mapped[str] = mapped_column(String(16), default="employee")
+    temp_password: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    batch: Mapped[str] = mapped_column(String(80), index=True)
+    reason: Mapped[str] = mapped_column(String(40), default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    @property
+    def role_label(self) -> str:
+        return ROLES.get(self.role, self.role)
+
+    @property
+    def active(self) -> bool:
+        return self.temp_password is None

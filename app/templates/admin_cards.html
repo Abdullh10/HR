@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico %}
+{% block title %}بطاقات الدخول{% endblock %}
+{% block heading %}بطاقات الدخول{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('idcard', 'h-ico') }} بطاقات الدخول</h1>
+  <p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
+  <div class="actions"><a class="btn primary" href="/admin/cards/print?{{ 'batch=' ~ batch|urlencode ~ '&' if batch }}state=pending" target="_blank" rel="noopener">طباعة البطاقات {{ 'لهذه الدفعة' if batch else 'غير المفعّلة' }}</a>
+    <button class="btn" type="button" data-table-csv="#cards-table" data-csv-name="بطاقات الدخول">تنزيل Excel</button></div></div>
+<form method="get" class="card filters" data-autofilter>
+  <div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="الاسم، اسم المستخدم، الرقم الوظيفي"></div>
+  <div class="field"><label for="b">الدفعة</label><select id="b" name="batch"><option value="">كل الدفعات</option>{% for name, cnt, at in batches %}<option value="{{ name }}" {% if batch == name %}selected{% endif %}>{{ name }} ({{ cnt }})</option>{% endfor %}</select></div>
+  <div class="field"><label for="s">الحالة</label><select id="s" name="state"><option value="">الكل</option><option value="pending" {% if state=='pending' %}selected{% endif %}>بانتظار أول دخول</option><option value="active" {% if state=='active' %}selected{% endif %}>فُعّل الحساب</option></select></div>
+  <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
+</form>
+<div class="card flush"><div class="table-wrap"><table class="responsive" id="cards-table">
+  <thead><tr><th>الموظف</th><th>الرقم الوظيفي</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th><th>الدفعة</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for c in rows %}<tr>
+    <td data-label="الموظف">{{ c.full_name }}</td><td data-label="الرقم الوظيفي" class="num">{{ c.employee_no }}</td>
+    <td data-label="اسم المستخدم" class="num"><b>{{ c.username }}</b></td>
+    <td data-label="كلمة المرور المؤقتة" class="num">{% if c.temp_password %}<code>{{ c.temp_password }}</code>{% else %}<span class="muted">— غُيّرت —</span>{% endif %}</td>
+    <td data-label="الدور">{{ c.role_label }}</td><td data-label="الدفعة"><small>{{ c.batch }}</small></td>
+    <td data-label="الحالة">{% if c.temp_password %}<span class="badge warn">بانتظار أول دخول</span>{% else %}<span class="badge ok">فُعّل{% if c.activated_at %} {{ c.activated_at|d }}{% endif %}</span>{% endif %}</td>
+    <td class="actions-cell">{% if c.temp_password %}<a class="btn sm" href="/admin/cards/print?ids={{ c.id }}" target="_blank" rel="noopener">طباعة البطاقة</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="empty">لا توجد بطاقات. تُنشأ تلقائياً عند استيراد الموظفين أو إنشاء الحسابات أو إعادة تعيين كلمة المرور.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

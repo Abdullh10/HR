@@ -948,6 +948,26 @@ html.js form[data-autofilter] .btn-apply { display: none; }
 .ledger-sign.plus { background: var(--ok-soft); color: var(--ok); }
 .ledger-sign.minus { background: var(--warn-soft); color: var(--warn); }
 
+/* ---------- بطاقات الدخول (للطباعة: بطاقتان في الصف) */
+.login-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12mm 10mm; max-width: 190mm; margin: 0 auto 2rem; padding: 0 1rem; }
+.login-card { background: #fff; color: #10233a; border: 1.5px dashed #9fb4c9; border-radius: 14px; padding: 5mm 6mm; break-inside: avoid; page-break-inside: avoid; position: relative; overflow: hidden; }
+.login-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #009fe3, #006bb6); }
+.login-card header { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid #dbe4ee; padding-bottom: .4rem; margin-bottom: .45rem; }
+.login-card header b { display: block; color: #006bb6; font-size: 1.05rem; line-height: 1.2; }
+.login-card header small { display: block; color: #4f6378; font-size: .68rem; }
+.login-card .lc-tag { margin-inline-start: auto; font-size: .7rem; font-weight: 700; color: #00427a; background: #e6f2fb; border-radius: 999px; padding: .1rem .55rem; }
+.login-card h3 { margin: .2rem 0 0; font-size: 1.05rem; color: #00427a; }
+.login-card .lc-meta { margin: 0 0 .4rem; color: #4f6378; font-size: .78rem; }
+.login-card dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; margin: 0 0 .45rem; padding: .45rem .6rem; background: #f5f7fa; border-radius: 10px; }
+.login-card dt { color: #4f6378; font-size: .78rem; align-self: center; }
+.login-card dd { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: .04em; direction: ltr; text-align: end; font-family: ui-monospace, Consolas, monospace; }
+.login-card .lc-url { margin: 0; font-size: .74rem; color: #10233a; }
+.login-card .lc-url span { direction: ltr; unicode-bidi: isolate; }
+.login-card .lc-note { margin: .25rem 0 0; font-size: .72rem; color: #9a5800; }
+.login-card footer { margin-top: .3rem; font-size: .66rem; color: #8090a0; }
+@media (max-width: 640px) { .login-cards { grid-template-columns: 1fr; } }
+@media print { .login-cards { padding: 0; gap: 8mm; } .login-card { box-shadow: none; } }
+
 /* ---------- تقليل الحركة */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

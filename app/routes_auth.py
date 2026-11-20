@@ -90,6 +90,8 @@ def change_password(request: Request, current: str = Form(...), new: str = Form(
     user.password_hash = hash_password(new)
     user.must_change_password = False
     start_session(request, user)  # كلمة المرور الجديدة تُغيّر البصمة فتُحدَّث الجلسة الحالية فقط
+    from .services import activate_login_cards
+    activate_login_cards(db, user)
     audit(db, user, "password_changed", "user", user.id, ip=client_ip(request))
     db.commit()
     flash(request, "تم تغيير كلمة المرور بنجاح.")

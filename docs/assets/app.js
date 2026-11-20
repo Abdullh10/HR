@@ -303,7 +303,7 @@
     const group = (key, label, def, active, inner, badge) => `<li class="nav-group" data-group="${key}" data-default="${def}" ${active ? 'data-active="1"' : ""}><button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-${key}">${label}${badge ? ` <span class="badge count">${badge}</span>` : ""}<span class="chev" aria-hidden="true"></span></button><ul class="nav-sub" id="g-${key}">${inner}</ul></li>`;
     const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
       ${group("records", "السجلات", "open", inRecords, item("#/recs", "التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات الموظفين", "calendar", 0, "requests") + item("#/archive", "الأرشيف", "archive") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
-      ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield")
+      ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield") + item("#/admin/cards", "بطاقات الدخول", "idcard")
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}`;
     const nav = u.role === "admin" ? adminNav : [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "موظفيّ", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
@@ -579,6 +579,18 @@
         <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام ${n(b.daysLeft)} · الساعات ${n(b.hoursLeft)} · الإجمالي ${daysAr(b.totalDays)}${b.totalRem ? " و" + hoursAr(b.totalRem) : ""}.</p>
         <div class="sign"><div>مقدم الطلب</div><div>الإداري المسؤول</div><div>الختم</div></div>`, "#/requests");
     }
+    if (kind === "cards") {
+      need(u, ["admin"]); const s0 = DB.settings, all = DB.cards || [], ids = (q.get("ids") || "").split(",").filter(Boolean).map(Number), batch = q.get("batch") || "", st = q.get("state") || "pending";
+      const rows = ids.length ? all.filter((c) => ids.includes(c.id)) : all.filter((c) => (!batch || c.batch === batch) && (st !== "pending" || !!c.pw));
+      const loginUrl = location.href.split("#")[0];
+      document.body.className = "print-page";
+      return `<div class="actions no-print" style="justify-content:center;padding:1rem"><button class="btn primary" type="button" data-print>طباعة / حفظ PDF</button><a class="btn" href="#/admin/cards">رجوع</a></div>
+        ${rows.length ? "" : '<p class="empty no-print" style="text-align:center">لا توجد بطاقات بانتظار أول دخول.</p>'}
+        <div class="login-cards">${rows.map((c) => `<article class="login-card"><header><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="34" height="34"><div><b>${h(s0.system_title)}</b><small>${h(s0.college)} · ${h(s0.university)}</small></div><span class="lc-tag">بطاقة دخول</span></header>
+          <h3>${h(c.name)}</h3><p class="lc-meta">${c.no ? "الرقم الوظيفي: " + h(c.no) + " · " : ""}${ROLES[c.role] || c.role}</p>
+          <dl><dt>اسم المستخدم</dt><dd class="num">${h(c.username)}</dd><dt>كلمة المرور المؤقتة</dt><dd class="num">${c.pw ? h(c.pw) : "— غُيّرت —"}</dd></dl>
+          <p class="lc-url">رابط الدخول: <span class="num">${h(loginUrl)}</span></p><p class="lc-note">يُطلب تغيير كلمة المرور عند أول دخول. احتفظ بالبطاقة بسرّية ولا تشاركها.</p><footer>أُصدرت: ${h(c.at)} · نسخة عرض</footer></article>`).join("")}</div>`;
+    }
     if (kind === "msg") {
       const m = byId("msgs", id); if (!m || ![m.to, m.from].includes(u.id)) throw new Forbidden("الرسالة غير موجودة.");
       const fr = m.from ? byId("users", m.from) : null, to = byId("users", m.to);
@@ -833,9 +845,19 @@
         <p class="hint mt">إن تُرك المنصب فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p></section>
       <button class="btn primary">معاينة قبل الحفظ</button></form>`);
   };
+  // بطاقات الدخول: تُحفظ لكل حساب جديد أو إعادة تعيين، وتُمسح كلمة المرور المؤقتة حين يغيّرها صاحبها
+  function saveCards(made, reason) {
+    const labels = { import: "استيراد", bulk: "إنشاء جماعي", single: "حساب جديد", reset: "إعادة تعيين" };
+    const batch = labels[reason] + " — " + nowStr(); DB.cards = DB.cards || [];
+    made.forEach(([name, un, pw, role]) => { const usr = DB.users.find((x) => x.username.toLowerCase() === un.toLowerCase()); const e = usr ? empOf(usr) : null;
+      if (usr) DB.cards.forEach((c) => { if (c.user === usr.id) c.pw = null; });
+      DB.cards.push({ id: nid(), user: usr ? usr.id : null, username: un, name: name || (e ? e.name : un), no: e ? e.no : "", role, pw, batch, reason, at: nowStr(), activatedAt: null }); });
+    lastBatch = batch; return batch;
+  }
+  let lastBatch = null;
   function accountsPage(u, made) {
-    return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>احفظ هذه القائمة أو اطبعها الآن — لن تظهر كلمات المرور مرة أخرى. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
-      <div class="actions"><button class="btn" type="button" data-act="cards-dl">تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
+    return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً، وتُمسح كلمة المرور المؤقتة من البطاقة حين يغيّرها صاحبها. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
+      <div class="actions">${lastBatch ? `<a class="btn primary" href="#/print/cards?batch=${encodeURIComponent(lastBatch)}">طباعة بطاقات الدخول</a>` : ""}<button class="btn" type="button" data-act="cards-dl">تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
       ${made.length ? "" : '<div class="alert info">لم يُنشأ أي حساب جديد: إما أن لكل الموظفين حسابات مسبقاً، أو أُلغي خيار إنشاء الحسابات.</div>'}
       <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>المنصب</th></tr></thead><tbody>
       ${made.map(([nm, un, pw, r]) => `<tr><td>${h(nm)}</td><td class="num">${h(un)}</td><td class="num"><code>${h(pw)}</code></td><td>${ROLES[r]}</td></tr>`).join("")}</tbody></table></div>`);
@@ -925,6 +947,23 @@
         <p class="hint">ننصح بتنزيل نسخة احتياطية أولاً. (في نسخة العرض يمكنك إرجاع البيانات التجريبية من «استعادة بيانات العرض».)</p>
         <form class="filters" data-form="wipe"><div class="field grow"><label for="wc">للتأكيد اكتب كلمة «${WIPE_WORD}»</label><input id="wc" name="confirm" autocomplete="off" required placeholder="${WIPE_WORD}"></div>
           <button class="btn danger">حذف جميع البيانات</button></form></section>`);
+  };
+
+  A.cards = (u, q) => {
+    const batch = q.get("batch") || "", st = q.get("state") || "", qs = norm(q.get("q") || "").toLowerCase(), all = DB.cards || [];
+    const rows = all.filter((c) => (!batch || c.batch === batch) && (!st || (st === "pending" ? !!c.pw : !c.pw)) && (!qs || norm(c.name + " " + c.username + " " + c.no).toLowerCase().includes(qs))).sort((a, b) => b.at.localeCompare(a.at) || a.id - b.id);
+    const batches = [...new Set(all.slice().sort((a, b) => b.at.localeCompare(a.at)).map((c) => c.batch))];
+    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("idcard", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
+      <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "غير المفعّلة"}</a><button class="btn" type="button" data-act="cards-dl">تنزيل Excel</button></div></div>
+      <form class="card filters" data-form="filter" data-route="admin/cards"><div class="field grow"><label for="cq">بحث</label><input id="cq" type="search" name="q" value="${h(q.get("q") || "")}" placeholder="الاسم، اسم المستخدم، الرقم الوظيفي"></div>
+        <div class="field"><label for="cb">الدفعة</label><select id="cb" name="batch"><option value="">كل الدفعات</option>${batches.map((b) => `<option value="${h(b)}" ${b === batch ? "selected" : ""}>${h(b)} (${all.filter((c) => c.batch === b).length})</option>`).join("")}</select></div>
+        <div class="field"><label for="cs">الحالة</label><select id="cs" name="state"><option value="">الكل</option><option value="pending" ${st === "pending" ? "selected" : ""}>بانتظار أول دخول</option><option value="active" ${st === "active" ? "selected" : ""}>فُعّل الحساب</option></select></div><button class="btn primary">عرض</button></form>
+      <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>الرقم الوظيفي</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th><th>الدفعة</th><th>الحالة</th><th></th></tr></thead><tbody>
+      ${rows.map((c) => `<tr><td data-label="الموظف">${h(c.name)}</td><td data-label="الرقم الوظيفي" class="num">${h(c.no)}</td><td data-label="اسم المستخدم" class="num"><b>${h(c.username)}</b></td>
+        <td data-label="كلمة المرور المؤقتة" class="num">${c.pw ? `<code>${h(c.pw)}</code>` : '<span class="muted">— غُيّرت —</span>'}</td><td data-label="الدور">${ROLES[c.role] || c.role}</td><td data-label="الدفعة"><small>${h(c.batch)}</small></td>
+        <td data-label="الحالة">${c.pw ? '<span class="badge warn">بانتظار أول دخول</span>' : `<span class="badge ok">فُعّل${c.activatedAt ? " " + h(c.activatedAt) : ""}</span>`}</td>
+        <td class="actions-cell">${c.pw ? `<a class="btn sm" href="#/print/cards?ids=${c.id}">طباعة البطاقة</a>` : ""}</td></tr>`).join("") || '<tr><td colspan="8" class="empty">لا توجد بطاقات. تُنشأ تلقائياً عند استيراد الموظفين أو إنشاء الحسابات أو إعادة تعيين كلمة المرور.</td></tr>'}
+      </tbody></table></div></div>`);
   };
 
   A.audit = (u, q) => { const qs = (q.get("q") || "").trim(); const rows = DB.audit.filter((a) => !qs || [a.user, a.action, a.entity, a.details].join(" ").includes(qs)).slice(0, 300);
@@ -1058,7 +1097,7 @@
     if (nw !== cf) throw new RuleError("كلمتا المرور غير متطابقتين.");
     if (nw === cur) throw new RuleError("اختر كلمة مرور مختلفة عن الحالية.");
     if (nw.length < 8 || /^\d+$/.test(nw) || /^[^\d]+$/.test(nw)) throw new RuleError("كلمة المرور يجب ألا تقل عن 8 أحرف وتحتوي على أحرف وأرقام.");
-    u.pw = await sha(nw); u.mustChange = false; audit("password_changed", "user", u.id); save(); flash("تم تغيير كلمة المرور بنجاح."); go("#/");
+    u.pw = await sha(nw); u.mustChange = false; (DB.cards || []).forEach((c) => { if (c.user === u.id && c.pw) { c.pw = null; c.activatedAt = nowStr(); } }); audit("password_changed", "user", u.id); save(); flash("تم تغيير كلمة المرور بنجاح."); go("#/");
   };
   F.quicksearch = (form) => go("#/employees?q=" + encodeURIComponent(fd(form).get("q") || ""));
   let keepFocus = null, liveMsg = false, ftimer = null;
@@ -1149,6 +1188,7 @@
     const d = fd(form), rows = importPreview.filter((r) => r.action !== "error");
     const res = await applyRows(rows, !!d.get("create"), !!d.get("roles"));
     audit("employees_imported", "employee", null, { created: res.created, updated: res.updated, accounts: res.accounts.length, roles_changed: res.roles });
+    if (res.accounts.length) saveCards(res.accounts, "import"); else lastBatch = null;
     save(); importPreview = null; createdAccounts = res.accounts;
     flash("تمت إضافة " + res.created + " موظف وتحديث " + res.updated + "، وإنشاء " + res.accounts.length + " حساب" + (res.roles ? "، وتغيير منصب " + res.roles : "") + "."); render();
   };
@@ -1176,6 +1216,7 @@
     if (["employee", "officer"].includes(role) && !emp) throw new RuleError("يجب ربط حساب الموظف/الإداري بسجل موظف.");
     if (emp && DB.users.some((x) => x.emp === emp)) throw new RuleError("هذا الموظف مرتبط مسبقاً بحساب آخر.");
     const pw = rand(); DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp, active: true, mustChange: true });
+    saveCards([[emp ? byId("emps", emp).name : un, un, pw, role]], "single");
     const n_ = applyAssign(d, role, emp, null, null);
     audit("user_saved", "user", null, { username: un, role, assigned: n_ }); save(); flash("تم إنشاء الحساب " + un + ". كلمة المرور المؤقتة: " + pw + (n_ != null ? " · الموظفون المسندون: " + n_ : "")); render();
   };
@@ -1218,7 +1259,7 @@
     if (!confirm("تأكيد أخير: حذف جميع البيانات نهائياً؟")) return;
     autoBackup("قبل الحذف");
     u.emp = null;
-    Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [] });
+    Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [], cards: [] });
     audit("all_data_wiped", "system"); save(); flash("تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط. حُفظت نسخة تلقائية قبل الحذف (انظر «النسخ التلقائية»)."); render();
   };
   F.settings = (form) => { const d = fd(form); ["university", "college", "system_title", "tagline", "credit"].forEach((k) => (DB.settings[k] = String(d.get(k) || "").trim())); audit("settings_saved", "settings"); save(); flash("تم حفظ الإعدادات."); render(); };
@@ -1312,9 +1353,10 @@
   ACT["lock-year"] = (b) => { const y = byId("years", b.dataset.id);
     if (!y.locked) { const p = DB.leaves.filter((r) => r.year === y.id && r.status === "pending").length; if (p) throw new RuleError("لا يمكن الإقفال: توجد " + p + " حركة بانتظار الاعتماد."); if (!confirm("إقفال السنة؟ لن تُقبل أي حركات جديدة عليها.")) return; }
     y.locked = !y.locked; audit(y.locked ? "year_locked" : "year_unlocked", "fiscal_year", y.id); save(); flash((y.locked ? "تم إقفال" : "تم فتح") + " السنة " + y.name + "."); render(); };
-  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!confirm("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = true; x.failed = 0; x.lockedUntil = null; audit("password_reset", "user", x.id); save(); flash("كلمة المرور المؤقتة للحساب " + x.username + ": " + pw); render(); };
+  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!confirm("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = true; x.failed = 0; x.lockedUntil = null; saveCards([[displayName(x), x.username, pw, x.role]], "reset"); audit("password_reset", "user", x.id); save(); flash("كلمة المرور المؤقتة للحساب " + x.username + ": " + pw + " — حُفظت بطاقة دخول جديدة في «بطاقات الدخول»."); render(); };
   ACT["bulk-users"] = async () => { if (!confirm("إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟")) return; const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); const made = [];
     for (const e of DB.emps.filter((x) => x.active && !linked.has(x.id) && !isTmp(x))) { const un = String(e.no).toLowerCase(); if (DB.users.some((x) => x.username.toLowerCase() === un)) continue; const pw = rand(); const role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee"; DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true }); made.push([e.name, un, pw, role]); }
+    if (made.length) saveCards(made, "bulk"); else lastBatch = null;
     audit("users_bulk_created", "user", null, { count: made.length }); save(); createdAccounts = made; go("#/admin/import"); };
   ACT["cards-dl"] = () => { const t = document.querySelector("main table"); if (!t) return; download([...t.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent.trim())), "بطاقات الدخول"); };
   ACT["auto-dl"] = (b, u) => {
