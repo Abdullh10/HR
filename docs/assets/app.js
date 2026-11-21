@@ -372,12 +372,12 @@
   </div></section>`;
   }
   // رسم دائري (حلقة): أجزاء من كل واحد، فجوة بين الأجزاء، والقيم ظاهرة في المفتاح
-  function donut(parts, total, unit, title) {
+  function donut(parts, total, unit, title, cap) {
     const C = 100, gap = parts.filter((p) => p.value > 0).length > 1 ? 0.8 : 0; let off = 25;
     const segs = parts.filter((p) => total && p.value > 0).map((p) => { const len = (p.value / total) * C, d = Math.max(len - gap, 0.01); const html = `<circle class="seg seg-${p.key}" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2" stroke-dasharray="${d} ${C - d}" stroke-dashoffset="${off}"><title>${h(p.label)}: ${n(p.value)} ${unit} (${p.pct}%)</title></circle>`; off -= len; return html; }).join("");
     return `<div class="donut-wrap"><svg class="donut" viewBox="0 0 42 42" role="img" aria-label="${h(title)}: ${parts.map((p) => h(p.label) + " " + n(p.value) + " " + unit + " (" + p.pct + "%)").join("، ")}">
       <circle class="donut-track" cx="21" cy="21" r="15.9155" fill="none" stroke-width="5.2"></circle>${segs}
-      <text x="21" y="20.2" class="donut-num">${n(Math.round(total * 10) / 10)}</text><text x="21" y="25.6" class="donut-cap">${unit} ممنوحة</text></svg>
+      <text x="21" y="20.2" class="donut-num">${n(Math.round(total * 10) / 10)}</text><text x="21" y="25.6" class="donut-cap">${cap != null ? cap : unit + " ممنوحة"}</text></svg>
       <ul class="donut-legend">${parts.map((p) => `<li><span class="sw sw-${p.key}" aria-hidden="true"></span><span class="lbl">${h(p.label)}</span><b class="num">${n(Math.round(p.value * 10) / 10)}</b><span class="pct num">${p.pct}%</span></li>`).join("")}</ul></div>`;
   }
   const tiles = (arr) => `<nav class="action-tiles" aria-label="إجراءات">${arr.map(([cls, href, icon, title, sub, badge]) => `<a class="tile ${cls}" href="${href}">${ico(icon)}<span><b>${title}</b><small>${sub}</small></span>${badge ? `<span class="badge warn">${badge}</span>` : ""}</a>`).join("")}</nav>`;
@@ -781,6 +781,8 @@
         <div class="kpi ok">${ico("approvals")}<div class="l">معتمدة</div><div class="v">${c((r) => r.status === "approved")}</div><div class="s">مرفوضة ${c((r) => r.status === "rejected")} · ملغاة ${c((r) => r.status === "cancelled")}</div></div>
         <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار القرار</div><div class="v">${c((r) => r.status === "pending")}</div></div>
         <div class="kpi">${ico("audit")}<div class="l">توصيات بلا PDF</div><div class="v">${recs.filter((r) => !r.att).length}</div></div></div>
+      ${(() => { const tot = reqs.length, parts = [["approved", "معتمدة"], ["pending", "بانتظار القرار"], ["cancelled", "ملغاة"], ["rejected", "مرفوضة"]].map(([key, label]) => { const v = c((r) => r.status === key); return { key, label, value: v, pct: tot ? Math.round((v / tot) * 100) : 0 }; });
+        return `<section class="card"><h2>الطلبات حسب الحالة</h2><p class="hint chart-sub">عدد طلبات معالجة الغياب في السنة ${h(y.name)} موزّعة على حالاتها</p>${tot ? donut(parts, tot, "طلب", "الطلبات حسب الحالة", "إجمالي الطلبات") : '<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>'}</section>`; })()}
       <section class="card"><h2>التصدير إلى Excel</h2><div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">أرصدة الموظفين</button><button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">سجل التوصيات</button><button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">سجل الطلبات</button></div></section>`);
   };
 

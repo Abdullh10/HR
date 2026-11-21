@@ -69,7 +69,7 @@
 </nav>
 {%- endmacro %}
 
-{% macro donut(parts, total, unit='يوم', title='') -%}
+{% macro donut(parts, total, unit='يوم', title='', cap=None) -%}
 {# رسم دائري (حلقة): أجزاء من كل واحد، فجوة 2 بين الأجزاء، القيم ظاهرة في المفتاح (لا يعتمد على اللون وحده) #}
 {% set C = 100 %}{% set gap = 0.8 if (parts|selectattr('value')|list|length) > 1 else 0 %}
 <div class="donut-wrap">
@@ -83,7 +83,7 @@
       {% set ns.off = ns.off - len %}
     {% endfor %}
     <text x="21" y="20.2" class="donut-num">{{ total|round(1)|n }}</text>
-    <text x="21" y="25.6" class="donut-cap">{{ unit }} ممنوحة</text>
+    <text x="21" y="25.6" class="donut-cap">{{ cap if cap is not none else unit ~ ' ممنوحة' }}</text>
   </svg>
   <ul class="donut-legend">
     {% for p in parts %}<li><span class="sw sw-{{ p.key }}" aria-hidden="true"></span><span class="lbl">{{ p.label }}</span><b class="num">{{ p.value|round(1)|n }}</b><span class="pct num">{{ p.pct }}%</span></li>{% endfor %}

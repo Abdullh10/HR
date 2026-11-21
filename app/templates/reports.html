@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select %}
+{% from "_macros.html" import ico, year_select, donut %}
 {% block title %}التقارير{% endblock %}
 {% block heading %}التقارير{% endblock %}
 {% block content %}
@@ -11,6 +11,11 @@
   <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بانتظار القرار</div><div class="v">{{ stats.pending }}</div><div class="s">متوسط مدة القرار {{ stats.avg_lead|n }} يوم</div></div>
   <div class="kpi">{{ ico('audit') }}<div class="l">توصيات بلا PDF</div><div class="v">{{ stats.no_attachment }}</div></div>
 </div>
+<section class="card">
+  <h2>الطلبات حسب الحالة</h2>
+  <p class="hint chart-sub">عدد طلبات معالجة الغياب في السنة {{ sel_year.name }} موزّعة على حالاتها</p>
+  {% if st_total %}{{ donut(st_pie, st_total, 'طلب', 'الطلبات حسب الحالة', 'إجمالي الطلبات') }}{% else %}<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>{% endif %}
+</section>
 <section class="card"><h2>التصدير إلى Excel</h2>
   <div class="actions">
     <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">أرصدة الموظفين</a>

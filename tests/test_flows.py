@@ -312,3 +312,12 @@ def test_print_signatures_have_names(world):
     sign = html[html.index('class="sign"'):]
     assert emp_name in sign and mgr_name in sign and "الختم" not in html
     assert "بيانات الموظف" in html and "تفاصيل الطلب" in html
+
+
+def test_reports_status_donut(world):
+    mgr, emp = login("mgr"), login("emp")
+    assert "لا توجد طلبات في هذه السنة بعد" in mgr.get("/reports").text
+    rec(mgr, world["e"], "days", 3)
+    leave(emp, world["e"], "use", "days", MON, MON)
+    html = mgr.get("/reports").text
+    assert "الطلبات حسب الحالة" in html and 'class="seg seg-pending"' in html and "إجمالي الطلبات" in html

@@ -730,7 +730,11 @@ def reports(request: Request, year_id: int | None = None, user: User = Depends(r
         avg_lead=round(sum(lead) / len(lead), 1) if lead else 0,
         no_attachment=sum(1 for r in recs if not r.attachment_id),
     )
-    return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), stats=stats)
+    st_pie = [("approved", "معتمدة"), ("pending", "بانتظار القرار"), ("cancelled", "ملغاة"), ("rejected", "مرفوضة")]
+    tot = len(reqs)
+    st_pie = [dict(key=k, label=l, value=by[k], pct=(round(by[k] / tot * 100) if tot else 0)) for k, l in st_pie]
+    return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), stats=stats,
+                  st_pie=st_pie, st_total=tot)
 
 
 def _xlsx_response(wb, filename: str) -> StreamingResponse:
