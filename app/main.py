@@ -132,7 +132,7 @@ def init_db() -> None:
             db.add(FiscalYear(name=str(y0), start_date=date(y0, 1, 1), end_date=date(y0, 12, 31),
                               is_active=True, balance_mode="mixed", base_days=20, hours_per_day=7,
                               require_task_attachment=True))
-        # ترحيل الأدوار القديمة (مدير مباشر/متابع) إلى «إداري»
+        # ترحيل الأدوار القديمة (مدير مباشر/متابع) إلى «الشؤون الإدارية»
         from sqlalchemy import update
         db.execute(update(User).where(User.role.in_(LEGACY_ROLES)).values(role="officer"))
         if not db.scalar(select(User)):

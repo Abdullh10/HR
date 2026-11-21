@@ -257,14 +257,14 @@ def assign_ref(db: Session, obj, prefix: str) -> str:
 
 
 def notify_reassignment(db: Session, emp: Employee, new_officer_emp_id: int | None, sender: User | None = None) -> int:
-    """عند نقل موظف لإداري آخر: إشعار الإداري الجديد بطلباته المعلّقة. يعيد عددها."""
+    """عند نقل موظف لمسؤول شؤون إدارية آخر: إشعار مسؤول الشؤون الإدارية الجديد بطلباته المعلّقة. يعيد عددها."""
     pend = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.employee_id == emp.id,
                                                               LeaveRequest.status == "pending")) or 0
     if not new_officer_emp_id:
         return pend
     for u in db.scalars(select(User).where(User.employee_id == new_officer_emp_id, User.is_active.is_(True))):
         notify(db, u, f"أُسند إليك الموظف {emp.full_name}",
-               f"أصبحت الإداري المسؤول عن {emp.full_name} ({emp.employee_no})."
+               f"أصبحت مسؤول الشؤون الإدارية عن {emp.full_name} ({emp.employee_no})."
                + (f" لديه {pend} طلب بانتظار قرارك." if pend else ""), "/approvals" if pend else f"/employees/{emp.id}",
                sender=sender)
     return pend
@@ -311,7 +311,7 @@ def notify_balance_alerts(db: Session, emp: Employee, year: FiscalYear, before: 
 
 # ---------------------------------------------------------------- الصلاحيات
 def is_officer_of(user: User, emp: Employee) -> bool:
-    """الإداري المسند له الموظف (Employee.manager_id يشير إلى سجل الإداري)."""
+    """مسؤول الشؤون الإدارية المسند له الموظف (Employee.manager_id يشير إلى سجل مسؤول الشؤون الإدارية)."""
     return bool(user.role == "officer" and user.employee_id and emp.manager_id == user.employee_id)
 
 
@@ -322,7 +322,7 @@ def can_view_employee(user: User, emp: Employee) -> bool:
 
 
 def can_manage(user: User, emp: Employee) -> bool:
-    """رفع التوصيات واعتماد الطلبات: الأدمن أو الإداري المسند له — ولا أحد على سجله."""
+    """رفع التوصيات واعتماد الطلبات: الأدمن أو مسؤول الشؤون الإدارية المسند له — ولا أحد على سجله."""
     if user.employee_id == emp.id:
         return False
     return user.role == "admin" or is_officer_of(user, emp)
@@ -356,7 +356,7 @@ def employee_user(db: Session, emp: Employee) -> User | None:
 
 
 def message_recipients(db: Session, user: User) -> list[User]:
-    """الأدمن ↔ الجميع، الإداري ↔ الأدمن وموظفيه، الموظف ↔ إداريه (أو الأدمن إن لم يُسند)."""
+    """الأدمن ↔ الجميع، مسؤول الشؤون الإدارية ↔ الأدمن وموظفيه، الموظف ↔ مسؤوله (أو الأدمن إن لم يُسند)."""
     active = select(User).where(User.is_active.is_(True), User.id != user.id)
     if user.role == "admin":
         return list(db.scalars(active.order_by(User.role, User.username)))
