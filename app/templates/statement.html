@@ -7,7 +7,7 @@
   <div><h1>{{ emp.full_name }}</h1><p>{{ emp.employee_no }}{% if emp.department %} · {{ emp.department.name }}{% endif %}{% if emp.job_title %} · {{ emp.job_title }}{% endif %} · مسؤول الشؤون الإدارية: {{ emp.manager.full_name if emp.manager else '— غير مُسند —' }}</p></div>
   <div class="actions no-print">
     {{ year_select(years, sel_year) }}
-    <a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة كشف رسمي</a>
+    <a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a>
     {% if user.role == 'admin' %}<a class="btn" href="/employees/{{ emp.id }}/edit">تعديل البيانات</a>{% endif %}
   </div>
 </div>

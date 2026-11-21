@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>مرحباً، {{ emp.full_name.split()[0] }}</h1><p>رصيد بدل الراحة للسنة {{ sel_year.name }}{% if emp.manager %} · مسؤول الشؤون الإدارية: {{ emp.manager.full_name }}{% endif %}</p></div>
-  <div class="actions no-print">{{ year_select(years, sel_year) }}<a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة كشف رسمي</a></div>
+  <div class="actions no-print">{{ year_select(years, sel_year) }}<a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a></div>
 </div>
 {{ balance_board(info, big=True) }}
 {% if sel_year.employee_can_request %}

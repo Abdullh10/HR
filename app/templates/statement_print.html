@@ -1,6 +1,6 @@
 {% extends "_print.html" %}
 {% from "_macros.html" import letter_head, rec_amount with context %}
-{% block title %}كشف رسمي — {{ emp.full_name }}{% endblock %}
+{% block title %}تقرير — {{ emp.full_name }}{% endblock %}
 {% block letter %}
   {{ letter_head('كشف رصيد بدل الراحة', ref, 'السنة: ' ~ sel_year.name) }}
   <table><tbody>
