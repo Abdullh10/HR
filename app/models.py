@@ -317,6 +317,7 @@ class LeaveRequest(Base):
     employee: Mapped[Employee] = relationship()
     attachment: Mapped[Attachment | None] = relationship()
     canceller: Mapped["User | None"] = relationship(foreign_keys="LeaveRequest.cancelled_by")
+    requester: Mapped["User | None"] = relationship(foreign_keys=[requested_by])
     decider: Mapped["User | None"] = relationship(foreign_keys=[decided_by])
 
     @property

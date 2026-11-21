@@ -298,3 +298,16 @@ def test_officer_cancels_approved_past_request(world):
         assert r.status == "cancelled" and r.cancel_note == "تاريخ خاطئ في الطلب"
         m = db.query(Message).filter(Message.subject.like("إلغاء اعتماد%")).one()
         assert "تاريخ خاطئ" in m.body and "أُعيد الرصيد" in m.body
+
+
+def test_print_signatures_have_names(world):
+    """أسماء مقدم الطلب ومسؤول شؤون الموظفين تُكتب تلقائياً في خانات التوقيع."""
+    mgr, emp = login("mgr"), login("emp")
+    rec(mgr, world["e"], "days", 3)
+    leave(emp, world["e"], "use", "days", MON, MON)
+    with SessionLocal() as db:
+        r = db.query(LeaveRequest).one()
+        rid, emp_name, mgr_name = r.id, r.employee.full_name, r.employee.manager.full_name
+    html = emp.get(f"/requests/{rid}/print").text
+    sign = html[html.index('class="sign"'):]
+    assert emp_name in sign and mgr_name in sign

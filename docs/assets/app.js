@@ -557,7 +557,7 @@
         ${recs.map((r, i) => `<tr><td>${i + 1}</td><td>${r.date}</td><td>${REC_KINDS[r.kind]}</td><td>${recAmount(r)}</td><td>${h(r.refNo || "")}</td><td>${h(r.subject)}</td></tr>`).join("") || '<tr><td colspan="6" style="text-align:center">لا توجد توصيات.</td></tr>'}</tbody></table>
         <h3>الطلبات المعتمدة</h3><table><thead><tr><th>م</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th></tr></thead><tbody>
         ${reqs.map((r, i) => `<tr><td>${i + 1}</td><td>${LEAVE_KINDS[r.kind]}</td><td>${r.start}</td><td>${r.end}</td><td>${leaveAmount(r)}</td><td>${h(r.reason)}</td></tr>`).join("") || '<tr><td colspan="6" style="text-align:center">لا توجد طلبات معتمدة.</td></tr>'}</tbody></table>
-        <div class="sign"><div>الموظف</div><div>مسؤول شؤون الموظفين</div><div>مدير النظام</div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
+        <div class="sign"><div>الموظف<br><b class="sign-name">${h(e.name)}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(mgrName(e))}</b></div><div>مدير النظام</div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
     }
     if (kind === "rec") {
       const r = byId("recs", id), e = r && byId("emps", r.emp); if (!r || !canView(u, e)) throw new Forbidden("التوصية غير موجودة.");
@@ -568,7 +568,7 @@
         <p>بناءً على توصية سعادة عميد ${h(s.college)}${r.refNo ? " رقم (" + h(r.refNo) + ")" : ""} المؤرخة في ${r.date}${r.subject ? " بشأن: <b>" + h(r.subject) + "</b>" : ""}، نفيدكم بأنه قد مُنح لكم <b>${REC_KINDS[r.kind]}</b> مقداره <b>${recAmount(r)}</b>${r.kind === "hours" ? " (تعادل " + n(r.amount / y.hpd) + " يوماً، كل " + n(y.hpd) + " ساعات = يوم)" : ""}، وأُضيف إلى رصيدكم في نظام «${h(s.system_title)}».</p>
         <table class="mt"><tbody><tr><th>رصيد الأيام الحالي</th><td>${n(b.daysLeft)}</td><th>رصيد الساعات الحالي</th><td>${n(b.hoursLeft)}</td></tr>
           <tr><th>إجمالي المتاح</th><td colspan="3">${daysAr(b.totalDays)}${b.totalRem ? " و" + hoursAr(b.totalRem) : ""} — الممنوح خلال السنة ${n(b.grantedEq)} من ${n(b.cap)} يوماً</td></tr></tbody></table>
-        <p>وتقبلوا خالص التحية والتقدير،</p><div class="sign"><div>مسؤول شؤون الموظفين<br><small>${h(displayName(by))}</small></div><div>الموظف</div><div>الختم</div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
+        <p>وتقبلوا خالص التحية والتقدير،</p><div class="sign"><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(displayName(by))}</b></div><div>الموظف<br><b class="sign-name">${h(e.name)}</b></div><div>الختم</div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
     }
     if (kind === "req") {
       const r = byId("leaves", id), e = r && byId("emps", r.emp); if (!r || !canView(u, e)) throw new Forbidden("الطلب غير موجود.");
@@ -583,7 +583,7 @@
           <tr><th>صاحب القرار</th><td>${dec ? h(displayName(dec)) : "—"}</td><th>ملاحظة</th><td>${h(r.note) || "—"}</td></tr></tbody></table>
         ${r.status === "cancelled" ? `<h3>الإلغاء</h3><table><tbody><tr><th>أُلغي بواسطة</th><td>${r.cancelledBy ? h(displayName(byId("users", r.cancelledBy))) : "—"}</td><th>تاريخ الإلغاء</th><td>${r.cancelledAt || "—"}</td></tr><tr><th>سبب الإلغاء</th><td colspan="3">${h(r.cancelNote) || "—"}</td></tr></tbody></table>` : ""}
         <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام ${n(b.daysLeft)} · الساعات ${n(b.hoursLeft)} · الإجمالي ${daysAr(b.totalDays)}${b.totalRem ? " و" + hoursAr(b.totalRem) : ""}.</p>
-        <div class="sign"><div>مقدم الطلب</div><div>مسؤول شؤون الموظفين</div><div>الختم</div></div>`, "#/requests");
+        <div class="sign"><div>مقدم الطلب<br><b class="sign-name">${h(r.by ? displayName(byId("users", r.by)) : e.name)}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(dec ? displayName(dec) : mgrName(e))}</b></div><div>الختم</div></div>`, "#/requests");
     }
     if (kind === "cards") {
       need(u, ["admin"]); const s0 = DB.settings, all = DB.cards || [], ids = (q.get("ids") || "").split(",").filter(Boolean).map(Number), batch = q.get("batch") || "", st = q.get("state") || "pending";

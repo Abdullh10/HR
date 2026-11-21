@@ -362,6 +362,7 @@ details.disclose summary { cursor: pointer; color: var(--brand-2); font-weight: 
 .official table, .official th, .official td { border: 1px solid #c3d0dd; }
 .official .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2.5rem; text-align: center; }
 .official .sign div { border-top: 1px solid #555; padding-top: .4rem; font-size: .9rem; }
+.official .sign .sign-name { display: inline-block; margin-top: .35rem; font-weight: 600; font-size: .95rem; }
 .official .meta { font-size: .82rem; color: #333; text-align: end; }
 body.print-page { background: #e9eef4; }
 @media print { body.print-page { background: #fff; } .official { padding: 0; } }

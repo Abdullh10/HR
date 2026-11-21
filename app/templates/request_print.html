@@ -23,5 +23,6 @@
   </tbody></table>
   {% endif %}
   <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام {{ info.days_left|n }} · الساعات {{ info.hours_left|n }} · الإجمالي {{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %}.</p>
-  <div class="sign"><div>مقدم الطلب</div><div>مسؤول شؤون الموظفين</div><div>الختم</div></div>
+  {% set officer = req.decider.display_name if req.decider else (req.employee.manager.full_name if req.employee.manager else '') %}
+  <div class="sign"><div>مقدم الطلب<br><b class="sign-name">{{ req.requester.display_name if req.requester else req.employee.full_name }}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">{{ officer }}</b></div><div>الختم</div></div>
 {% endblock %}
