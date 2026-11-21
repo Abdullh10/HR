@@ -568,22 +568,21 @@
         <p>بناءً على توصية سعادة عميد ${h(s.college)}${r.refNo ? " رقم (" + h(r.refNo) + ")" : ""} المؤرخة في ${r.date}${r.subject ? " بشأن: <b>" + h(r.subject) + "</b>" : ""}، نفيدكم بأنه قد مُنح لكم <b>${REC_KINDS[r.kind]}</b> مقداره <b>${recAmount(r)}</b>${r.kind === "hours" ? " (تعادل " + n(r.amount / y.hpd) + " يوماً، كل " + n(y.hpd) + " ساعات = يوم)" : ""}، وأُضيف إلى رصيدكم في نظام «${h(s.system_title)}».</p>
         <table class="mt"><tbody><tr><th>رصيد الأيام الحالي</th><td>${n(b.daysLeft)}</td><th>رصيد الساعات الحالي</th><td>${n(b.hoursLeft)}</td></tr>
           <tr><th>إجمالي المتاح</th><td colspan="3">${daysAr(b.totalDays)}${b.totalRem ? " و" + hoursAr(b.totalRem) : ""} — الممنوح خلال السنة ${n(b.grantedEq)} من ${n(b.cap)} يوماً</td></tr></tbody></table>
-        <p>وتقبلوا خالص التحية والتقدير،</p><div class="sign"><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(displayName(by))}</b></div><div>الموظف<br><b class="sign-name">${h(e.name)}</b></div><div>الختم</div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
+        <p>وتقبلوا خالص التحية والتقدير،</p><div class="sign"><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(displayName(by))}</b></div><div>الموظف<br><b class="sign-name">${h(e.name)}</b></div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
     }
     if (kind === "req") {
       const r = byId("leaves", id), e = r && byId("emps", r.emp); if (!r || !canView(u, e)) throw new Forbidden("الطلب غير موجود.");
       const y = byId("years", r.year), b = balance(e.id, y), dec = r.decidedBy ? byId("users", r.decidedBy) : null;
-      return letter("نموذج طلب " + LEAVE_KINDS[r.kind] + " من رصيد بدل الراحة", (r.ref || refNo("REQ", r.id, r.created)), "تاريخ الطلب: " + r.created.slice(0, 10), `
-        <table><tbody><tr><th>اسم الموظف</th><td>${h(e.name)}</td><th>الرقم الوظيفي</th><td>${h(e.no)}</td></tr>
-          <tr><th>القسم</th><td>${h(deptName(e))}</td><th>مسؤول شؤون الموظفين</th><td>${h(mgrName(e))}</td></tr>
-          <tr><th>نوع الطلب</th><td>${LEAVE_KINDS[r.kind]}</td><th>الرصيد المستخدم</th><td>${r.unit === "days" ? "رصيد الأيام" : "رصيد الساعات"}</td></tr>
-          <tr><th>${r.kind === "use" ? "المدة" : "تاريخ الغياب"}</th><td>${r.start}${r.end !== r.start ? " إلى " + r.end : ""}</td><th>المقدار</th><td><b>${leaveAmount(r)}</b></td></tr>
-          <tr><th>السبب</th><td colspan="3">${h(r.reason) || "—"}</td></tr></tbody></table>
-        <h3>قرار مسؤول شؤون الموظفين</h3><table><tbody><tr><th>الحالة</th><td><b>${REQ_ST[r.status]}</b></td><th>تاريخ القرار</th><td>${r.decidedAt || "—"}</td></tr>
-          <tr><th>صاحب القرار</th><td>${dec ? h(displayName(dec)) : "—"}</td><th>ملاحظة</th><td>${h(r.note) || "—"}</td></tr></tbody></table>
-        ${r.status === "cancelled" ? `<h3>الإلغاء</h3><table><tbody><tr><th>أُلغي بواسطة</th><td>${r.cancelledBy ? h(displayName(byId("users", r.cancelledBy))) : "—"}</td><th>تاريخ الإلغاء</th><td>${r.cancelledAt || "—"}</td></tr><tr><th>سبب الإلغاء</th><td colspan="3">${h(r.cancelNote) || "—"}</td></tr></tbody></table>` : ""}
-        <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام ${n(b.daysLeft)} · الساعات ${n(b.hoursLeft)} · الإجمالي ${daysAr(b.totalDays)}${b.totalRem ? " و" + hoursAr(b.totalRem) : ""}.</p>
-        <div class="sign"><div>مقدم الطلب<br><b class="sign-name">${h(r.by ? displayName(byId("users", r.by)) : e.name)}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(dec ? displayName(dec) : mgrName(e))}</b></div><div>الختم</div></div>`, "#/requests");
+      const by = r.by ? byId("users", r.by) : null, cby = r.cancelledBy ? byId("users", r.cancelledBy) : null;
+      const F = (dt, dd, cls) => `<div${cls ? ` class="${cls}"` : ""}><dt>${dt}</dt><dd>${dd}</dd></div>`;
+      return letter("نموذج طلب " + LEAVE_KINDS[r.kind], (r.ref || refNo("REQ", r.id, r.created)), "تاريخ الطلب: " + r.created.slice(0, 10), `
+        <p class="f-status st-${r.status}">حالة الطلب: <b>${REQ_ST[r.status]}</b></p>
+        <section class="f-sec"><h3>بيانات الموظف</h3><dl class="f-grid">${F("اسم الموظف", h(e.name))}${F("الرقم الوظيفي", `<span class="num">${h(e.no)}</span>`)}${F("القسم", h(deptName(e)) || "—")}${F("مسؤول شؤون الموظفين", h(mgrName(e)) || "—")}</dl></section>
+        <section class="f-sec"><h3>تفاصيل الطلب</h3><dl class="f-grid three">${F("من تاريخ", `<span class="num">${r.start}</span>`)}${F("إلى تاريخ", `<span class="num">${r.end || r.start}</span>`)}${F("المدة", `<b>${leaveAmount(r)}</b>${r.unit === "hours" ? " <small>(من رصيد الساعات)</small>" : ""}`)}${F("سبب الغياب / ملاحظات", h(r.reason) || "—", "wide")}</dl></section>
+        <section class="f-sec"><h3>قرار مسؤول شؤون الموظفين</h3><dl class="f-grid three">${F("القرار", `<b>${r.status !== "cancelled" ? REQ_ST[r.status] : r.decidedAt ? "معتمد ثم أُلغي" : "ملغى"}</b>`)}${F("صاحب القرار", dec ? h(displayName(dec)) : "—")}${F("تاريخ القرار", `<span class="num">${r.decidedAt || "—"}</span>`)}${r.note ? F("ملاحظة القرار", h(r.note), "wide") : ""}</dl></section>
+        ${r.status === "cancelled" ? `<section class="f-sec void"><h3>إلغاء الطلب</h3><dl class="f-grid three">${F("أُلغي بواسطة", cby ? h(displayName(cby)) : "—")}${F("تاريخ الإلغاء", `<span class="num">${r.cancelledAt || "—"}</span>`)}${F("أُعيد الرصيد", "نعم")}${F("سبب الإلغاء", h(r.cancelNote) || "—", "wide")}</dl></section>` : ""}
+        <section class="f-sec"><h3>الرصيد الحالي</h3><dl class="f-grid three">${F("رصيد الأيام", `<span class="num">${n(b.daysLeft)}</span>`)}${F("رصيد الساعات", `<span class="num">${n(b.hoursLeft)}</span>`)}${F("المتاح للطلب", `<b>${daysAr(b.bookable)}</b>`)}</dl></section>
+        <div class="sign"><div>مقدم الطلب<br><b class="sign-name">${h(by ? displayName(by) : e.name)}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">${h(dec ? displayName(dec) : mgrName(e))}</b></div></div>`, e.id === u.emp ? "#/me" : "#/employee/" + e.id);
     }
     if (kind === "cards") {
       need(u, ["admin"]); const s0 = DB.settings, all = DB.cards || [], ids = (q.get("ids") || "").split(",").filter(Boolean).map(Number), batch = q.get("batch") || "", st = q.get("state") || "pending";
@@ -601,7 +600,7 @@
       const m = byId("msgs", id); if (!m || ![m.to, m.from].includes(u.id)) throw new Forbidden("الرسالة غير موجودة.");
       const fr = m.from ? byId("users", m.from) : null, to = byId("users", m.to);
       return letter("خطاب: " + h(m.subject), refNo("MSG", m.id, m.at), "", `<table><tbody><tr><th>من</th><td>${fr ? h(displayName(fr)) + " (" + ROLES[fr.role] + ")" : "نظام " + h(DB.settings.system_title)}</td><th>إلى</th><td>${h(displayName(to))} (${ROLES[to.role]})</td></tr><tr><th>التاريخ</th><td colspan="3">${m.at}</td></tr></tbody></table>
-        <div class="letter-body">${h(m.body)}</div><div class="sign"><div>المرسل</div><div></div><div>الختم</div></div>`, "#/messages/" + m.id);
+        <div class="letter-body">${h(m.body)}</div><div class="sign"><div>المرسل<br><b class="sign-name">${fr ? h(displayName(fr)) : "نظام " + h(DB.settings.system_title)}</b></div></div>`, "#/messages/" + m.id);
     }
     throw new Forbidden("الصفحة غير موجودة.");
   };

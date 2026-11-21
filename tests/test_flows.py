@@ -310,4 +310,5 @@ def test_print_signatures_have_names(world):
         rid, emp_name, mgr_name = r.id, r.employee.full_name, r.employee.manager.full_name
     html = emp.get(f"/requests/{rid}/print").text
     sign = html[html.index('class="sign"'):]
-    assert emp_name in sign and mgr_name in sign
+    assert emp_name in sign and mgr_name in sign and "الختم" not in html
+    assert "بيانات الموظف" in html and "تفاصيل الطلب" in html

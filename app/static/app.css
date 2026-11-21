@@ -360,8 +360,23 @@ details.disclose summary { cursor: pointer; color: var(--brand-2); font-weight: 
 .official h1 { font-size: 1.25rem; margin: 0; color: #00427a; }
 .official table th { background: #e6f2fb; color: #00427a; }
 .official table, .official th, .official td { border: 1px solid #c3d0dd; }
-.official .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2.5rem; text-align: center; }
-.official .sign div { border-top: 1px solid #555; padding-top: .4rem; font-size: .9rem; }
+.official .sign { display: flex; justify-content: space-around; gap: 2rem; margin-top: 3rem; text-align: center; break-inside: avoid; }
+.official .sign div { flex: 0 1 240px; border-top: 1px solid #555; padding-top: .4rem; font-size: .9rem; }
+/* نموذج الطلب: أقسام وبطاقات حقول */
+.official .f-status { display: inline-block; margin: 0 0 .9rem; padding: .3rem .9rem; border-radius: 999px; border: 1px solid #c3d0dd; background: #f5f7fa; font-size: .9rem; }
+.official .f-status.st-approved { background: #e8f6ee; border-color: #9fd3b4; color: #14633a; }
+.official .f-status.st-pending { background: #fff6e5; border-color: #f0cf8f; color: #8a5a00; }
+.official .f-status.st-rejected, .official .f-status.st-cancelled { background: #fdecec; border-color: #eeb4b4; color: #9b1c1c; }
+.official .f-sec { border: 1px solid #c3d0dd; border-radius: 8px; margin: 0 0 .85rem; break-inside: avoid; overflow: hidden; }
+.official .f-sec h3 { margin: 0; padding: .45rem .85rem; background: #e6f2fb; color: #00427a; font-size: .95rem; border-bottom: 1px solid #c3d0dd; }
+.official .f-sec.void h3 { background: #fdecec; color: #9b1c1c; }
+.official .f-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin: 0; }
+.official .f-grid.three { grid-template-columns: repeat(3, 1fr); }
+.official .f-grid > div { padding: .5rem .85rem; border-bottom: 1px dashed #dde5ee; }
+.official .f-grid > .wide { grid-column: 1 / -1; }
+.official .f-grid dt { font-size: .78rem; color: #55657a; margin-bottom: .15rem; }
+.official .f-grid dd { margin: 0; font-size: .98rem; }
+@media (max-width: 560px) { .official .f-grid, .official .f-grid.three { grid-template-columns: 1fr; } .official .sign { flex-direction: column; align-items: center; } .official .sign div { width: 70%; } }
 .official .sign .sign-name { display: inline-block; margin-top: .35rem; font-weight: 600; font-size: .95rem; }
 .official .meta { font-size: .82rem; color: #333; text-align: end; }
 body.print-page { background: #e9eef4; }

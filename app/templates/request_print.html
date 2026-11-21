@@ -1,28 +1,51 @@
 {% extends "_print.html" %}
 {% from "_macros.html" import letter_head with context %}
-{% block title %}نموذج {{ req.kind_label }} — {{ req.employee.full_name }}{% endblock %}
+{% block title %}نموذج طلب {{ req.kind_label }} — {{ req.employee.full_name }}{% endblock %}
 {% block letter %}
-  {{ letter_head('نموذج طلب ' ~ req.kind_label ~ ' من رصيد بدل الراحة', ref, 'تاريخ الطلب: ' ~ (req.created_at|d)) }}
-  <table><tbody>
-    <tr><th>اسم الموظف</th><td>{{ req.employee.full_name }}</td><th>الرقم الوظيفي</th><td>{{ req.employee.employee_no }}</td></tr>
-    <tr><th>القسم</th><td>{{ req.employee.department.name if req.employee.department else '' }}</td><th>مسؤول شؤون الموظفين</th><td>{{ req.employee.manager.full_name if req.employee.manager else '' }}</td></tr>
-    <tr><th>نوع الطلب</th><td>{{ req.kind_label }}</td><th>الرصيد المستخدم</th><td>{{ 'رصيد الأيام' if req.unit == 'days' else 'رصيد الساعات' }}</td></tr>
-    <tr><th>{{ 'المدة' if req.kind == 'use' else 'تاريخ الغياب' }}</th><td>{{ req.start_date|d }}{% if req.end_date != req.start_date %} إلى {{ req.end_date|d }}{% endif %}</td><th>المقدار</th><td><b>{{ req.amount_label }}</b></td></tr>
-    <tr><th>السبب</th><td colspan="3">{{ req.reason or '—' }}</td></tr>
-  </tbody></table>
-  <h3>قرار مسؤول شؤون الموظفين</h3>
-  <table><tbody>
-    <tr><th>الحالة</th><td><b>{{ req.status_label }}</b></td><th>تاريخ القرار</th><td>{{ req.decided_at|d if req.decided_at else '—' }}</td></tr>
-    <tr><th>صاحب القرار</th><td>{{ req.decider.display_name if req.decider else '—' }}</td><th>ملاحظة</th><td>{{ req.decision_note or '—' }}</td></tr>
-  </tbody></table>
+  {{ letter_head('نموذج طلب ' ~ req.kind_label, ref, 'تاريخ الطلب: ' ~ (req.created_at|d)) }}
+  <p class="f-status st-{{ req.status }}">حالة الطلب: <b>{{ req.status_label }}</b></p>
+
+  <section class="f-sec"><h3>بيانات الموظف</h3>
+    <dl class="f-grid">
+      <div><dt>اسم الموظف</dt><dd>{{ req.employee.full_name }}</dd></div>
+      <div><dt>الرقم الوظيفي</dt><dd class="num">{{ req.employee.employee_no }}</dd></div>
+      <div><dt>القسم</dt><dd>{{ req.employee.department.name if req.employee.department else '—' }}</dd></div>
+      <div><dt>مسؤول شؤون الموظفين</dt><dd>{{ req.employee.manager.full_name if req.employee.manager else '—' }}</dd></div>
+    </dl></section>
+
+  <section class="f-sec"><h3>تفاصيل الطلب</h3>
+    <dl class="f-grid three">
+      <div><dt>من تاريخ</dt><dd class="num">{{ req.start_date|d }}</dd></div>
+      <div><dt>إلى تاريخ</dt><dd class="num">{{ req.end_date|d if req.end_date else req.start_date|d }}</dd></div>
+      <div><dt>المدة</dt><dd><b>{{ req.amount_label }}</b>{% if req.unit == 'hours' %} <small>(من رصيد الساعات)</small>{% endif %}</dd></div>
+      <div class="wide"><dt>سبب الغياب / ملاحظات</dt><dd>{{ req.reason or '—' }}</dd></div>
+    </dl></section>
+
+  <section class="f-sec"><h3>قرار مسؤول شؤون الموظفين</h3>
+    <dl class="f-grid three">
+      <div><dt>القرار</dt><dd><b>{{ req.status_label if req.status != 'cancelled' else ('معتمد ثم أُلغي' if req.decided_at else 'ملغى') }}</b></dd></div>
+      <div><dt>صاحب القرار</dt><dd>{{ req.decider.display_name if req.decider else '—' }}</dd></div>
+      <div><dt>تاريخ القرار</dt><dd class="num">{{ req.decided_at|d if req.decided_at else '—' }}</dd></div>
+      {% if req.decision_note %}<div class="wide"><dt>ملاحظة القرار</dt><dd>{{ req.decision_note }}</dd></div>{% endif %}
+    </dl></section>
+
   {% if req.status == 'cancelled' %}
-  <h3>الإلغاء</h3>
-  <table><tbody>
-    <tr><th>أُلغي بواسطة</th><td>{{ req.canceller.display_name if req.canceller else '—' }}</td><th>تاريخ الإلغاء</th><td>{{ req.cancelled_at|d if req.cancelled_at else '—' }}</td></tr>
-    <tr><th>سبب الإلغاء</th><td colspan="3">{{ req.cancel_note or '—' }}</td></tr>
-  </tbody></table>
+  <section class="f-sec void"><h3>إلغاء الطلب</h3>
+    <dl class="f-grid three">
+      <div><dt>أُلغي بواسطة</dt><dd>{{ req.canceller.display_name if req.canceller else '—' }}</dd></div>
+      <div><dt>تاريخ الإلغاء</dt><dd class="num">{{ req.cancelled_at|d if req.cancelled_at else '—' }}</dd></div>
+      <div><dt>أُعيد الرصيد</dt><dd>نعم</dd></div>
+      <div class="wide"><dt>سبب الإلغاء</dt><dd>{{ req.cancel_note or '—' }}</dd></div>
+    </dl></section>
   {% endif %}
-  <p class="mt">الرصيد بعد الحركات المعتمدة: الأيام {{ info.days_left|n }} · الساعات {{ info.hours_left|n }} · الإجمالي {{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %}.</p>
+
+  <section class="f-sec"><h3>الرصيد الحالي</h3>
+    <dl class="f-grid three">
+      <div><dt>رصيد الأيام</dt><dd class="num">{{ info.days_left|n }}</dd></div>
+      <div><dt>رصيد الساعات</dt><dd class="num">{{ info.hours_left|n }}</dd></div>
+      <div><dt>المتاح للطلب</dt><dd><b>{{ days_ar(info.bookable_days) }}</b></dd></div>
+    </dl></section>
+
   {% set officer = req.decider.display_name if req.decider else (req.employee.manager.full_name if req.employee.manager else '') %}
-  <div class="sign"><div>مقدم الطلب<br><b class="sign-name">{{ req.requester.display_name if req.requester else req.employee.full_name }}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">{{ officer }}</b></div><div>الختم</div></div>
+  <div class="sign"><div>مقدم الطلب<br><b class="sign-name">{{ req.requester.display_name if req.requester else req.employee.full_name }}</b></div><div>مسؤول شؤون الموظفين<br><b class="sign-name">{{ officer }}</b></div></div>
 {% endblock %}

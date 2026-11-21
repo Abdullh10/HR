@@ -8,5 +8,5 @@
     <tr><th>التاريخ</th><td colspan="3">{{ m.created_at|d }}</td></tr>
   </tbody></table>
   <div class="letter-body">{{ m.body }}</div>
-  <div class="sign"><div>المرسل</div><div></div><div>الختم</div></div>
+  <div class="sign"><div>المرسل<br><b class="sign-name">{{ m.sender.display_name if m.sender else 'نظام ' ~ org.system_title }}</b></div></div>
 {% endblock %}
