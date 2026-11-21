@@ -310,7 +310,7 @@
       ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield") + item("#/admin/cards", "بطاقات الدخول", "idcard")
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}`;
     const nav = u.role === "admin" ? adminNav : [
-      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "موظفيّ", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
+      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
         <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}${item("#/archive", "الأرشيف", "archive")}` : "",
       u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
@@ -614,7 +614,7 @@
     let rows = list.map((e) => [e, balance(e.id, y)]);
     if (st === "cap") rows = rows.filter(([, b]) => b.capLeftHours <= 0); if (st === "none") rows = rows.filter(([, b]) => !b.gDays && !b.gHours);
     const admin = u.role === "admin";
-    return layout(u, admin ? "الموظفون والأرصدة" : "موظفيّ", `<div class="page-head"><div><h1>${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
+    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `<div class="page-head"><div><h1>${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
       <div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">تصدير Excel</button>${admin ? '<a class="btn primary" href="#/employee/new">+ إضافة موظف</a>' : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="employees" role="search">
         <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="${h(qs)}"></div>

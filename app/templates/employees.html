@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}الموظفون{% endblock %}
-{% block heading %}{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'موظفيّ' }}{% endblock %}
+{% block heading %}{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'قائمة الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div><h1>{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
