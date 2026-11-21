@@ -247,11 +247,13 @@
     if (!(canManage(u, e) || (own && r.status === "pending"))) throw new RuleError("ليست لديك صلاحية لإلغاء هذا الطلب.");
     const y = openYear(byId("years", r.year));
     if (!["pending", "approved"].includes(r.status)) throw new RuleError("لا يمكن إلغاء هذا الطلب في حالته الحالية.");
-    if (r.status === "approved" && r.start < todayISO() && !y.allowLateCancel && u.role !== "admin") throw new RuleError("لا يمكن إلغاء طلب معتمد بعد مرور تاريخه (يتطلب صلاحية الأدمن).");
     if (r.status === "approved" && !note) throw new RuleError("اذكر سبب إلغاء طلب معتمد.");
     const prev = r.status; r.status = "cancelled"; r.cancelledBy = u.id; r.cancelledAt = nowStr(); r.cancelNote = note || "إلغاء";
     audit("leave_cancelled", "leave_request", r.id, { previous: prev, note });
-    if (!own) notify(userOfEmp(e), "إلغاء طلب " + LEAVE_KINDS[r.kind], "أُلغي طلبك (" + leaveAmount(r) + " بتاريخ " + r.start + "). " + (note || ""), "#/requests", u);
+    const when = r.start + (r.end && r.end !== r.start ? " إلى " + r.end : "");
+    if (!own) notify(userOfEmp(e), (prev === "approved" ? "إلغاء اعتماد طلب " : "إلغاء طلب ") + LEAVE_KINDS[r.kind], prev === "approved"
+      ? "أُلغي اعتماد طلبك رقم " + (r.ref || r.id) + " (" + leaveAmount(r) + "، " + when + ") وأُعيد الرصيد إليك.\nالسبب: " + note + "\nإن كان الإلغاء لتصحيح التاريخ فقدّم طلباً جديداً بالتاريخ الصحيح."
+      : "أُلغي طلبك (" + leaveAmount(r) + "، " + when + "). " + (note || ""), "#/requests", u);
     return prev;
   }
   function cancelRec(u, r, note) {
@@ -491,7 +493,7 @@
       <td data-label="الحالة">${statusBadge(r.status, REQ_ST[r.status])}${noteText(r) ? `<small class="muted d-block">${h(noteText(r))}</small>` : ""}</td>
       <td class="actions-cell"><a class="btn sm" href="#/print/req/${r.id}">طباعة</a>
         ${mg && r.status === "pending" ? `<button class="btn sm ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn sm danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button>` : ""}
-        ${(r.status === "pending" && r.emp === u.emp) || (mg && ["pending", "approved"].includes(r.status)) ? `<button class="btn sm" type="button" data-act="cancel-leave" data-id="${r.id}" ${r.status === "approved" ? "data-need-note=1" : ""}>إلغاء</button>` : ""}</td></tr>`; }).join("");
+        ${(r.status === "pending" && r.emp === u.emp) || (mg && ["pending", "approved"].includes(r.status)) ? `${r.status === "approved" ? `<button class="btn sm danger" type="button" data-act="cancel-leave" data-id="${r.id}" data-need-note="1" title="لتصحيح خطأ (مثل التاريخ) أو لأي سبب آخر">إلغاء الاعتماد</button>` : `<button class="btn sm" type="button" data-act="cancel-leave" data-id="${r.id}">إلغاء</button>`}` : ""}</td></tr>`; }).join("");
   }
   const recHead = (withEmp) => `<thead><tr><th>التاريخ</th>${withEmp ? "<th>الموظف</th>" : ""}<th>النوع</th><th>القيمة</th><th>رقم خطاب العميد</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead>`;
   const leaveHead = (withEmp) => `<thead><tr><th>الرقم الصادر</th>${withEmp ? "<th>الموظف</th>" : ""}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead>`;
@@ -799,8 +801,7 @@
         <fieldset ${dis}><legend>المرفقات والقواعد</legend>
           ${chk("reqRecAtt", "إرفاق ملف التوصية (PDF) إلزامي عند رفع التوصية")}${chk("reqReqAtt", "إرفاق مستند مؤيد (PDF) إلزامي لطلبات الموظف")}
           ${chk("empCanRequest", "السماح للموظف بتقديم طلباته بنفسه", true)}${chk("blockWeekends", "استبعاد أيام عطلة نهاية الأسبوع من مدة الطلب", true)}
-          <div class="actions" style="margin:-.2rem 1.6rem .6rem 0">${[1, 2, 3, 4, 5, 6, 0].map((i) => `<label class="check" style="margin:0"><input type="checkbox" name="weekend" value="${i}" ${(y ? y.weekend : [5, 6]).includes(i) ? "checked" : ""}> ${WD[i]}</label>`).join("")}</div>
-          ${chk("allowLateCancel", "السماح بإلغاء طلب معتمد بعد مرور تاريخه (لغير الأدمن)")}</fieldset>
+          <div class="actions" style="margin:-.2rem 1.6rem .6rem 0">${[1, 2, 3, 4, 5, 6, 0].map((i) => `<label class="check" style="margin:0"><input type="checkbox" name="weekend" value="${i}" ${(y ? y.weekend : [5, 6]).includes(i) ? "checked" : ""}> ${WD[i]}</label>`).join("")}</div></fieldset>
         ${y && (DB.recs.some((x) => x.year === y.id) || DB.leaves.some((x) => x.year === y.id)) ? `<label class="check confirm-impact"><input type="checkbox" name="confirmImpact" value="1"> أؤكد تطبيق التغيير بأثر رجعي على أرصدة السنة — مطلوب فقط عند تغيير ساعات اليوم أو الحد السنوي</label>` : ""}
         ${y && y.locked ? "" : `<button class="btn primary">${y ? "حفظ الإعدادات" : "إنشاء السنة"}</button>`}</form>`; };
     return layout(u, "الإعدادات", `${settingsTabs("years")}<div class="page-head"><div><h1>السنة وقواعد الرصيد</h1><p>الرصيد سنوي (سنة ميلادية): يُمنح بتوصيات العميد التي يرفعها مسؤول الشؤون الإدارية، ولا يُرحَّل إلى السنة التالية.</p></div></div>
@@ -1266,7 +1267,7 @@
   // ============================================================ الإجراءات
   const ACT = {};
   // نافذة إدخال السبب (بدل prompt): نص متعدد الأسطر وأسباب جاهزة
-  const REASONS = { reject: ["ضغط عمل في الوحدة", "تعارض مع جدول المناوبات أو التكليفات", "الرصيد غير كافٍ", "المستندات المؤيدة ناقصة"], cancel: ["بناءً على طلب الموظف", "خطأ في الإدخال", "تغيّر موعد الإجازة"] };
+  const REASONS = { reject: ["ضغط عمل في الوحدة", "تعارض مع جدول المناوبات أو التكليفات", "الرصيد غير كافٍ", "المستندات المؤيدة ناقصة"], cancel: ["تاريخ خاطئ في الطلب", "خطأ في الإدخال", "بناءً على طلب الموظف", "تغيّر موعد الإجازة"] };
   function askReason(kind, title) {
     return new Promise((resolve) => {
       let d = document.getElementById("reason-dlg");
@@ -1327,7 +1328,7 @@
   ACT.showBanner = () => { try { localStorage.removeItem(BKEY); } catch (e) {} render(); };
   ACT.logout = () => { sessionStorage.removeItem("hr_uid"); go("#/login"); };
   ACT.reset = async () => { if (!confirm("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
-  ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!confirm("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء الطلب وإعادة الرصيد." : "تم إلغاء الطلب."); render(); };
+  ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!confirm("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." : "تم إلغاء الطلب."); render(); };
   ACT["cancel-rec"] = async (b, u) => { const r = byId("recs", b.dataset.id); const note = await askReason("cancel", "سبب إلغاء التوصية (ستُخصم من الرصيد)"); if (!note) return; cancelRec(u, r, note); save(); flash("تم إلغاء التوصية وتحديث الرصيد."); render(); };
   ACT.decide = async (b, u) => { const a = b.dataset.a; let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } decideLeave(u, byId("leaves", b.dataset.id), a, note); save(); flash(a === "approve" ? "تم الاعتماد وخصم الرصيد." : "تم الرفض."); render(); };
   ACT.bulk = async (b, u) => { const a = b.dataset.a; const rs = [...document.querySelectorAll('input[name="req"]:checked')].map((c) => Number(c.value));

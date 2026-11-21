@@ -270,3 +270,31 @@ def test_hours_convert_to_days(world):
     assert balance(world["e"], world["year"]).granted_hours == 15
     # تنبيه نفاد الرصيد يظهر للموظف
     assert "استنفدت رصيدك" in emp.get("/me").text or "قارب على النفاد" in emp.get("/me").text
+
+
+def test_officer_cancels_approved_past_request(world):
+    """خطأ في التاريخ بعد الاعتماد: يلغي مسؤول الشؤون الإدارية الطلب حتى بعد مرور تاريخه، ويُشعَر الموظف."""
+    past = date.today() - timedelta(days=1)
+    while past.weekday() in (4, 5):
+        past -= timedelta(days=1)
+    with SessionLocal() as db:  # سنة الاختبار هي سنة التاريخ الماضي
+        y = db.get(FiscalYear, world["year"])
+        y.name, y.start_date, y.end_date = str(past.year), date(past.year, 1, 1), date(past.year, 12, 31)
+        db.commit()
+    mgr, emp = login("mgr"), login("emp")
+    rec(mgr, world["e"], "days", 3, d=str(date(past.year, 1, 2)))
+    leave(emp, world["e"], "use", "days", past, past)
+    with SessionLocal() as db:
+        rid = db.query(LeaveRequest).one().id
+    post(mgr, f"/requests/{rid}/decide", {"action": "approve"})
+    assert balance(world["e"], world["year"]).used_days == 1
+    post(mgr, f"/requests/{rid}/cancel", {"note": ""})  # السبب إلزامي
+    assert balance(world["e"], world["year"]).used_days == 1
+    post(mgr, f"/requests/{rid}/cancel", {"note": "تاريخ خاطئ في الطلب"})
+    b = balance(world["e"], world["year"])
+    assert b.used_days == 0 and b.bookable_days == 3
+    with SessionLocal() as db:
+        r = db.get(LeaveRequest, rid)
+        assert r.status == "cancelled" and r.cancel_note == "تاريخ خاطئ في الطلب"
+        m = db.query(Message).filter(Message.subject.like("إلغاء اعتماد%")).one()
+        assert "تاريخ خاطئ" in m.body and "أُعيد الرصيد" in m.body

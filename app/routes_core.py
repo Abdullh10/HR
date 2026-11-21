@@ -566,11 +566,16 @@ def request_cancel(request: Request, req_id: int, note: str = Form(""), user: Us
     req.cancelled_by, req.cancelled_at, req.cancel_note = user.id, datetime.now(), (note.strip() or "إلغاء")
     audit(db, user, "leave_cancelled", "leave_request", req.id, ip=client_ip(request), prev=prev, note=note)
     if not own:
-        notify(db, employee_user(db, req.employee), f"إلغاء طلب {req.kind_label}",
-               f"أُلغي طلبك ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}). {note.strip()}",
-               "/requests", sender=user)
+        when = f"{req.start_date:%Y-%m-%d}" + (f" إلى {req.end_date:%Y-%m-%d}" if req.end_date and req.end_date != req.start_date else "")
+        if prev == "approved":
+            title, body = (f"إلغاء اعتماد طلب {req.kind_label}",
+                           f"أُلغي اعتماد طلبك رقم {req.ref_code or req.id} ({req.amount_label}، {when}) وأُعيد الرصيد إليك.\n"
+                           f"السبب: {note.strip()}\nإن كان الإلغاء لتصحيح التاريخ فقدّم طلباً جديداً بالتاريخ الصحيح.")
+        else:
+            title, body = f"إلغاء طلب {req.kind_label}", f"أُلغي طلبك ({req.amount_label}، {when}). {note.strip()}"
+        notify(db, employee_user(db, req.employee), title, body, "/requests", sender=user)
     db.commit()
-    flash(request, "تم إلغاء الطلب وإعادة الرصيد.")
+    flash(request, "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." if prev == "approved" and not own else "تم إلغاء الطلب.")
     return back(request, "/requests")
 
 

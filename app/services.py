@@ -504,9 +504,7 @@ def check_can_cancel_leave(db: Session, req: LeaveRequest, user: User) -> None:
     year = ensure_year_open(db.get(FiscalYear, req.fiscal_year_id))
     if req.status not in ("pending", "approved"):
         raise RuleError("لا يمكن إلغاء هذا الطلب في حالته الحالية.")
-    if req.status == "approved" and req.start_date < date.today():
-        if not year.allow_late_cancel and user.role != "admin":
-            raise RuleError("لا يمكن إلغاء طلب معتمد بعد مرور تاريخه (يتطلب صلاحية الأدمن).")
+    # الأدمن ومسؤول الشؤون الإدارية يلغيان الطلب المعتمد في أي وقت (مثل خطأ في التاريخ) مع ذكر السبب
 
 
 # ---------------------------------------------------------------- التدقيق
