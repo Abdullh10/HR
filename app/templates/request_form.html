@@ -1,18 +1,16 @@
 {% extends "base.html" %}
 {% from "_macros.html" import ico, balance_board %}
-{% set is_use = kind == 'use' %}
 {% block title %}طلب معالجة غياب{% endblock %}
 {% block heading %}طلب معالجة غياب{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ ico('calendar-plus', 'h-ico') }} طلب معالجة غياب</h1>
-  <p>اختر نوع المعالجة: <b>استبدال</b> لإجازة من رصيدك في تاريخ تختاره، أو <b>تعويض غياب</b> عن غياب حدث فعلاً. يُخصم من رصيدك بعد اعتماد الإداري المسؤول.</p></div>
-  <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="/requests/new?kind=use{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_use }}">استبدال (إجازة من رصيدي)</a><a href="/requests/new?kind=compensation{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_use }}">تعويض غياب حدث</a></div>
+  <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد الإداري المسؤول.</p></div>
 </div>
 {% if info %}{{ balance_board(info) }}{% endif %}
 <form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form>
-  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="use">
   {% if managed %}
-  <div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-autosubmit-get="/requests/new?kind={{ kind }}&emp="><option value="">— اختر —</option>
+  <div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-autosubmit-get="/requests/new?emp="><option value="">— اختر —</option>
     {% if self_emp %}<option value="{{ self_emp.id }}" {% if emp == self_emp.id %}selected{% endif %}>{{ self_emp.full_name }} (أنا)</option>{% endif %}
     {% for e in managed %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }} — {{ e.employee_no }}</option>{% endfor %}</select></div>
   {% else %}<input type="hidden" name="emp" value="{{ emp }}">{% endif %}
@@ -21,10 +19,10 @@
     تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل {{ sel_year.hours_per_day|n }} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.
     {% if info %}<br>المتاح للطلب: <b>{{ days_ar(info.bookable_days) }}</b>{% if info.bookable_from_hours %} (منها {{ info.bookable_from_hours }} بتحويل الساعات){% endif %}{% if info.hours_avail_rem %} · ساعات متبقية غير قابلة للاستخدام: {{ hours_ar(info.hours_avail_rem) }}{% endif %}.{% endif %}</div></div>
   <div class="form-grid">
-    <div class="field"><label for="sd">{{ 'من تاريخ' if is_use else 'تاريخ الغياب' }} *</label><input id="sd" name="start_date" type="date" required {% if not is_use %}max="{{ today|d }}"{% endif %}></div>
-    <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date" {% if not is_use %}max="{{ today|d }}"{% endif %}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
+    <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start_date" type="date" required></div>
+    <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
   </div>
-  <div class="field"><label for="rs">{{ 'السبب / ملاحظات' if is_use else 'سبب الغياب' }}{{ '' if is_use else ' *' }}</label><textarea id="rs" name="reason" {% if not is_use %}required{% endif %}></textarea></div>
+  <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
   <div class="field"><label for="fl">مستند مؤيد (PDF){{ ' *' if sel_year.require_request_attachment }}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" {% if sel_year.require_request_attachment %}required{% endif %}></div>
   <div class="actions"><button class="btn primary" type="submit">رفع الطلب</button><a class="btn" href="/requests">إلغاء</a></div>
 </form>

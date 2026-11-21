@@ -12,7 +12,7 @@
   const WD = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   const REQ_ST = { pending: "بانتظار الاعتماد", approved: "معتمد", rejected: "مرفوض", cancelled: "ملغى" };
   const REC_KINDS = { days: "بدل راحة بالأيام", hours: "بدل راحة بالساعات" };
-  const LEAVE_KINDS = { use: "استبدال", compensation: "تعويض غياب" };
+  const LEAVE_KINDS = { use: "معالجة غياب", compensation: "تعويض غياب" };
   const STAFF = ["admin", "officer"];
   const DEMO_PW = "Demo12345";
 
@@ -348,7 +348,7 @@
 </div>`;
   }
   const statusBadge = (s, label) => `<span class="badge ${{ approved: "ok", pending: "warn", rejected: "err", cancelled: "muted" }[s] || ""}">${h(label)}</span>`;
-  const kindBadge = (k) => ({ days: '<span class="badge info">بالأيام</span>', hours: '<span class="badge accent">بالساعات</span>', use: '<span class="badge info">استبدال</span>', compensation: '<span class="badge accent">تعويض غياب</span>' }[k] || "");
+  const kindBadge = (k) => ({ days: '<span class="badge info">بالأيام</span>', hours: '<span class="badge accent">بالساعات</span>', use: '<span class="badge info">معالجة غياب</span>', compensation: '<span class="badge accent">تعويض غياب</span>' }[k] || "");
   const yearSelect = (sel, name) => `<div class="field"><label for="ysel">السنة</label><select id="ysel" name="${name || "year"}" data-yearnav>${DB.years.slice().sort((a, b) => b.start.localeCompare(a.start)).map((y) => `<option value="${y.id}" ${y.id === sel.id ? "selected" : ""}>${h(y.name)}${y.active ? " (النشطة)" : ""}${y.locked ? " – مقفلة" : ""}</option>`).join("")}</select></div>`;
   const pickYear = (q) => (q.get("year") && byId("years", q.get("year"))) || activeYear();
   const empOptions = (list, sel, ph) => `<option value="">${ph || "— اختر الموظف —"}</option>` + list.map((e) => `<option value="${e.id}" ${String(sel) === String(e.id) ? "selected" : ""}>${h(e.name)} (${h(e.no)})</option>`).join("");
@@ -415,10 +415,10 @@
       <span class="eyebrow">نظام داخلي · ${h(s.college)}</span>
       <h2 id="intro-title">${h(s.tagline)}</h2>
       <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="${HERO_INLINE ? "" : "assets/hero.svg?v=" + ASSET_V}#hero"/></svg>
-      <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)}: توصيات العميد بمنح بدل الراحة، وأرصدة الموظفين بالأيام والساعات، وطلبات الاستبدال والتعويض.</p>
+      <p class="lead">منصة داخلية لمنسوبي ${h(s.college)} في ${h(s.university)}: توصيات العميد بمنح بدل الراحة، وأرصدة الموظفين بالأيام والساعات، وطلبات معالجة الغياب.</p>
       <ul class="gate-features">
         <li><span class="ico" aria-hidden="true">${ico("calendar-plus")}</span><div><b>توصيات بالأيام والساعات</b><span>يرفع الإداري توصية العميد (PDF) في حساب الموظف فيُحدَّث رصيده فوراً.</span></div></li>
-        <li><span class="ico" aria-hidden="true">${ico("approvals")}</span><div><b>استبدال وتعويض</b><span>يطلب الموظف استخدام رصيده أو تعويض غيابه، ويعتمد الإداري إلكترونياً.</span></div></li>
+        <li><span class="ico" aria-hidden="true">${ico("approvals")}</span><div><b>معالجة الغياب</b><span>يطلب الموظف معالجة غيابه بالأيام من رصيده، ويعتمد الإداري إلكترونياً.</span></div></li>
         <li><span class="ico" aria-hidden="true">${ico("mail")}</span><div><b>مراسلات وخطابات رسمية</b><span>مراسلات داخلية مع إشعار بالبريد، وخطابات قابلة للطباعة.</span></div></li>
       </ul>
     </section>
@@ -506,7 +506,7 @@
       ${board(b, true)}
       ${y.empCanRequest ? tiles([["days", "#/requests/new", "calendar-plus", "طلب معالجة غياب", "إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث"], ["msg", "#/messages/new", "send", "مراسلة الإداري", "استفسار أو متابعة"]]) : ""}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية العميد عن تكليف أنجزته، فزاد رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, false) || '<tr><td colspan="7" class="empty">لا توجد توصيات بعد.</td></tr>'}</tbody></table></div></section>
-        <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات الاستبدال والتعويض التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
+        <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات معالجة الغياب التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
   };
 
   V.employee = (u, q, seg) => {
@@ -522,9 +522,9 @@
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة كشف رسمي</a>${u.role === "admin" ? `<a class="btn" href="#/employee/${e.id}/edit">تعديل البيانات</a>` : ""}</div></div>
       ${e.active ? "" : '<div class="alert warn">الموظف غير نشط.</div>'}
       ${board(b)}
-      ${mg ? tiles([["days", "#/recs/new?kind=days&emp=" + e.id, "calendar-plus", "رفع توصية بالأيام", "المتاح للمنح: " + n(b.capLeftHours / b.hpd) + " يوم"], ["hours", "#/recs/new?kind=hours&emp=" + e.id, "clock-plus", "رفع توصية بالساعات", "المتاح للمنح: " + n(b.capLeftHours) + " ساعة"], ["appr", "#/requests/new?kind=use&emp=" + e.id, "calendar", "تسجيل طلب نيابةً عنه", "استبدال أو تعويض"]]) : ""}
+      ${mg ? tiles([["days", "#/recs/new?kind=days&emp=" + e.id, "calendar-plus", "رفع توصية بالأيام", "المتاح للمنح: " + n(b.capLeftHours / b.hpd) + " يوم"], ["hours", "#/recs/new?kind=hours&emp=" + e.id, "clock-plus", "رفع توصية بالساعات", "المتاح للمنح: " + n(b.capLeftHours) + " ساعة"], ["appr", "#/requests/new?emp=" + e.id, "calendar", "تسجيل طلب نيابةً عنه", "طلب معالجة غياب"]]) : ""}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيده (التوصيات)</h2><p class="hint">بدل راحة مُنح بتوصية العميد، فزاد الرصيد.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, true) || '<tr><td colspan="7" class="empty">لا توجد توصيات في هذه السنة.</td></tr>'}</tbody></table></div></section>
-      <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمه من رصيده (الطلبات)</h2><p class="hint">طلبات الاستبدال والتعويض؛ يُخصم المعتمد منها من الرصيد.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
+      <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمه من رصيده (الطلبات)</h2><p class="hint">طلبات معالجة الغياب؛ يُخصم المعتمد منها من الرصيد.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
   };
 
   function letter(title, ref, extra, body, back) {
@@ -675,31 +675,30 @@
     if (seg[1] === "new") return reqForm(u, q);
     const y = pickYear(q), kind = q.get("kind") || "", st = q.get("status") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id)), isE = u.role === "employee";
     const rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!st || r.status === st) && (!emp || r.emp === emp)).sort((a, b) => b.created.localeCompare(a.created));
-    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${isE ? "طلباتي" : "طلبات الاستبدال والتعويض"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
+    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${isE ? "طلباتي" : "طلبات معالجة الغياب"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
       <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new">+ طلب معالجة غياب</a></div></div>
-      <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" ${kind === "use" ? "selected" : ""}>استبدال</option><option value="compensation" ${kind === "compensation" ? "selected" : ""}>تعويض غياب</option></select></div>
+      <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" ${kind === "use" ? "selected" : ""}>معالجة غياب</option><option value="compensation" ${kind === "compensation" ? "selected" : ""}>تعويض غياب</option></select></div>
         <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>${Object.entries(REQ_ST).map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
         ${isE ? "" : `<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(visibleEmps(u, true), emp, "الكل")}</select></div>`}${yearSelect(y)}<button class="btn primary">عرض</button></form>
       <div class="card flush"><div class="table-wrap"><table class="responsive">${leaveHead(!isE)}<tbody>${leaveRows(u, rows, !isE) || '<tr><td colspan="8" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></div>`);
   };
   function reqForm(u, q) {
-    const kind = q.get("kind") === "compensation" ? "compensation" : "use", isU = kind === "use", y = activeYear();
+    const kind = "use", y = activeYear();
     const managed = STAFF.includes(u.role) ? managedEmps(u) : [], self = empOf(u);
     if (!managed.length && !self) throw new Forbidden("حسابك غير مرتبط بسجل موظف.");
     if (self && !managed.length && !y.empCanRequest) throw new Forbidden("تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع الإداري.");
-    const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "", mx = isU ? "" : `max="${todayISO()}"`;
+    const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "";
     return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("calendar-plus", "h-ico")} طلب معالجة غياب</h1>
-      <p>اختر نوع المعالجة: <b>استبدال</b> لإجازة من رصيدك في تاريخ تختاره، أو <b>تعويض غياب</b> عن غياب حدث فعلاً. يُخصم من رصيدك بعد اعتماد الإداري المسؤول.</p></div>
-      <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="#/requests/new?kind=use${eq}" class="${isU ? "on" : ""}">استبدال (إجازة من رصيدي)</a><a href="#/requests/new?kind=compensation${eq}" class="${isU ? "" : "on"}">تعويض غياب حدث</a></div></div>
+      <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد الإداري المسؤول.</p></div></div>
       ${b ? board(b) : ""}
       <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
         <div class="alert info days-only">${ico("calendar")}<div><b>تُعالج الطلبات بالأيام فقط.</b> تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل ${n(y.hpd)} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.${b ? `<br>المتاح للطلب: <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}${b.hAvailRem ? " · ساعات متبقية غير قابلة للاستخدام: " + hoursAr(b.hAvailRem) : ""}.` : ""}</div></div>
         <div class="form-grid">
-          <div class="field"><label for="sd">${isU ? "من تاريخ" : "تاريخ الغياب"} *</label><input id="sd" name="start" type="date" required ${mx}></div>
-          <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date" ${mx}><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
+          <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start" type="date" required></div>
+          <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
 </div>
-        <div class="field"><label for="rs">${isU ? "السبب / ملاحظات" : "سبب الغياب *"}</label><textarea id="rs" name="reason" ${isU ? "" : "required"}></textarea></div>
+        <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
         <div class="field"><label for="fl">مستند مؤيد (PDF)${y.reqReqAtt ? " *" : ""}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" ${y.reqReqAtt ? "required" : ""}></div>
         <div class="actions"><button class="btn primary">رفع الطلب</button><a class="btn" href="#/requests">إلغاء</a></div></form>`);
   }
@@ -775,7 +774,7 @@
     return layout(u, "التقارير", `<div class="page-head"><div><h1>التقارير</h1><p>السنة ${h(y.name)}</p></div>${yearSelect(y)}</div>
       <div class="grid kpis">
         <div class="kpi brand">${ico("cal-check")}<div class="l">التوصيات السارية</div><div class="v">${recs.length}</div><div class="s">${n(recs.filter((r) => r.kind === "days").reduce((s, r) => s + r.amount, 0))} يوم · ${n(recs.filter((r) => r.kind === "hours").reduce((s, r) => s + r.amount, 0))} ساعة</div></div>
-        <div class="kpi accent">${ico("calendar")}<div class="l">الطلبات</div><div class="v">${reqs.length}</div><div class="s">استبدال ${c((r) => r.kind === "use")} · تعويض ${c((r) => r.kind === "compensation")}</div></div>
+        <div class="kpi accent">${ico("calendar")}<div class="l">الطلبات</div><div class="v">${reqs.length}</div><div class="s">معتمدة ومعلّقة ومرفوضة</div></div>
         <div class="kpi ok">${ico("approvals")}<div class="l">معتمدة</div><div class="v">${c((r) => r.status === "approved")}</div><div class="s">مرفوضة ${c((r) => r.status === "rejected")} · ملغاة ${c((r) => r.status === "cancelled")}</div></div>
         <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار القرار</div><div class="v">${c((r) => r.status === "pending")}</div></div>
         <div class="kpi">${ico("audit")}<div class="l">توصيات بلا PDF</div><div class="v">${recs.filter((r) => !r.att).length}</div></div></div>
@@ -841,7 +840,7 @@
           <textarea id="ip" name="pasted" rows="8" placeholder="محمد أحمد العتيبي	100500	وحدة الشؤون الإدارية	موظف	100100"></textarea></div>
           <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، المنصب، رقم الإداري المسؤول، المسمى، البريد.</p></section></div>
       <section class="card"><h2>المناصب</h2><div class="grid kpis" style="margin:0">
-        <div class="kpi"><div class="l">موظف</div><div class="s">يتابع رصيده من الأيام والساعات ويرفع طلبات الاستبدال والتعويض</div></div><div class="kpi"><div class="l">إداري</div><div class="s">يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</div></div></div>
+        <div class="kpi"><div class="l">موظف</div><div class="s">يتابع رصيده من الأيام والساعات ويرفع طلبات معالجة الغياب</div></div><div class="kpi"><div class="l">إداري</div><div class="s">يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</div></div></div>
         <p class="hint mt">إن تُرك المنصب فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p></section>
       <button class="btn primary">معاينة قبل الحفظ</button></form>`);
   };
@@ -879,8 +878,8 @@
       <button class="btn" type="button" data-act="bulk-users">إنشاء حسابات الموظفين دفعة واحدة</button></div>
       <div class="grid two"><section class="card"><h2>الأدوار</h2><ul>
         <li><b>مدير النظام:</b> إدارة المنصة: المستخدمون والصلاحيات، إسناد الموظفين للإداريين، السنة وقواعد الرصيد، المؤشرات والاعتمادات، الإعدادات وسجل التدقيق.</li>
-        <li><b>إداري:</b> يُسند له موظفون؛ يرفع توصيات العميد (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات الاستبدال والتعويض، ويراسل موظفيه والأدمن.</li>
-        <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات الاستبدال أو تعويض الغياب، ويراسل الإداري المسؤول عنه.</li></ul>
+        <li><b>إداري:</b> يُسند له موظفون؛ يرفع توصيات العميد (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات معالجة الغياب، ويراسل موظفيه والأدمن.</li>
+        <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات معالجة الغياب، ويراسل الإداري المسؤول عنه.</li></ul>
         <p class="hint">عند اختيار دور «إداري» تظهر قائمة لاختيار الموظفين المسندين إليه (أكثر من موظف)، ويمكن أيضاً الإسناد من بطاقة الموظف أو ملف الاستيراد.</p></section>
       <section class="card"><h2>إضافة حساب</h2><form data-form="user-new"><div class="form-grid">
         <div class="field"><label for="un">اسم المستخدم</label><input id="un" name="username" required></div>
@@ -910,7 +909,7 @@
       </tbody></table></div>`);
   };
 
-  A.holidays = (u) => layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات الاستبدال والتعويض.</p></div></div>
+  A.holidays = (u) => layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
     <section class="card"><form class="filters" data-form="holiday"><div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required></div>
       <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div><div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div><button class="btn primary">إضافة</button></form></section>
     <div class="card flush"><table class="responsive"><thead><tr><th>التاريخ</th><th>اليوم</th><th>العطلة</th><th></th></tr></thead><tbody>
@@ -1287,7 +1286,7 @@
     });
   }
   function aboutHTML(s) { return `<div class="about-doc">
-  <p class="about-lead"><b>«${h(s.system_title)}»</b> نظام إلكتروني داخلي لإدارة أيام بدل الراحة لمنسوبي ${h(s.college)} في ${h(s.university)}. يحلّ محل السجلات الورقية وجداول Excel، ويوحّد في منصة واحدة آمنة وقابلة للتدقيق توثيقَ توصيات العميد بمنح بدل الراحة (بالأيام أو بالساعات)، واحتسابَ الأرصدة آلياً، واعتمادَ طلبات الاستبدال وتعويض الغياب.</p>
+  <p class="about-lead"><b>«${h(s.system_title)}»</b> نظام إلكتروني داخلي لإدارة أيام بدل الراحة لمنسوبي ${h(s.college)} في ${h(s.university)}. يحلّ محل السجلات الورقية وجداول Excel، ويوحّد في منصة واحدة آمنة وقابلة للتدقيق توثيقَ توصيات العميد بمنح بدل الراحة (بالأيام أو بالساعات)، واحتسابَ الأرصدة آلياً، واعتمادَ طلبات معالجة الغياب.</p>
   <h3>الأهداف</h3>
   <ul>
     <li>توحيد إجراءات بدل الراحة وضبطها وفق قواعد معتمدة يحددها مدير النظام.</li>
@@ -1299,7 +1298,7 @@
   <ul>
     <li><b>التوصيات:</b> رفع توصية العميد (PDF) في حساب الموظف بمنحه بدل راحة بالأيام أو بالساعات، ضمن حد أقصى سنوي (افتراضياً 20 يوماً).</li>
     <li><b>الاحتساب الآلي:</b> احتساب رصيد الأيام ورصيد الساعات، ومعادلة الساعات بالأيام وفق المعادلة المعتمدة (افتراضياً: كل 7 ساعات تعادل يوماً واحداً).</li>
-    <li><b>طلبات الموظف:</b> طلب استبدال الرصيد بإجازة في التاريخ والمدة المختارة، أو طلب تعويض غياب من الرصيد، واعتمادهما إلكترونياً من الإداري المسؤول.</li>
+    <li><b>طلبات الموظف:</b> طلب معالجة غياب بالأيام من الرصيد (مع تحويل كل 7 ساعات إلى يوم)، يعتمده الإداري المسؤول إلكترونياً.</li>
     <li><b>المراسلات:</b> مراسلات داخل المنصة بين مدير النظام والإداريين والموظفين، مع إشعارات بالبريد الإلكتروني.</li>
     <li><b>الخطابات والكشوف:</b> إشعارات المنح ونماذج الطلبات والكشوف السنوية والمراسلات بصيغة رسمية قابلة للطباعة والحفظ بصيغة PDF.</li>
     <li><b>التقارير:</b> مؤشرات ولوحات متابعة، مع تصدير البيانات إلى Excel.</li>
@@ -1309,7 +1308,7 @@
   <ul>
     <li><b>مدير النظام:</b> إدارة المنصة والمستخدمين والصلاحيات، وإسناد الموظفين للإداريين، وتحديد السنة وقواعد الرصيد، ومتابعة المؤشرات والاعتمادات.</li>
     <li><b>الإداري:</b> رفع توصيات الموظفين المسندين إليه، واعتماد طلباتهم، ومراسلتهم.</li>
-    <li><b>الموظف:</b> متابعة رصيده، ورفع طلبات الاستبدال والتعويض، ومراسلة الإداري المسؤول.</li>
+    <li><b>الموظف:</b> متابعة رصيده، ورفع طلبات معالجة الغياب، ومراسلة الإداري المسؤول.</li>
   </ul>
   <h3>الحوكمة وأمن المعلومات</h3>
   <ul>
@@ -1479,7 +1478,7 @@
     if (ev.target.matches("[data-role-select], input[name='assign']") && ev.target.form) assignSync(ev.target.form);
     if (ev.target.matches("[data-unit]")) syncUnit(ev.target.form);
     if (ev.target.matches("[data-yearnav]") && !ev.target.closest("form[data-form]")) { const { seg, q } = parts(); q.set("year", ev.target.value); go("#/" + seg.join("/") + "?" + q); }
-    if (ev.target.matches("[data-reqemp]") && ev.target.value) go("#/requests/new?kind=" + ev.target.dataset.reqemp + "&emp=" + ev.target.value);
+    if (ev.target.matches("[data-reqemp]") && ev.target.value) go("#/requests/new?emp=" + ev.target.value);
   });
   let draft = null;
   function keepDraft(form) { if (["filter", "login", "restore", "wipe"].includes(form.dataset.form)) return; const vals = []; for (const el of form.elements) { if (!el.name || el.type === "file" || el.type === "submit" || el.type === "button") continue; if ((el.type === "radio" || el.type === "checkbox") && !el.checked) continue; vals.push([el.name, el.value]); } draft = { form: form.dataset.form, id: form.dataset.id || "", vals }; }

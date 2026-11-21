@@ -31,7 +31,7 @@ LEGACY_ROLES = ("manager", "viewer")
 ASSIGNABLE_ROLES = ("employee", "officer")
 
 REC_KINDS = {"days": "بدل راحة بالأيام", "hours": "بدل راحة بالساعات"}
-LEAVE_KINDS = {"use": "استبدال", "compensation": "تعويض غياب"}
+LEAVE_KINDS = {"use": "معالجة غياب", "compensation": "تعويض غياب"}  # الطلبات الجديدة كلها "use"؛ "compensation" للسجلات القديمة
 LEAVE_UNITS = {"days": "أيام", "hours": "ساعات"}
 
 BALANCE_MODES = {

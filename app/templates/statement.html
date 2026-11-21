@@ -17,7 +17,7 @@
 <nav class="action-tiles" aria-label="إجراءات">
   <a class="tile days" href="/recommendations/new?kind=days&emp={{ emp.id }}">{{ ico('calendar-plus') }}<span><b>رفع توصية بالأيام</b><small>المتاح للمنح: {{ (info.cap_left_hours / info.hours_per_day)|round(2)|n }} يوم</small></span></a>
   <a class="tile hours" href="/recommendations/new?kind=hours&emp={{ emp.id }}">{{ ico('clock-plus') }}<span><b>رفع توصية بالساعات</b><small>المتاح للمنح: {{ info.cap_left_hours|n }} ساعة</small></span></a>
-  <a class="tile appr" href="/requests/new?kind=use&emp={{ emp.id }}">{{ ico('calendar') }}<span><b>تسجيل طلب نيابةً عنه</b><small>استبدال أو تعويض</small></span></a>
+  <a class="tile appr" href="/requests/new?emp={{ emp.id }}">{{ ico('calendar') }}<span><b>تسجيل طلب نيابةً عنه</b><small>طلب معالجة غياب</small></span></a>
 </nav>
 {% endif %}
 <section class="card flush">
@@ -31,7 +31,7 @@
     </tbody></table></div>
 </section>
 <section class="card flush">
-  <div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمه من رصيده (الطلبات)</h2><p class="hint">طلبات الاستبدال والتعويض؛ يُخصم المعتمد منها من الرصيد.</p></div></div>
+  <div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمه من رصيده (الطلبات)</h2><p class="hint">طلبات معالجة الغياب؛ يُخصم المعتمد منها من الرصيد.</p></div></div>
   <div class="table-wrap"><table class="responsive">
     <thead><tr><th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
     {% for r in reqs %}<tr><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="السبب">{{ r.reason }}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>

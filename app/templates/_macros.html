@@ -22,7 +22,7 @@
 {%- endmacro %}
 {% macro kind_badge(k) -%}
   {%- if k == 'days' -%}<span class="badge info">بالأيام</span>{%- elif k == 'hours' -%}<span class="badge accent">بالساعات</span>
-  {%- elif k == 'use' -%}<span class="badge info">استبدال</span>{%- elif k == 'compensation' -%}<span class="badge accent">تعويض غياب</span>{%- endif -%}
+  {%- elif k == 'use' -%}<span class="badge info">معالجة غياب</span>{%- elif k == 'compensation' -%}<span class="badge accent">تعويض غياب</span>{%- endif -%}
 {%- endmacro %}
 {% macro rec_amount(r) -%}{{ days_ar(r.amount) if r.kind == 'days' else hours_ar(r.amount) }}{%- endmacro %}
 {% macro balance_board(info, big=False) -%}

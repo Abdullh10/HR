@@ -4,14 +4,14 @@
 {% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ 'طلباتي' if user.role == 'employee' else 'طلبات الاستبدال والتعويض' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
+  <div><h1>{{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
   <div class="actions">
     {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
     {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new">+ طلب معالجة غياب</a>{% endif %}
   </div>
 </div>
 <form method="get" class="card filters" data-autofilter>
-  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" {% if kind=='use' %}selected{% endif %}>استبدال</option><option value="compensation" {% if kind=='compensation' %}selected{% endif %}>تعويض غياب</option></select></div>
+  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" {% if kind=='use' %}selected{% endif %}>معالجة غياب</option><option value="compensation" {% if kind=='compensation' %}selected{% endif %}>تعويض غياب</option></select></div>
   <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
   {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>

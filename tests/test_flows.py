@@ -130,7 +130,7 @@ def test_use_days_flow(world):
     post(mgr, f"/requests/{rid}/decide", {"action": "approve"})
     b = balance(world["e"], world["year"])
     assert (b.used_days, b.days_left, b.pending_days) == (2, 1, 0)
-    assert "نموذج طلب استبدال" in emp.get(f"/requests/{rid}/print").text
+    assert "نموذج طلب معالجة غياب" in emp.get(f"/requests/{rid}/print").text
     # إلغاء طلب معتمد يتطلب سبباً ويعيد الرصيد
     post(mgr, f"/requests/{rid}/cancel", {})
     assert balance(world["e"], world["year"]).used_days == 2
