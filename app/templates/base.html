@@ -31,20 +31,18 @@
     <ul class="nav">
       {% if user.role == 'admin' %}
         {# مدير النظام: «المتابعة» ثابتة، و«السجلات» و«الإدارة» قابلتان للطيّ (تُحفظ الحالة، وتُفتح مجموعة الصفحة الحالية) #}
-        {% set in_records = path.startswith('/recommendations') or path.startswith('/requests') or path.startswith('/archive') or path.startswith('/messages') %}
+        {% set in_records = path.startswith('/recommendations') or path.startswith('/requests') or path.startswith('/messages') %}
         {% set in_settings = path in ('/admin/years', '/admin/departments', '/admin/holidays', '/admin/settings') %}
         {% set in_admin = path.startswith('/admin') %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
         {{ item('/employees', 'الموظفون والأرصدة', 'users') }}
         {{ item('/approvals', 'الاعتمادات', 'approvals', pending_approvals) }}
-        {{ item('/reports', 'التقارير', 'reports') }}
         <li class="nav-group" data-group="records" data-default="open"{% if in_records %} data-active="1"{% endif %}>
           <button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-records">السجلات{% if unread %} <span class="badge count">{{ unread }}</span>{% endif %}<span class="chev" aria-hidden="true"></span></button>
           <ul class="nav-sub" id="g-records">
             {{ item('/recommendations', 'التوصيات', 'cal-check', prefix='/recommendations') }}
             {{ item('/requests', 'طلبات الموظفين', 'calendar', prefix='/requests') }}
-            {{ item('/archive', 'الأرشيف', 'archive') }}
             {{ item('/messages', 'المراسلات', 'mail', unread, prefix='/messages') }}
           </ul></li>
         <li class="nav-group" data-group="admin" data-default="closed"{% if in_admin %} data-active="1"{% endif %}>
@@ -57,19 +55,20 @@
             {{ item('/admin/data', 'النسخ الاحتياطي والبيانات', 'database') }}
             {{ item('/admin/audit', 'سجل التدقيق', 'audit') }}
           </ul></li>
+        <li class="sep">التقارير والأرشيف</li>
+        {{ item('/reports', 'التقارير', 'reports') }}
+        {{ item('/archive', 'الأرشيف', 'archive') }}
       {% else %}
       {% if user.role == 'officer' %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
         {{ item('/employees', 'قائمة الموظفين', 'users') }}
         {{ item('/approvals', 'الاعتمادات', 'approvals', pending_approvals) }}
-        {{ item('/reports', 'التقارير', 'reports') }}
         <li class="sep">التوصيات</li>
         {{ item('/recommendations/new?kind=days', 'توصية بالأيام', 'calendar-plus') }}
         {{ item('/recommendations/new?kind=hours', 'توصية بالساعات', 'clock-plus') }}
         {{ item('/recommendations', 'سجل التوصيات', 'cal-check') }}
         {{ item('/requests', 'طلبات الموظفين', 'calendar') }}
-        {{ item('/archive', 'الأرشيف', 'archive') }}
       {% endif %}
       {% if user.employee_id %}
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
@@ -82,6 +81,11 @@
       <li class="sep">التواصل</li>
       {{ item('/messages', 'المراسلات', 'mail', unread) }}
       {{ item('/messages/new', 'رسالة جديدة', 'send') }}
+      {% if user.role == 'officer' %}
+        <li class="sep">التقارير والأرشيف</li>
+        {{ item('/reports', 'التقارير', 'reports') }}
+        {{ item('/archive', 'الأرشيف', 'archive') }}
+      {% endif %}
       {% endif %}
     </ul>
   </aside>

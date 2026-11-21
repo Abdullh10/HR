@@ -302,18 +302,20 @@
     const item = (href, label, icon, badge, seg0) => `<li><a href="${href}" title="${label}" ${here === href || (seg0 && sg[0] === seg0) || (href === "#/employees" && sg[0] === "employee") ? 'aria-current="page"' : ""}>${ico(icon)}<span class="lbl">${label}</span>${badge ? `<span class="badge count">${badge}</span>` : ""}</a></li>`;
     // مدير النظام: قائمة مختصرة دون تكرار؛ أزرار الإضافة داخل كل صفحة
     // مدير النظام: «المتابعة» ثابتة، و«السجلات» و«الإدارة» قابلتان للطيّ (تُحفظ الحالة، وتُفتح مجموعة الصفحة الحالية)
-    const inRecords = ["recs", "requests", "archive", "messages"].includes(sg[0]), inAdmin = sg[0] === "admin";
+    const inRecords = ["recs", "requests", "messages"].includes(sg[0]), inAdmin = sg[0] === "admin";
     const inSettings = inAdmin && ["years", "depts", "holidays", "settings"].includes(sg[1] || "years");
     const group = (key, label, def, active, inner, badge) => `<li class="nav-group" data-group="${key}" data-default="${def}" ${active ? 'data-active="1"' : ""}><button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-${key}">${label}${badge ? ` <span class="badge count">${badge}</span>` : ""}<span class="chev" aria-hidden="true"></span></button><ul class="nav-sub" id="g-${key}">${inner}</ul></li>`;
-    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
-      ${group("records", "السجلات", "open", inRecords, item("#/recs", "التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات الموظفين", "calendar", 0, "requests") + item("#/archive", "الأرشيف", "archive") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
+    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}
+      ${group("records", "السجلات", "open", inRecords, item("#/recs", "التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات الموظفين", "calendar", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
       ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield") + item("#/admin/cards", "بطاقات الدخول", "idcard")
-        + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}`;
+        + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}
+      <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}`;
     const nav = u.role === "admin" ? adminNav : [
-      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
-        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}${item("#/archive", "الأرشيف", "archive")}` : "",
+      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}
+        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}` : "",
       u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
+      u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}` : "",
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
     flashQ = [];
