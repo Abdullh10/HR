@@ -76,8 +76,7 @@
         {{ item('/me', 'رصيدي', 'pie') }}
         {% if user.role == 'employee' %}{{ item('/requests', 'طلباتي', 'calendar') }}{% endif %}
         {% if year and year.employee_can_request %}
-          {{ item('/requests/new?kind=use', 'طلب استبدال', 'calendar-plus' if user.role == 'employee' else 'idcard') }}
-          {{ item('/requests/new?kind=compensation', 'طلب تعويض غياب', 'adjust') }}
+          {{ item('/requests/new', 'طلب معالجة غياب', 'calendar-plus', prefix='/requests/new') }}
         {% endif %}
       {% endif %}
       <li class="sep">التواصل</li>

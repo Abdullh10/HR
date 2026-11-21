@@ -10,8 +10,7 @@
 {{ balance_board(info, big=True) }}
 {% if sel_year.employee_can_request %}
 <nav class="action-tiles" aria-label="طلبات">
-  <a class="tile days" href="/requests/new?kind=use">{{ ico('calendar-plus') }}<span><b>طلب استبدال</b><small>استخدم أيامك أو ساعاتك في التاريخ الذي تختاره</small></span></a>
-  <a class="tile hours" href="/requests/new?kind=compensation">{{ ico('adjust') }}<span><b>طلب تعويض غياب</b><small>تعويض غياب حدث من رصيدك</small></span></a>
+  <a class="tile days" href="/requests/new">{{ ico('calendar-plus') }}<span><b>طلب معالجة غياب</b><small>إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث</small></span></a>
   <a class="tile msg" href="/messages/new">{{ ico('send') }}<span><b>مراسلة الإداري</b><small>استفسار أو متابعة</small></span></a>
 </nav>
 {% endif %}

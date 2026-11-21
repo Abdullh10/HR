@@ -7,7 +7,7 @@
   <div><h1>{{ 'طلباتي' if user.role == 'employee' else 'طلبات الاستبدال والتعويض' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
   <div class="actions">
     {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
-    {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new?kind=use">+ طلب استبدال</a><a class="btn primary" href="/requests/new?kind=compensation">+ طلب تعويض</a>{% endif %}
+    {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new">+ طلب معالجة غياب</a>{% endif %}
   </div>
 </div>
 <form method="get" class="card filters" data-autofilter>

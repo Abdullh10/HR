@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% from "_macros.html" import ico, balance_board %}
 {% set is_use = kind == 'use' %}
-{% block title %}{{ 'طلب استبدال' if is_use else 'طلب تعويض غياب' }}{% endblock %}
-{% block heading %}{{ 'طلب استبدال رصيد' if is_use else 'طلب تعويض غياب' }}{% endblock %}
+{% block title %}طلب معالجة غياب{% endblock %}
+{% block heading %}طلب معالجة غياب{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('calendar-plus' if is_use else 'adjust', 'h-ico') }} {{ 'طلب استبدال رصيد' if is_use else 'طلب تعويض غياب' }}</h1>
-  <p>{{ 'استخدم رصيدك من الأيام أو الساعات في المدة والتاريخ الذي تختاره.' if is_use else 'إذا اضطررت للغياب، يُعوَّض الغياب من رصيدك بعد اعتماد الإداري.' }} يُعتمد الطلب من الإداري المسؤول.</p></div>
-  <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="/requests/new?kind=use{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_use }}">استبدال</a><a href="/requests/new?kind=compensation{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_use }}">تعويض غياب</a></div>
+<div class="page-head"><div><h1>{{ ico('calendar-plus', 'h-ico') }} طلب معالجة غياب</h1>
+  <p>اختر نوع المعالجة: <b>استبدال</b> لإجازة من رصيدك في تاريخ تختاره، أو <b>تعويض غياب</b> عن غياب حدث فعلاً. يُخصم من رصيدك بعد اعتماد الإداري المسؤول.</p></div>
+  <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="/requests/new?kind=use{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_use }}">استبدال (إجازة من رصيدي)</a><a href="/requests/new?kind=compensation{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_use }}">تعويض غياب حدث</a></div>
 </div>
 {% if info %}{{ balance_board(info) }}{% endif %}
 <form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form>

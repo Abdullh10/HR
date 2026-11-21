@@ -308,7 +308,7 @@
     const nav = u.role === "admin" ? adminNav : [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "موظفيّ", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}${item("#/reports", "التقارير", "reports")}
         <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}${item("#/archive", "الأرشيف", "archive")}` : "",
-      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? item("#/requests/new?kind=use", "طلب استبدال", u.role === "employee" ? "calendar-plus" : "idcard") + item("#/requests/new?kind=compensation", "طلب تعويض غياب", "adjust") : ""}` : "",
+      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
@@ -502,7 +502,7 @@
     return layout(u, "رصيدي", `<div class="page-head"><div><h1>مرحباً، ${h(e.name.split(" ")[0])}</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · الإداري المسؤول: " + h(mgrName(e)) : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة كشف رسمي</a></div></div>
       ${board(b, true)}
-      ${y.empCanRequest ? tiles([["days", "#/requests/new?kind=use", "calendar-plus", "طلب استبدال", "استخدم أيامك أو ساعاتك في التاريخ الذي تختاره"], ["hours", "#/requests/new?kind=compensation", "adjust", "طلب تعويض غياب", "تعويض غياب حدث من رصيدك"], ["msg", "#/messages/new", "send", "مراسلة الإداري", "استفسار أو متابعة"]]) : ""}
+      ${y.empCanRequest ? tiles([["days", "#/requests/new", "calendar-plus", "طلب معالجة غياب", "إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث"], ["msg", "#/messages/new", "send", "مراسلة الإداري", "استفسار أو متابعة"]]) : ""}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية العميد عن تكليف أنجزته، فزاد رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, false) || '<tr><td colspan="7" class="empty">لا توجد توصيات بعد.</td></tr>'}</tbody></table></div></section>
         <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات الاستبدال والتعويض التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
   };
@@ -674,7 +674,7 @@
     const y = pickYear(q), kind = q.get("kind") || "", st = q.get("status") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id)), isE = u.role === "employee";
     const rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!st || r.status === st) && (!emp || r.emp === emp)).sort((a, b) => b.created.localeCompare(a.created));
     return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${isE ? "طلباتي" : "طلبات الاستبدال والتعويض"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
-      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new?kind=use">+ طلب استبدال</a><a class="btn primary" href="#/requests/new?kind=compensation">+ طلب تعويض</a></div></div>
+      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new">+ طلب معالجة غياب</a></div></div>
       <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" ${kind === "use" ? "selected" : ""}>استبدال</option><option value="compensation" ${kind === "compensation" ? "selected" : ""}>تعويض غياب</option></select></div>
         <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>${Object.entries(REQ_ST).map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
         ${isE ? "" : `<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(visibleEmps(u, true), emp, "الكل")}</select></div>`}${yearSelect(y)}<button class="btn primary">عرض</button></form>
@@ -686,9 +686,9 @@
     if (!managed.length && !self) throw new Forbidden("حسابك غير مرتبط بسجل موظف.");
     if (self && !managed.length && !y.empCanRequest) throw new Forbidden("تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع الإداري.");
     const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "", mx = isU ? "" : `max="${todayISO()}"`;
-    return layout(u, isU ? "طلب استبدال رصيد" : "طلب تعويض غياب", `<div class="page-head"><div><h1>${ico(isU ? "calendar-plus" : "adjust", "h-ico")} ${isU ? "طلب استبدال رصيد" : "طلب تعويض غياب"}</h1>
-      <p>${isU ? "استخدم رصيدك من الأيام أو الساعات في المدة والتاريخ الذي تختاره." : "إذا اضطررت للغياب، يُعوَّض الغياب من رصيدك بعد اعتماد الإداري."} يُعتمد الطلب من الإداري المسؤول.</p></div>
-      <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="#/requests/new?kind=use${eq}" class="${isU ? "on" : ""}">استبدال</a><a href="#/requests/new?kind=compensation${eq}" class="${isU ? "" : "on"}">تعويض غياب</a></div></div>
+    return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("calendar-plus", "h-ico")} طلب معالجة غياب</h1>
+      <p>اختر نوع المعالجة: <b>استبدال</b> لإجازة من رصيدك في تاريخ تختاره، أو <b>تعويض غياب</b> عن غياب حدث فعلاً. يُخصم من رصيدك بعد اعتماد الإداري المسؤول.</p></div>
+      <div class="seg" role="tablist" aria-label="نوع الطلب"><a href="#/requests/new?kind=use${eq}" class="${isU ? "on" : ""}">استبدال (إجازة من رصيدي)</a><a href="#/requests/new?kind=compensation${eq}" class="${isU ? "" : "on"}">تعويض غياب حدث</a></div></div>
       ${b ? board(b) : ""}
       <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
