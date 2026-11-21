@@ -43,7 +43,7 @@
     </div>
     <div class="bcard hours">
       {{ ico('clock') }}
-      <div><span class="l">رصيد الساعات</span><b class="v num">{{ info.hours_left|n }}</b><span class="s">= {{ days_ar(info.hours_as_days) }}{% if info.hours_remainder %} و{{ hours_ar(info.hours_remainder) }}{% endif %} · كل {{ info.hours_per_day|n }} ساعات = يوم{% if info.pending_hours %} · معلّق {{ info.pending_hours|n }}{% endif %}</span></div>
+      <div><span class="l">رصيد الساعات</span><b class="v num">{{ info.hours_left|n }}</b><span class="s">كل {{ info.hours_per_day|n }} ساعات = يوم{% if info.pending_hours %} · معلّق {{ info.pending_hours|n }}{% endif %}{% if info.hours_avail_rem %} · <b>{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم فلا تُستخدم</b>{% endif %}</span></div>
     </div>
     <div class="bcard cap">
       {{ ico('pie') }}

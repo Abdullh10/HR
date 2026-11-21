@@ -139,6 +139,11 @@ class BalanceInfo:
         return int(max(self.days_available, 0)) + compute_earned(max(self.hours_available, 0), self.hours_per_day)[0]
 
     @property
+    def hours_avail_rem(self) -> float:
+        """ساعات متاحة لا تكفي ليوم كامل، فلا يمكن استخدامها حتى تكتمل بتوصيات لاحقة."""
+        return compute_earned(max(self.hours_available, 0), self.hours_per_day)[1]
+
+    @property
     def bookable_from_hours(self) -> int:
         return max(self.bookable_days - int(max(self.days_available, 0)), 0)
 
@@ -151,13 +156,12 @@ class BalanceInfo:
         elif self.cap_days > 0 and self.cap_pct >= 80:
             out.append(("info", f"اقتربت من الحد الأقصى السنوي: مُنحت {self.granted_equiv_days:g} من {self.cap_days:g} يوماً."))
         granted = self.granted_days * self.hours_per_day + self.granted_hours
-        avail_h = max(self.days_available, 0) * self.hours_per_day + max(self.hours_available, 0)
-        if granted > 0 and avail_h <= 0:
-            out.append(("warn", "استنفدت رصيدك المتاح من بدل الراحة."))
-        elif granted > 0 and avail_h <= 2 * self.hours_per_day:
-            d, r = compute_earned(avail_h, self.hours_per_day)
-            left = (days_ar(d) + (" و" + hours_ar(r) if r else "")) if d else hours_ar(r)
-            out.append(("warn", f"رصيدك المتاح قارب على النفاد: بقي {left}."))
+        bd, rem = self.bookable_days, self.hours_avail_rem
+        tail = f" (تبقّت {hours_ar(rem)} لا تكفي ليوم كامل)" if rem else ""
+        if granted > 0 and bd <= 0:
+            out.append(("warn", "استنفدت رصيدك المتاح من بدل الراحة" + tail + "."))
+        elif granted > 0 and bd <= 2:
+            out.append(("warn", f"رصيدك المتاح قارب على النفاد: بقي {days_ar(bd)}{tail}."))
         return out
 
     @property
@@ -440,6 +444,8 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
         raise RuleError("الموظف غير نشط.")
     if kind not in ("use", "compensation") or unit not in ("days", "hours"):
         raise RuleError("نوع الطلب غير صحيح.")
+    if unit != "days":
+        raise RuleError("تُعالج الطلبات بالأيام فقط؛ تُحوَّل ساعات التوصيات إلى أيام تلقائياً.")
     if start is None:
         raise RuleError("أدخل التاريخ.")
     year = ensure_year_open(year_for_date(db, start))

@@ -139,20 +139,28 @@ def test_use_days_flow(world):
 
 
 def test_hours_and_compensation(world):
+    """الطلبات بالأيام فقط: تُحوَّل كل 7 ساعات إلى يوم، والمتبقي دون ذلك لا يُستخدم."""
     mgr, emp = login("mgr"), login("emp")
-    rec(mgr, world["e"], "hours", 10)
-    leave(emp, world["e"], "use", "hours", MON, hours=11)  # يتجاوز
+    rec(mgr, world["e"], "hours", 8)
+    b = balance(world["e"], world["year"])
+    assert b.bookable_days == 1 and b.hours_avail_rem == 1
+    leave(emp, world["e"], "use", "days", MON, MON + timedelta(days=1))  # يومان: لا يكفي
     assert balance(world["e"], world["year"]).pending_hours == 0
-    leave(emp, world["e"], "use", "hours", MON, hours=3)
     future = date.today() + timedelta(days=30)
-    leave(emp, world["e"], "compensation", "hours", future, hours=1)  # التعويض لا يكون لتاريخ مستقبلي
-    assert balance(world["e"], world["year"]).pending_hours == 3
+    leave(emp, world["e"], "compensation", "days", future, future)  # التعويض لا يكون لتاريخ مستقبلي
+    leave(emp, world["e"], "use", "days", MON, MON)  # يوم من 7 ساعات محوّلة
+    b = balance(world["e"], world["year"])
+    assert b.pending_hours == 7 and b.bookable_days == 0 and b.hours_avail_rem == 1
+    assert "لا تكفي ليوم كامل" in emp.get("/me").text
     with SessionLocal() as db:
+        assert db.query(LeaveRequest).one().unit == "days"
         rid = db.query(LeaveRequest).one().id
     post(mgr, f"/requests/{rid}/decide", {"action": "reject"})  # بلا سبب
-    assert balance(world["e"], world["year"]).pending_hours == 3
+    assert balance(world["e"], world["year"]).pending_hours == 7
     post(mgr, f"/requests/{rid}/decide", {"action": "reject", "note": "ضغط عمل"})
-    assert balance(world["e"], world["year"]).hours_available == 10
+    assert balance(world["e"], world["year"]).hours_available == 8
+    rec(mgr, world["e"], "hours", 6)  # 14 ساعة = يومان
+    assert balance(world["e"], world["year"]).bookable_days == 2
 
 
 def test_holidays_and_weekends(world):

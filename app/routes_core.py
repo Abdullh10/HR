@@ -464,7 +464,7 @@ def request_new(request: Request, kind: str = "use", emp: int | None = None, use
 @router.post("/requests/new")
 async def request_create(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     form = await request.form()
-    kind, unit = str(form.get("kind") or "use"), str(form.get("unit") or "days")
+    kind, unit = str(form.get("kind") or "use"), "days"  # الطلبات بالأيام فقط؛ الساعات تُحوَّل إلى أيام
     try:
         emp_id = int(form.get("emp") or user.employee_id or 0)
         emp = db.get(Employee, emp_id)
