@@ -114,7 +114,7 @@ def init_db() -> None:
             "university": "جامعة الملك سعود",
             "college": "كلية التمريض",
             "system_title": "إتمام",
-            "tagline": "إدارة أيام بدل الراحة بكفاءة واحتراف",
+            "tagline": "إدارة أيام بدل الراحة",
             "credit": "تصميم وتطوير: مريم حمدي",
         }
         for k, v in defaults.items():
@@ -124,6 +124,9 @@ def init_db() -> None:
         old = db.get(AppSetting, "system_title")
         if old and old.value == "إدارة أيام بدل الراحة للموظفين":
             old.value = "إتمام"
+        tag = db.get(AppSetting, "tagline")
+        if tag and tag.value == "إدارة أيام بدل الراحة بكفاءة واحتراف":
+            tag.value = "إدارة أيام بدل الراحة"
         credit = db.get(AppSetting, "credit")
         if credit and credit.value in ("", "تطوير مريم حمدي"):
             credit.value = "تصميم وتطوير: مريم حمدي"

@@ -253,7 +253,7 @@ class AuditLog(Base):
 
 
 class Recommendation(Base):
-    """توصية العميد بمنح بدل راحة (بالأيام أو بالساعات)، يرفعها مسؤول شؤون الموظفين في حساب الموظف."""
+    """التوصية بمنح بدل راحة (بالأيام أو بالساعات)، يرفعها مسؤول شؤون الموظفين في حساب الموظف."""
 
     __tablename__ = "recommendations"
     id: Mapped[int] = mapped_column(primary_key=True)

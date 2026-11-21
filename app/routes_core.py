@@ -880,7 +880,7 @@ def archive_export(request: Request, year_id: int | None = None, user: User = De
     D = lambda v: v.strftime("%Y-%m-%d %H:%M") if v else ""  # noqa: E731
     pdf = lambda r: f"pdf/{r.ref_code}.pdf" if r.attachment_id else ""  # noqa: E731
     _sheet(wb, "التوصيات", ["الرقم الصادر", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة",
-           "رقم خطاب العميد", "الموضوع", "رفعها", "تاريخ الرفع", "الحالة", "ألغاها", "تاريخ الإلغاء", "سبب الإلغاء", "ملف PDF"],
+           "رقم خطاب التوصية", "الموضوع", "رفعها", "تاريخ الرفع", "الحالة", "ألغاها", "تاريخ الإلغاء", "سبب الإلغاء", "ملف PDF"],
            [[r.ref_code, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
              r.subject, r.enterer.display_name if r.enterer else "", D(r.created_at), r.status_label,
              r.canceller.display_name if r.canceller else "", D(r.cancelled_at), r.cancel_note, pdf(r)] for r in recs])

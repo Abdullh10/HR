@@ -5,7 +5,7 @@
 {% block heading %}رفع توصية بدل راحة {{ 'بالأيام' if is_days else 'بالساعات' }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ ico('calendar-plus' if is_days else 'clock-plus', 'h-ico') }} توصية بدل راحة {{ 'بالأيام' if is_days else 'بالساعات' }}</h1>
-  <p>ترفع توصية العميد (PDF) في حساب الموظف، وتُضاف القيمة إلى رصيده فوراً. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }} (الأيام والساعات معاً){% if not is_days %}، وكل {{ sel_year.hours_per_day|n }} ساعات تعادل يوماً{% endif %}.</p></div>
+  <p>ترفع التوصية (PDF) في حساب الموظف، وتُضاف القيمة إلى رصيده فوراً. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }} (الأيام والساعات معاً){% if not is_days %}، وكل {{ sel_year.hours_per_day|n }} ساعات تعادل يوماً{% endif %}.</p></div>
   <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="/recommendations/new?kind=days{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if is_days }}" aria-current="{{ 'page' if is_days else 'false' }}">بالأيام</a><a href="/recommendations/new?kind=hours{{ '&emp=%d'|format(emp) if emp else '' }}" class="{{ 'on' if not is_days }}" aria-current="{{ 'page' if not is_days else 'false' }}">بالساعات</a></div>
 </div>
 {% if not employees %}<div class="alert warn">لا يوجد موظفون مسندون إليك. يُسند مدير النظام الموظفين إلى مسؤول شؤون الموظفين من بطاقة الموظف.</div>{% else %}

@@ -21,10 +21,10 @@
 </nav>
 {% endif %}
 <section class="card flush">
-  <div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيده (التوصيات)</h2><p class="hint">بدل راحة مُنح بتوصية العميد، فزاد الرصيد.</p></div></div>
+  <div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيده (التوصيات)</h2><p class="hint">بدل راحة مُنح بتوصية، فزاد الرصيد.</p></div></div>
   <div class="table-wrap"><table class="responsive">
-    <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>رقم خطاب العميد</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead><tbody>
-    {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة"><b>{{ rec_amount(r) }}</b></td><td data-label="رقم خطاب العميد">{{ r.ref_no }}</td><td data-label="الموضوع">{{ r.subject }}</td><td data-label="الحالة">{{ status_badge('approved' if r.status == 'active' else 'cancelled', r.status_label) }}{% if r.cancel_note %}<small class="muted d-block">{{ r.cancel_note }}</small>{% endif %}</td>
+    <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>رقم خطاب التوصية</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead><tbody>
+    {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة"><b>{{ rec_amount(r) }}</b></td><td data-label="رقم خطاب التوصية">{{ r.ref_no }}</td><td data-label="الموضوع">{{ r.subject }}</td><td data-label="الحالة">{{ status_badge('approved' if r.status == 'active' else 'cancelled', r.status_label) }}{% if r.cancel_note %}<small class="muted d-block">{{ r.cancel_note }}</small>{% endif %}</td>
       <td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}
         {% if can_manage and r.status == 'active' %}<form method="post" action="/recommendations/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm danger" data-need-note data-confirm="إلغاء التوصية وخصمها من الرصيد؟">إلغاء</button></form>{% endif %}</td></tr>
     {% else %}<tr><td colspan="7" class="empty">لا توجد توصيات في هذه السنة.</td></tr>{% endfor %}
