@@ -129,7 +129,7 @@ def restore(db: Session, blob: bytes) -> tuple[dict[str, int], list[tuple[str, b
         rows = tables.get(t.name) or []
         rows = [{c.name: _dec(c, r.get(c.name)) for c in t.columns if c.name in r} for r in rows]
         deferred = []
-        if t.name == "employees":  # مرجع ذاتي: يُضبط مسؤول الشؤون الإدارية بعد إدخال الجميع
+        if t.name == "employees":  # مرجع ذاتي: يُضبط مسؤول شؤون الموظفين بعد إدخال الجميع
             deferred = [(r["id"], r.get("manager_id")) for r in rows if r.get("manager_id")]
             for r in rows:
                 r["manager_id"] = None

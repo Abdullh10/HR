@@ -99,7 +99,7 @@ def scoped_employees(db: Session, user: User, include_inactive: bool = False, ma
 
 
 def officers(db: Session) -> list[Employee]:
-    """سجلات الموظفين الذين لهم حساب «الشؤون الإدارية» (يُسند لهم موظفون)."""
+    """سجلات الموظفين الذين لهم حساب «شؤون الموظفين» (يُسند لهم موظفون)."""
     return list(db.scalars(select(Employee).join(User, User.employee_id == Employee.id)
                            .where(User.role == "officer", User.is_active.is_(True)).order_by(Employee.full_name)))
 
@@ -454,7 +454,7 @@ def request_new(request: Request, kind: str = "use", emp: int | None = None, use
     if not managed and not self_emp:
         raise HTTPException(403, "حسابك غير مرتبط بسجل موظف.")
     if self_emp and not managed and not year.employee_can_request:
-        raise HTTPException(403, "تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول الشؤون الإدارية.")
+        raise HTTPException(403, "تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.")
     target = emp or (self_emp.id if self_emp and not managed else None)
     info = compute_balance(db, target, year) if target else None
     return render(request, db, "request_form.html", user=user, kind=kind, emp=target, managed=managed,
@@ -499,7 +499,7 @@ async def request_create(request: Request, user: User = Depends(current_user), d
                    f"{req.kind_label} — {req.amount_label} بتاريخ {start:%Y-%m-%d}. {req.reason}",
                    "/approvals", sender=user)
     db.commit()
-    flash(request, f"تم رفع طلب {req.kind_label} ({req.amount_label})" + (" وهو بانتظار اعتماد مسؤول الشؤون الإدارية." if own else "."))
+    flash(request, f"تم رفع طلب {req.kind_label} ({req.amount_label})" + (" وهو بانتظار اعتماد مسؤول شؤون الموظفين." if own else "."))
     return redirect("/requests")
 
 
@@ -780,7 +780,7 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
                          e.manager.full_name if e.manager else "", b.granted_days, b.granted_hours,
                          b.used_days, b.used_hours, b.days_left, b.hours_left, b.total_left_days,
                          b.total_left_rem, b.granted_equiv_days, b.cap_days])
-        _sheet(wb, "أرصدة الموظفين", ["م", "اسم الموظف", "الرقم الوظيفي", "القسم", "مسؤول الشؤون الإدارية", "أيام ممنوحة",
+        _sheet(wb, "أرصدة الموظفين", ["م", "اسم الموظف", "الرقم الوظيفي", "القسم", "مسؤول شؤون الموظفين", "أيام ممنوحة",
                "ساعات ممنوحة", "أيام مستخدمة", "ساعات مستخدمة", "رصيد الأيام", "رصيد الساعات",
                "الإجمالي (أيام)", "+ ساعات", "الممنوح بالأيام المعادلة", "الحد الأقصى"], rows)
         name = f"أرصدة بدل الراحة {year.name}.xlsx"
@@ -813,7 +813,7 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
     return _xlsx_response(wb, name)
 
 
-# ================================================================ الأرشيف (مسؤول الشؤون الإدارية والأدمن)
+# ================================================================ الأرشيف (مسؤول شؤون الموظفين والأدمن)
 def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, kind: str, q: str, status: str = ""):
     from .services import norm_ar
     ids = [e.id for e in db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True))]

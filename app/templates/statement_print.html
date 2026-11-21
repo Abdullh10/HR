@@ -5,7 +5,7 @@
   {{ letter_head('كشف رصيد بدل الراحة', ref, 'السنة: ' ~ sel_year.name) }}
   <table><tbody>
     <tr><th>اسم الموظف</th><td>{{ emp.full_name }}</td><th>الرقم الوظيفي</th><td>{{ emp.employee_no }}</td></tr>
-    <tr><th>القسم</th><td>{{ emp.department.name if emp.department else '' }}</td><th>مسؤول الشؤون الإدارية</th><td>{{ emp.manager.full_name if emp.manager else '' }}</td></tr>
+    <tr><th>القسم</th><td>{{ emp.department.name if emp.department else '' }}</td><th>مسؤول شؤون الموظفين</th><td>{{ emp.manager.full_name if emp.manager else '' }}</td></tr>
   </tbody></table>
   <table class="mt"><thead><tr><th></th><th>ممنوح</th><th>مستخدم</th><th>معلّق</th><th>المتبقي</th></tr></thead><tbody>
     <tr><th>الأيام</th><td>{{ info.granted_days|n }}</td><td>{{ info.used_days }}</td><td>{{ info.pending_days }}</td><td><b>{{ info.days_left|n }}</b></td></tr>
@@ -24,5 +24,5 @@
   {% for r in reqs|reverse if r.status == 'approved' %}{% set ns2.i = ns2.i + 1 %}<tr><td>{{ ns2.i }}</td><td>{{ r.kind_label }}</td><td>{{ r.start_date|d }}</td><td>{{ r.end_date|d }}</td><td>{{ r.amount_label }}</td><td>{{ r.reason }}</td></tr>
   {% else %}<tr><td colspan="6" style="text-align:center">لا توجد طلبات معتمدة.</td></tr>{% endfor %}
   </tbody></table>
-  <div class="sign"><div>الموظف</div><div>مسؤول الشؤون الإدارية</div><div>مدير النظام</div></div>
+  <div class="sign"><div>الموظف</div><div>مسؤول شؤون الموظفين</div><div>مدير النظام</div></div>
 {% endblock %}

@@ -49,10 +49,10 @@
 <div class="grid two">
   {% if user.role == 'admin' %}
   <section class="card flush">
-    <h2>حسب مسؤول الشؤون الإدارية</h2>
+    <h2>حسب مسؤول شؤون الموظفين</h2>
     <div class="table-wrap"><table class="responsive">
-      <thead><tr><th>مسؤول الشؤون الإدارية</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th></tr></thead><tbody>
-      {% for name, d in by_officer %}<tr><td data-label="مسؤول الشؤون الإدارية">{{ name }}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="ممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="مستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="متاح">{{ d.left|round(1)|n }}</td></tr>
+      <thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th></tr></thead><tbody>
+      {% for name, d in by_officer %}<tr><td data-label="مسؤول شؤون الموظفين">{{ name }}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="ممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="مستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="متاح">{{ d.left|round(1)|n }}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد بيانات.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>

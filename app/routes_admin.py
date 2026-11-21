@@ -53,7 +53,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
         flash(request, "دور غير معروف.", "error")
         return redirect("/admin/users")
     if role in ("employee", "officer") and not employee_id:
-        flash(request, "يجب ربط حساب الموظف/مسؤول الشؤون الإدارية بسجل موظف.", "error")
+        flash(request, "يجب ربط حساب الموظف/مسؤول شؤون الموظفين بسجل موظف.", "error")
         return redirect("/admin/users")
     dup = db.scalar(select(User).where(func.lower(User.username) == username, User.id != (user_id or 0)))
     if dup or not username:
@@ -81,7 +81,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
     u.username, u.role, u.employee_id = username, role, employee_id or None
     u.is_active = bool(is_active) if user_id else True
     db.flush()
-    # إسناد الموظفين لمسؤول الشؤون الإدارية (اختيار متعدد)
+    # إسناد الموظفين لمسؤول شؤون الموظفين (اختيار متعدد)
     moved = 0
     if prev_role == "officer" and prev_emp and (role != "officer" or prev_emp != u.employee_id):
         moved = db.execute(update(Employee).where(Employee.manager_id == prev_emp).values(manager_id=None)).rowcount
@@ -97,7 +97,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
             db.execute(update(Employee).where(Employee.id.in_(wanted)).values(manager_id=u.employee_id))
             pend_total = sum(notify_reassignment(db, e, u.employee_id, sender=user) for e in newly)
             if pend_total:
-                flash(request, f"نُقل مع الموظفين {pend_total} طلب معلّق، وأُشعر مسؤول الشؤون الإدارية بها.", "info")
+                flash(request, f"نُقل مع الموظفين {pend_total} طلب معلّق، وأُشعر مسؤول شؤون الموظفين بها.", "info")
         assigned = len(wanted)
     audit(db, user, "user_saved", "user", u.id, ip=client_ip(request), username=username, role=role,
           employee_id=employee_id, active=u.is_active, assigned=assigned, unassigned=moved or None)
@@ -105,9 +105,9 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
     if assigned is not None:
         flash(request, f"عدد الموظفين المسندين إلى {username}: {assigned}.")
     elif role == "officer" and prev_role != "officer" and user_id:
-        flash(request, "أصبح الحساب «الشؤون الإدارية». افتح «الموظفون المسندون» تحت الحساب لاختيار موظفيه.", "info")
+        flash(request, "أصبح الحساب «شؤون الموظفين». افتح «الموظفون المسندون» تحت الحساب لاختيار موظفيه.", "info")
     if moved:
-        flash(request, f"أُلغي إسناد {moved} موظف لأن الحساب لم يعد «الشؤون الإدارية» لنفس السجل. أسندهم لمسؤول شؤون إدارية آخر.", "warn")
+        flash(request, f"أُلغي إسناد {moved} موظف لأن الحساب لم يعد «شؤون الموظفين» لنفس السجل. أسندهم لمسؤول شؤون موظفين آخر.", "warn")
     if generated:
         from .services import save_login_cards
         emp = db.get(Employee, employee_id) if employee_id else None

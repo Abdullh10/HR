@@ -22,7 +22,7 @@ HEADERS = {
     "no": ("الرقم الوظيفي", "الرقم", "رقم الموظف", "رقم وظيفي", "employee no", "employee number", "id"),
     "dept": ("القسم", "الوحده", "الاداره", "الجهه", "department"),
     "role": ("المنصب", "الدور", "الصلاحيه", "نوع الحساب", "role"),
-    "manager": ("رقم مسؤول الشؤون الإدارية", "مسؤول الشؤون الإدارية", "الشؤون الإدارية", "رقم الإداري المسؤول", "رقم الإداري", "الإداري المسؤول", "الإداري", "رقم المدير المباشر", "المدير المباشر", "رقم المدير",
+    "manager": ("رقم مسؤول شؤون الموظفين", "مسؤول شؤون الموظفين", "شؤون الموظفين", "رقم مسؤول الشؤون الإدارية", "مسؤول الشؤون الإدارية", "الشؤون الإدارية", "رقم الإداري المسؤول", "رقم الإداري", "الإداري المسؤول", "الإداري", "رقم المدير المباشر", "المدير المباشر", "رقم المدير",
                 "المدير", "manager", "officer"),
     "title": ("المسمى الوظيفي", "المسمى", "الوظيفه", "title", "job title"),
     "email": ("البريد", "البريد الالكتروني", "البريد الجامعي", "الايميل", "email"),
@@ -34,7 +34,7 @@ ROLE_WORDS = {
     "مسؤول": "officer", "مسئول": "officer", "مسؤول الادخال": "officer", "مسؤول ادخال": "officer",
     "مدخل بيانات": "officer", "officer": "officer",
     "إداري": "officer", "اداري": "officer", "الشؤون الإدارية": "officer", "شؤون إدارية": "officer",
-    "مسؤول الشؤون الإدارية": "officer",
+    "مسؤول الشؤون الإدارية": "officer", "شؤون الموظفين": "officer", "مسؤول شؤون الموظفين": "officer",
     "مدير مباشر": "officer", "مدير": "officer", "رئيس مباشر": "officer", "manager": "officer",
     "متابع": "officer", "مراقب": "officer", "viewer": "officer",
 }
@@ -49,7 +49,7 @@ def parse_role(text: str) -> str | None:
         return None
     if t in ROLE_WORDS:
         return ROLE_WORDS[t]
-    raise ValueError(f"منصب غير معروف «{text}» (المسموح: موظف، الشؤون الإدارية)")
+    raise ValueError(f"منصب غير معروف «{text}» (المسموح: موظف، شؤون الموظفين)")
 
 
 def _clean(v) -> str:
@@ -206,7 +206,7 @@ def validate(db: Session, rows: list[Row]) -> list[Row]:
         if r.manager and r.manager == r.no:
             r.errors.append("لا يكون الموظف مديراً لنفسه")
         elif r.manager and r.manager not in file_nos and r.manager not in by_no:
-            r.errors.append(f"رقم مسؤول الشؤون الإدارية {r.manager} غير موجود")
+            r.errors.append(f"رقم مسؤول شؤون الموظفين {r.manager} غير موجود")
         if r.errors:
             r.action = "error"
             continue
@@ -334,7 +334,7 @@ def template_workbook(db=None, filled: bool = False):
     ws = wb.active
     ws.title = "الموظفون"
     ws.sheet_view.rightToLeft = True
-    ws.append(["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم مسؤول الشؤون الإدارية", "المسمى الوظيفي", "البريد"])
+    ws.append(["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم مسؤول شؤون الموظفين", "المسمى الوظيفي", "البريد"])
     for c in ws[1]:
         c.font, c.fill = head_font, head_fill
         c.alignment = Alignment(horizontal="center")
@@ -353,12 +353,12 @@ def template_workbook(db=None, filled: bool = False):
                 if e.is_temp_no:
                     continue
                 ws.append([e.full_name, e.employee_no, e.department.name if e.department else "",
-                           "الشؤون الإدارية" if roles.get(e.id) == "officer" else "موظف",
+                           "شؤون الموظفين" if roles.get(e.id) == "officer" else "موظف",
                            e.manager.employee_no if e.manager else "", e.job_title, e.email])
     # ورقة القوائم: تُستخدم في القوائم المنسدلة (يمكن الكتابة بقيم أخرى أيضاً)
     lists = wb.create_sheet("القوائم")
     lists.sheet_view.rightToLeft = True
-    lists.append(["الأقسام الحالية", "", "رقم مسؤول الشؤون الإدارية", "اسم مسؤول الشؤون الإدارية"])
+    lists.append(["الأقسام الحالية", "", "رقم مسؤول شؤون الموظفين", "اسم مسؤول شؤون الموظفين"])
     for c in lists[1]:
         c.font, c.fill = head_font, head_fill
     for i in range(max(len(depts), len(officers))):
@@ -375,9 +375,9 @@ def template_workbook(db=None, filled: bool = False):
         ["3) راجع المعاينة: الصفوف السليمة تُستورد، والصفوف التي فيها أخطاء تظهر لتصحيحها وإعادة الرفع."],
         [""],
         ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."],
-        ["المنصب: موظف أو الشؤون الإدارية (قائمة منسدلة، والافتراضي: موظف)."],
+        ["المنصب: موظف أو شؤون الموظفين (قائمة منسدلة، والافتراضي: موظف)."],
         ["القسم: اختر من القائمة أو اكتب اسم قسم جديد فيُنشأ تلقائياً."],
-        ["رقم مسؤول الشؤون الإدارية: الرقم الوظيفي لمسؤول الشؤون الإدارية الذي يرفع توصيات الموظف ويعتمد طلباته (انظر ورقة «القوائم»)، ويمكن أن يكون مسؤولاً جديداً في الملف نفسه."],
+        ["رقم مسؤول شؤون الموظفين: الرقم الوظيفي لمسؤول شؤون الموظفين الذي يرفع توصيات الموظف ويعتمد طلباته (انظر ورقة «القوائم»)، ويمكن أن يكون مسؤولاً جديداً في الملف نفسه."],
         ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."],
         ["الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل تكراره، لذا يمكن تنزيل «الموظفين الحاليين» وتعديلهم ثم رفع الملف."],
         ["يُنشأ لكل موظف جديد حساب اسم المستخدم فيه رقمه الوظيفي، وكلمة مرور مؤقتة تُعرض بعد الاستيراد."],
@@ -385,8 +385,8 @@ def template_workbook(db=None, filled: bool = False):
         help_ws.append(line)
     help_ws["A1"].font = Font(bold=True, size=13, color="00427A")
     help_ws.column_dimensions["A"].width = 110
-    dv = DataValidation(type="list", formula1='"موظف,الشؤون الإدارية"', allow_blank=True)
-    dv.error, dv.errorTitle = "اختر: موظف أو الشؤون الإدارية", "قيمة غير صحيحة"
+    dv = DataValidation(type="list", formula1='"موظف,شؤون الموظفين"', allow_blank=True)
+    dv.error, dv.errorTitle = "اختر: موظف أو شؤون الموظفين", "قيمة غير صحيحة"
     ws.add_data_validation(dv)
     dv.add("D2:D3000")
     if depts:
