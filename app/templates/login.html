@@ -1,9 +1,5 @@
 {% extends "base.html" %}
-{% block title %}تسجيل الدخول<dialog id="about-dlg" class="about-dlg" aria-labelledby="about-title">
-  <form method="dialog" class="about-head"><h2 id="about-title">عن نظام «{{ org.system_title }}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
-  {% include "_about.html" %}
-</dialog>
-{% endblock %}
+{% block title %}تسجيل الدخول{% endblock %}
 {% block body_class %}gate-page{% endblock %}
 {% from "_macros.html" import ico %}
 {% block body %}
@@ -65,4 +61,8 @@
   </main>
 
 </div>
+<dialog id="about-dlg" class="about-dlg" aria-labelledby="about-title">
+  <form method="dialog" class="about-head"><h2 id="about-title">عن نظام «{{ org.system_title }}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
+  {% include "_about.html" %}
+</dialog>
 {% endblock %}
