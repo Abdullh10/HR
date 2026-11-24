@@ -322,6 +322,39 @@ def save_login_cards(db: Session, made: list[tuple], reason: str, by: User | Non
     return batch
 
 
+def create_employee_account(db: Session, emp: Employee, by: User | None) -> tuple[str, str]:
+    """ينشئ حساب دخول لموظف (اسم المستخدم = الرقم الوظيفي، كلمة مرور مؤقتة) ويحفظ بطاقة دخوله.
+    يعيد (اسم المستخدم، كلمة المرور). يرفع RuleError إن تعذّر."""
+    import secrets
+    from .security import hash_password
+    if db.scalar(select(User).where(User.employee_id == emp.id)):
+        raise RuleError("للموظف حساب دخول مسبقاً.")
+    if emp.is_temp_no:
+        raise RuleError("رقم الموظف مؤقت؛ صحّح الرقم الوظيفي أولاً ثم أنشئ الحساب.")
+    if not emp.is_active:
+        raise RuleError("الموظف غير نشط.")
+    uname = emp.employee_no.lower()
+    if db.scalar(select(User).where(func.lower(User.username) == uname)):
+        raise RuleError(f"اسم المستخدم {uname} مستخدم لحساب آخر؛ أنشئ الحساب يدوياً من «المستخدمون والصلاحيات».")
+    pw = secrets.token_urlsafe(8)
+    role = "officer" if db.scalar(select(Employee.id).where(Employee.manager_id == emp.id)) else "employee"
+    db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=emp.id,
+                must_change_password=True))
+    save_login_cards(db, [(emp.full_name, uname, pw, role)], "single", by)
+    return uname, pw
+
+
+def login_account_info(db: Session, emp: Employee) -> dict | None:
+    """حساب الدخول المرتبط بالموظف وآخر بطاقة دخول بانتظار أول دخول (للعرض في صفحة الموظف للأدمن)."""
+    from .models import LoginCard
+    u = db.scalar(select(User).where(User.employee_id == emp.id))
+    if not u:
+        return None
+    card = db.scalar(select(LoginCard).where(LoginCard.user_id == u.id, LoginCard.temp_password.is_not(None))
+                     .order_by(LoginCard.id.desc()))
+    return dict(user=u, card=card)
+
+
 def activate_login_cards(db: Session, user: User) -> None:
     """بعد أن يغيّر المستخدم كلمة مروره: تُمسح المؤقتة من بطاقاته ويُسجّل تاريخ التفعيل."""
     from .models import LoginCard

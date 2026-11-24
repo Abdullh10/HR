@@ -353,6 +353,8 @@ input[readonly] { background: var(--surface-2); color: var(--muted); cursor: def
 .contact-line { font-size: .9rem; }
 .contact-line a { color: inherit; }
 
+.account-strip { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; padding: .8rem 1rem; }
+.account-strip > div:first-of-type { flex: 1; min-width: 220px; }
 /* ---------- الطباعة */
 .print-only { display: none; }
 @media print {

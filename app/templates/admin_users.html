@@ -20,6 +20,7 @@
 <div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>{{ rows|length }} حساب</p></div>
   <form method="post" action="/admin/users/bulk-create" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}">
     <button class="btn" data-confirm="إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟">إنشاء حسابات الموظفين دفعة واحدة</button></form></div>
+{% if no_account %}<div class="alert warn" role="status">{{ no_account|length }} موظف نشط بلا حساب دخول ({% for e in no_account[:5] %}{{ e.full_name }}{{ '، ' if not loop.last }}{% endfor %}{% if no_account|length > 5 %}…{% endif %})، فلا يستطيعون الدخول إلى النظام. اضغط «إنشاء حسابات الموظفين دفعة واحدة» أعلاه لإنشاء حساباتهم وطباعة بطاقاتهم.</div>{% endif %}
 <div class="grid two">
 <section class="card">
   <h2>الأدوار</h2>

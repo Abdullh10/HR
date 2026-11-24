@@ -39,8 +39,9 @@ def users(request: Request, user: User = Depends(admin_only), db: Session = Depe
     for e in emps:
         if e.manager_id:
             team_count[e.manager_id] = team_count.get(e.manager_id, 0) + 1
+    no_account = [e for e in emps if e.id not in linked and not e.is_temp_no]
     return render(request, db, "admin_users.html", user=user, rows=rows, emps=emps, linked=linked,
-                  team_count=team_count)
+                  team_count=team_count, no_account=no_account)
 
 
 @router.post("/users/save")

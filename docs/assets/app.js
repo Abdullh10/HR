@@ -551,6 +551,10 @@
     return layout(u, "كشف موظف", `<div class="page-head"><div><h1>${h(e.name)}</h1><p>${h(e.no)}${deptName(e) ? " · " + h(deptName(e)) : ""}${e.title ? " · " + h(e.title) : ""} · مسؤول شؤون الموظفين: ${h(mgrName(e) || "— غير مُسند —")}${e.email || e.phone || e.ext ? `<br><span class="contact-line">${[e.phone ? `الجوال: <a href="tel:${h(e.phone)}" dir="ltr">${h(e.phone)}</a>` : "", e.ext ? `التحويلة: <span dir="ltr">${h(e.ext)}</span>` : "", e.email ? `البريد: <a href="mailto:${h(e.email)}" dir="ltr">${h(e.email)}</a>` : ""].filter(Boolean).join(" · ")}</span>` : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a>${u.role === "admin" ? `<a class="btn" href="#/employee/${e.id}/edit">تعديل البيانات</a>` : ""}</div></div>
       ${e.active ? "" : '<div class="alert warn">الموظف غير نشط.</div>'}
+      ${u.role === "admin" ? (() => { const acc = DB.users.find((x) => x.emp === e.id), card = acc && (DB.cards || []).filter((c) => c.user === acc.id && c.pw).pop();
+        return `<section class="card account-strip no-print">${ico("idcard")}${acc
+          ? `<div><b>حساب الدخول:</b> <span class="num">${h(acc.username)}</span> · ${ROLES[acc.role]} · ${!acc.active ? '<span class="badge muted">معطّل</span>' : card ? '<span class="badge warn">بانتظار أول دخول</span>' : '<span class="badge ok">مفعّل</span>'}</div><div class="actions">${card ? `<a class="btn sm primary" href="#/print/cards?ids=${card.id}">طباعة بطاقة الدخول</a>` : ""}<a class="btn sm" href="#/admin/users">إدارة الحساب</a></div>`
+          : `<div><b>لا يوجد حساب دخول لهذا الموظف</b><br><small class="hint">لن يستطيع الدخول إلى النظام حتى يُنشأ له حساب (اسم المستخدم = الرقم الوظيفي).</small></div>${e.active ? `<button class="btn sm primary" type="button" data-act="emp-account" data-id="${e.id}">إنشاء حساب دخول</button>` : ""}`}</section>`; })() : ""}
       ${board(b)}
       ${mg ? tiles([["days", "#/recs/new?kind=days&emp=" + e.id, "calendar-plus", "رفع توصية بالأيام", "المتاح للمنح: " + n(b.capLeftHours / b.hpd) + " يوم"], ["hours", "#/recs/new?kind=hours&emp=" + e.id, "clock-plus", "رفع توصية بالساعات", "المتاح للمنح: " + n(b.capLeftHours) + " ساعة"], ["appr", "#/requests/new?emp=" + e.id, "calendar", "تسجيل طلب نيابةً عنه", "طلب معالجة غياب"]]) : ""}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيده (التوصيات)</h2><p class="hint">بدل راحة مُنح بتوصية، فزاد الرصيد.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, true) || '<tr><td colspan="7" class="empty">لا توجد توصيات في هذه السنة.</td></tr>'}</tbody></table></div></section>
@@ -670,7 +674,7 @@
         <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" type="email" name="email" dir="ltr" value="${e ? h(e.email) : ""}"></div>
         <div class="field"><label for="ph">رقم الجوال</label><input id="ph" type="tel" name="phone" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" value="${e ? h(e.phone || "") : ""}"></div>
         <div class="field"><label for="ex">التحويلة</label><input id="ex" name="ext" dir="ltr" inputmode="numeric" value="${e ? h(e.ext || "") : ""}"></div></div>
-        ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : ""}
+        ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : `<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة تُحفظ في «بطاقات الدخول»)</span></label>`}
         <div class="actions"><button class="btn primary">حفظ</button><a class="btn" href="${e ? "#/employee/" + e.id : "#/employees"}">إلغاء</a></div></form>`);
   }
 
@@ -886,6 +890,17 @@
     lastBatch = batch; return batch;
   }
   let lastBatch = null;
+  async function createEmpAccount(e) {
+    if (DB.users.some((x) => x.emp === e.id)) throw new RuleError("للموظف حساب دخول مسبقاً.");
+    if (isTmp(e)) throw new RuleError("رقم الموظف مؤقت؛ صحّح الرقم الوظيفي أولاً ثم أنشئ الحساب.");
+    if (!e.active) throw new RuleError("الموظف غير نشط.");
+    const un = String(e.no).toLowerCase();
+    if (DB.users.some((x) => x.username.toLowerCase() === un)) throw new RuleError("اسم المستخدم " + un + " مستخدم لحساب آخر؛ أنشئ الحساب يدوياً من «المستخدمون والصلاحيات».");
+    const pw = rand(), role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee";
+    const nu = { id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true, last: null };
+    DB.users.push(nu); saveCards([[e.name, un, pw, role]], "single"); audit("user_saved", "user", nu.id, { username: un, auto: true });
+    return [un, pw];
+  }
   function accountsPage(u, made) {
     return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً، وتُمسح كلمة المرور المؤقتة من البطاقة حين يغيّرها صاحبها. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
       <div class="actions">${lastBatch ? `<a class="btn primary" href="#/print/cards?batch=${encodeURIComponent(lastBatch)}">طباعة بطاقات الدخول</a>` : ""}<button class="btn" type="button" data-act="cards-dl">تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
@@ -908,6 +923,7 @@
       <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول.</span></div>`;
     return layout(u, "المستخدمون والصلاحيات", `<div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
       <button class="btn" type="button" data-act="bulk-users">إنشاء حسابات الموظفين دفعة واحدة</button></div>
+      ${(() => { const na = emps.filter((e) => !linked.has(e.id) && !isTmp(e)); return na.length ? `<div class="alert warn" role="status">${na.length} موظف نشط بلا حساب دخول (${na.slice(0, 5).map((e) => h(e.name)).join("، ")}${na.length > 5 ? "…" : ""})، فلا يستطيعون الدخول إلى النظام. اضغط «إنشاء حسابات الموظفين دفعة واحدة» أعلاه لإنشاء حساباتهم وطباعة بطاقاتهم.</div>` : ""; })()}
       <div class="grid two"><section class="card"><h2>الأدوار</h2><ul>
         <li><b>مدير النظام:</b> إدارة المنصة: المستخدمون والصلاحيات، إسناد الموظفين لمسؤولي شؤون الموظفين، السنة وقواعد الرصيد، المؤشرات والاعتمادات، الإعدادات وسجل التدقيق.</li>
         <li><b>شؤون الموظفين:</b> يُسند له موظفون؛ يرفع التوصيات (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات معالجة الغياب، ويراسل موظفيه والأدمن.</li>
@@ -1144,7 +1160,7 @@
   F.quicksearch = (form) => go("#/employees?q=" + encodeURIComponent(fd(form).get("q") || ""));
   let keepFocus = null, liveMsg = false, ftimer = null;
   F.filter = (form) => { liveMsg = true; const p = new URLSearchParams(); for (const [k, v] of fd(form)) if (v) p.append(k, v); go("#/" + form.dataset.route + (p.toString() ? "?" + p : "")); };
-  F.employee = (form, u) => {
+  F.employee = async (form, u) => {
     need(u, ["admin"]);
     const d = fd(form), id = Number(form.dataset.id || 0), no = String(d.get("no")).trim(), name = String(d.get("name")).replace(/\s+/g, " ").trim();
     if (!no || !name) throw new RuleError("الرقم الوظيفي والاسم حقلان إلزاميان.");
@@ -1162,7 +1178,9 @@
       if (acct && acct.role !== "admin") { acct.active = e.active; flash((e.active ? "أُعيد تفعيل" : "عُطّل") + " حساب الدخول (" + acct.username + ") تبعاً لحالة الموظف.", "info"); }
       if (!e.active && pend) flash("تنبيه: للموظف " + pend + " طلب بانتظار القرار — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn");
     }
-    audit(id ? "employee_updated" : "employee_created", "employee", e.id, { no, name, officer: mgr }); save(); flash("تم حفظ بيانات الموظف."); go("#/employee/" + e.id);
+    audit(id ? "employee_updated" : "employee_created", "employee", e.id, { no, name, officer: mgr }); flash("تم حفظ بيانات الموظف.");
+    if (!id && d.get("create_account")) { try { const [un, pw] = await createEmpAccount(e); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول). اطبع بطاقة دخوله من أعلى الصفحة."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash("حُفظ الموظف لكن لم يُنشأ حساب دخول: " + err.message, "warn"); } }
+    save(); go("#/employee/" + e.id);
   };
   F.rec = async (form, u) => {
     need(u, STAFF);
@@ -1371,6 +1389,7 @@
   ACT.showBanner = () => { try { localStorage.removeItem(BKEY); } catch (e) {} render(); };
   ACT.logout = () => { sessionStorage.removeItem("hr_uid"); go("#/login"); };
   ACT.reset = async () => { if (!confirm("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
+  ACT["emp-account"] = async (b, u) => { need(u, ["admin"]); const e = byId("emps", b.dataset.id); try { const [un, pw] = await createEmpAccount(e); save(); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول)."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash(err.message, "error"); } render(); };
   ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!confirm("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." : "تم إلغاء الطلب."); render(); };
   ACT["cancel-rec"] = async (b, u) => { const r = byId("recs", b.dataset.id); const note = await askReason("cancel", "سبب إلغاء التوصية (ستُخصم من الرصيد)"); if (!note) return; cancelRec(u, r, note); save(); flash("تم إلغاء التوصية وتحديث الرصيد."); render(); };
   ACT.decide = async (b, u) => { const a = b.dataset.a; let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } decideLeave(u, byId("leaves", b.dataset.id), a, note); save(); flash(a === "approve" ? "تم الاعتماد وخصم الرصيد." : "تم الرفض."); render(); };

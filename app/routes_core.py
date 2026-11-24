@@ -207,7 +207,10 @@ def employee_statement(request: Request, emp_id: int, year_id: int | None = None
         return redirect(f"/me?year_id={year_id}" if year_id else "/me")
     year = pick_year(db, year_id)
     tpl = "statement_print.html" if request.query_params.get("print") else "statement.html"
+    from .services import login_account_info
+    account = login_account_info(db, emp) if user.role == "admin" else None
     return render(request, db, tpl, user=user, years=years(db), can_manage=can_manage(user, emp),
+                  account=account, show_account=user.role == "admin",
                   ref=f"ST-{year.name}-{emp.employee_no}-{datetime.now():%m%d%H%M}",
                   **statement_ctx(db, emp, year))
 
@@ -268,7 +271,7 @@ def employee_edit(request: Request, emp_id: int, user: User = Depends(require("a
 def employee_save(request: Request, emp_id: int | None = Form(None), employee_no: str = Form(...),
                   full_name: str = Form(...), department_id: int | None = Form(None),
                   manager_id: int | None = Form(None), job_title: str = Form(""), email: str = Form(""),
-                  phone: str = Form(""), extension: str = Form(""),
+                  phone: str = Form(""), extension: str = Form(""), create_account: str = Form(""),
                   notes: str = Form(""), is_active: str = Form(""),
                   user: User = Depends(require("admin")), db: Session = Depends(get_db)):
     employee_no, full_name = employee_no.strip(), " ".join(full_name.split())
@@ -321,8 +324,41 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
     audit(db, user, "employee_updated" if emp_id else "employee_created", "employee", emp.id,
           ip=client_ip(request), before=before,
           after=dict(no=employee_no, name=full_name, dept=department_id, officer=manager_id, active=emp.is_active))
+    acct_msg = None
+    if not emp_id and create_account:
+        from .services import create_employee_account
+        try:
+            uname, pw = create_employee_account(db, emp, user)
+            audit(db, user, "user_saved", "user", None, ip=client_ip(request), username=uname, role="employee",
+                  employee_id=emp.id, auto=True)
+            acct_msg = (f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور المؤقتة {pw} "
+                        f"(يُطلب تغييرها عند أول دخول). اطبع بطاقة دخوله من أعلى الصفحة.", "ok")
+        except RuleError as e:
+            acct_msg = (f"حُفظ الموظف لكن لم يُنشأ حساب دخول: {e}", "warn")
     db.commit()
     flash(request, "تم حفظ بيانات الموظف.")
+    if acct_msg:
+        flash(request, *acct_msg)
+    return redirect(f"/employees/{emp.id}")
+
+
+@router.post("/employees/{emp_id}/account")
+def employee_account_create(request: Request, emp_id: int, user: User = Depends(require("admin")),
+                            db: Session = Depends(get_db)):
+    """إنشاء حساب دخول لموظف موجود ليس له حساب."""
+    from .services import create_employee_account
+    emp = db.get(Employee, emp_id)
+    if not emp:
+        raise HTTPException(404, "الموظف غير موجود.")
+    try:
+        uname, pw = create_employee_account(db, emp, user)
+    except RuleError as e:
+        flash(request, str(e), "error")
+        return redirect(f"/employees/{emp.id}")
+    audit(db, user, "user_saved", "user", None, ip=client_ip(request), username=uname, role="employee",
+          employee_id=emp.id, auto=True)
+    db.commit()
+    flash(request, f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور المؤقتة {pw} (يُطلب تغييرها عند أول دخول).")
     return redirect(f"/employees/{emp.id}")
 
 

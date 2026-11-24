@@ -16,7 +16,8 @@
     <div class="field"><label for="ex">التحويلة</label><input id="ex" name="extension" type="text" dir="ltr" inputmode="numeric" value="{{ emp.extension if emp else '' }}"></div>
   </div>
   <div class="field"><label for="nt">ملاحظات</label><textarea id="nt" name="notes">{{ emp.notes if emp else '' }}</textarea></div>
-  {% if emp %}<label class="check"><input type="checkbox" name="is_active" value="1" {% if emp.is_active %}checked{% endif %}> على رأس العمل (نشط)</label>{% endif %}
+  {% if emp %}<label class="check"><input type="checkbox" name="is_active" value="1" {% if emp.is_active %}checked{% endif %}> على رأس العمل (نشط)</label>
+  {% else %}<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة تُحفظ في «بطاقات الدخول»)</span></label>{% endif %}
   <div class="actions"><button class="btn primary" type="submit">حفظ</button><a class="btn" href="{{ '/employees/%d'|format(emp.id) if emp else '/employees' }}">إلغاء</a></div>
 </form>
 {% endblock %}
