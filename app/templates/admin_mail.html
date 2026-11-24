@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import settings_tabs, ico %}
+{% block title %}البريد الإلكتروني{% endblock %}
+{% block heading %}الإعدادات{% endblock %}
+{% block content %}
+{{ settings_tabs('mail') }}
+<div class="page-head"><div><h1>{{ ico('mail', 'h-ico') }} البريد الإلكتروني</h1>
+  <p>إشعارات البريد تصل للمستخدمين عند الرسائل الجديدة، واعتماد الطلبات أو رفضها أو إلغائها، ورفع التوصيات، وتنبيهات الرصيد.</p></div>
+  <div class="actions"><a class="btn" href="/admin/mail/preview" target="_blank" rel="noopener">معاينة شكل الرسالة</a></div></div>
+
+<div class="grid two">
+<section class="card">
+  <h2>الحالة</h2>
+  {% if cfg.enabled %}
+    <p><span class="badge ok">مفعّل</span>{% if st.error_is_latest %} <span class="badge err">آخر محاولة فشلت</span>{% endif %}</p>
+  {% else %}
+    <p><span class="badge muted">غير مفعّل</span> الإشعارات تصل داخل المنصة فقط.</p>
+  {% endif %}
+  <dl class="kv">
+    <div><dt>خادم البريد</dt><dd class="num" dir="ltr">{{ (cfg.host ~ ':' ~ cfg.port) if cfg.host else '—' }}</dd></div>
+    <div><dt>التشفير</dt><dd>{{ {'starttls': 'STARTTLS', 'ssl': 'SSL/TLS', 'none': 'بلا تشفير'}[cfg.mode] if cfg.host else '—' }}</dd></div>
+    <div><dt>المرسِل</dt><dd class="num" dir="ltr">{{ cfg.sender or '—' }}</dd></div>
+    <div><dt>رابط النظام في الرسائل</dt><dd class="num" dir="ltr">{{ cfg.base_url or '—' }}</dd></div>
+    <div><dt>آخر إرسال ناجح</dt><dd class="num">{% if st.ok %}{{ st.ok.at }} <small class="muted" dir="ltr">({{ st.ok.to }})</small>{% else %}—{% endif %}</dd></div>
+    <div><dt>آخر خطأ</dt><dd>{% if st.error %}<span class="num">{{ st.error.at }}</span><br><small class="muted" dir="ltr">{{ st.error.msg }}</small>{% else %}—{% endif %}</dd></div>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>إرسال بريد تجريبي</h2>
+  <p class="hint">أرسل رسالة تجريبية للتأكد من الإعداد قبل الاعتماد عليه. تُرسل فوراً وتظهر النتيجة هنا.</p>
+  <form method="post" action="/admin/mail/test">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="mt">إلى</label><input id="mt" name="to" type="email" dir="ltr" required value="{{ default_to }}" placeholder="name@example.com"></div>
+    <button class="btn primary" type="submit" {% if not cfg.enabled %}disabled{% endif %}>إرسال رسالة تجريبية</button>
+    {% if not default_to %}<p class="hint mt-sm">أضف بريدك في <a href="/profile">الملف الشخصي</a> ليُملأ هنا تلقائياً وتصلك الإشعارات.</p>{% endif %}
+  </form>
+</section>
+</div>
+
+{% if not cfg.enabled %}
+<section class="card">
+  <h2>طريقة التفعيل</h2>
+  <p>يُضبط البريد على الخادم في ملف <code dir="ltr">/etc/hr/hr.env</code> بإضافة الأسطر التالية (من مزوّد البريد)، ثم إعادة تشغيل الخدمة:</p>
+  <pre class="code" dir="ltr">HR_SMTP_HOST=smtp.example.com
+HR_SMTP_PORT=587
+HR_SMTP_USER=…
+HR_SMTP_PASSWORD=…
+HR_SMTP_FROM=no-reply@example.com
+HR_SMTP_TLS=1</pre>
+  <pre class="code" dir="ltr">sudo systemctl restart hr</pre>
+  <p class="hint">للمنفذ 465 اجعل <code dir="ltr">HR_SMTP_TLS=ssl</code>. أضف سجلات SPF وDKIM التي يعطيك إياها المزوّد في إعدادات النطاق حتى لا تصل الرسائل إلى البريد المزعج.</p>
+</section>
+{% endif %}
+{% endblock %}

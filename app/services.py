@@ -446,8 +446,9 @@ def notify(db: Session, to: User | None, subject: str, body: str = "", link: str
                 body=body, link=link, created_at=datetime.now())
     email = to.contact_email
     if email:
-        org = "إتمام"
-        m.emailed = mailer.send(email, f"[{org}] {subject}", f"{body}\n\n— نظام {org}")
+        from .models import AppSetting
+        org = {s.key: s.value for s in db.scalars(select(AppSetting))}
+        m.emailed = mailer.send(email, subject, body, link, org)
     db.add(m)
 
 

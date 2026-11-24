@@ -44,6 +44,25 @@ class DropEmptyQuery:
 
 
 app.add_middleware(DropEmptyQuery)
+
+
+class RememberBaseUrl:
+    """يحفظ رابط النظام العام (مثل https://example.com) من أول طلب حقيقي، لاستخدامه في روابط رسائل البريد."""
+
+    def __init__(self, app_):
+        self.app = app_
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            from . import mailer
+            host = dict(scope.get("headers") or []).get(b"host", b"").decode("latin-1").split(":")[0]
+            if host and host not in ("localhost", "127.0.0.1", "testserver", "0.0.0.0") and not mailer.BASE_URL:
+                from starlette.requests import Request as _R
+                mailer.remember_base_url(str(_R(scope).base_url))
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(RememberBaseUrl)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 

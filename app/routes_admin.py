@@ -376,6 +376,42 @@ def settings_save(request: Request, university: str = Form(""), college: str = F
     return redirect("/admin/settings")
 
 
+# ================================================================ البريد الإلكتروني
+@router.get("/mail")
+def mail_page(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from . import mailer
+    from .web import app_settings
+    return render(request, db, "admin_mail.html", user=user, cfg=mailer.config(),
+                  st=mailer.last_status(app_settings(db)), default_to=user.contact_email)
+
+
+@router.post("/mail/test")
+def mail_test(request: Request, to: str = Form(""), user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from . import mailer
+    from .web import app_settings
+    to = to.strip()
+    ok, err = mailer.send_now(to, "رسالة تجريبية", f"هذه رسالة تجريبية للتأكد من عمل إشعارات البريد في النظام.\n\n"
+                              f"أُرسلت بطلب من: {user.display_name}.", "/", app_settings(db))
+    audit(db, user, "mail_test", "settings", None, ip=client_ip(request), to=to, ok=ok, error=err[:200] or None)
+    db.commit()
+    if ok:
+        flash(request, f"أُرسلت الرسالة التجريبية إلى {to}. تحقّق من صندوق الوارد (وصندوق البريد المزعج).")
+    else:
+        flash(request, f"تعذّر الإرسال: {err}", "error")
+    return redirect("/admin/mail")
+
+
+@router.get("/mail/preview")
+def mail_preview(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from fastapi.responses import HTMLResponse
+    from . import mailer
+    from .web import app_settings
+    _, htm = mailer.compose("اعتماد طلب معالجة غياب",
+                            "اعتُمد طلبك رقم REQ-2026-0001 (يوم واحد، 2026-02-01).\n\nيمكنك متابعة رصيدك وطلباتك من النظام.",
+                            "/requests", app_settings(db))
+    return HTMLResponse(htm)
+
+
 # ================================================================ سجل التدقيق
 @router.get("/audit")
 def audit_page(request: Request, q: str = "", page: int = 1, user: User = Depends(admin_only),

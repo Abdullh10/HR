@@ -825,7 +825,7 @@
 
   V.admin = (u, q, seg) => { need(u, ["admin"]); const f = A[seg[1] || "years"]; if (!f) throw new Forbidden("صفحة غير موجودة."); return f(u, q); };
   const A = {};
-  const settingsTabs = (active) => `<nav class="tabs" aria-label="أقسام الإعدادات">${[["years", "السنة وقواعد الرصيد"], ["depts", "الأقسام"], ["holidays", "العطل الرسمية"], ["settings", "هوية الجهة"]].map(([k, l]) => `<a href="#/admin/${k}" ${k === active ? 'aria-current="page" class="on"' : ""}>${l}</a>`).join("")}</nav>`;
+  const settingsTabs = (active) => `<nav class="tabs" aria-label="أقسام الإعدادات">${[["years", "السنة وقواعد الرصيد"], ["depts", "الأقسام"], ["holidays", "العطل الرسمية"], ["settings", "هوية الجهة"], ["mail", "البريد الإلكتروني"]].map(([k, l]) => `<a href="#/admin/${k}" ${k === active ? 'aria-current="page" class="on"' : ""}>${l}</a>`).join("")}</nav>`;
   A.years = (u) => {
     const form = (y) => { const p = "y" + (y ? y.id : "new"), dis = y && y.locked ? "disabled" : "";
       const chk = (k, label, def) => `<label class="check"><input type="checkbox" name="${k}" value="1" ${(y ? y[k] : def) ? "checked" : ""}> ${label}</label>`;
@@ -968,6 +968,12 @@
     ${DB.holidays.slice().sort((a, b) => b.day.localeCompare(a.day)).map((x) => `<tr><td class="num" data-label="التاريخ">${x.day}</td><td data-label="اليوم">${WD[weekday(x.day)]}</td><td data-label="العطلة">${h(x.name)}</td><td><button class="btn sm danger" type="button" data-act="del-holiday" data-id="${x.id}">حذف</button></td></tr>`).join("") || '<tr><td colspan="4" class="empty">لا توجد عطل مسجلة.</td></tr>'}
     </tbody></table></div>`);
 
+  A.mail = (u) => layout(u, "الإعدادات", `${settingsTabs("mail")}<div class="page-head"><div><h1>${ico("mail", "h-ico")} البريد الإلكتروني</h1>
+      <p>إشعارات البريد تصل للمستخدمين عند الرسائل الجديدة، واعتماد الطلبات أو رفضها أو إلغائها، ورفع التوصيات، وتنبيهات الرصيد.</p></div></div>
+      <div class="alert info">في نسخة العرض لا يُرسل أي بريد فعلي. في النظام الفعلي تعرض هذه الصفحة حالة البريد، وخادم الإرسال والمرسِل، وآخر إرسال ناجح وآخر خطأ، مع زر «إرسال رسالة تجريبية» ومعاينة شكل الرسالة.</div>
+      <div class="grid two"><section class="card"><h2>الحالة</h2><p><span class="badge muted">غير متاح في نسخة العرض</span></p>
+        <dl class="kv"><div><dt>خادم البريد</dt><dd>—</dd></div><div><dt>المرسِل</dt><dd dir="ltr">no-reply@example.com</dd></div><div><dt>آخر إرسال ناجح</dt><dd>—</dd></div></dl></section>
+        <section class="card"><h2>إرسال بريد تجريبي</h2><p class="hint">متاح في النظام الفعلي بعد ضبط خادم البريد.</p><div class="field"><label for="mt">إلى</label><input id="mt" type="email" dir="ltr" disabled placeholder="name@example.com"></div><button class="btn primary" type="button" disabled>إرسال رسالة تجريبية</button></section></div>`);
   A.settings = (u) => { const s = DB.settings; return layout(u, "الإعدادات", `${settingsTabs("settings")}<div class="page-head"><div><h1>هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
     <form class="card" style="max-width:720px" data-form="settings">
       <div class="field"><label for="s1">الجامعة</label><input id="s1" name="university" value="${h(s.university)}"></div>
