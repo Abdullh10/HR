@@ -40,7 +40,7 @@ chown hr:hr "$DATA_DIR"; chmod 750 "$DATA_DIR" "$BACKUP_DIR"
 
 log "جلب الكود"
 if [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" fetch -q origin "$BRANCH" && git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
+  git -c safe.directory="$APP_DIR" -C "$APP_DIR" fetch -q origin "$BRANCH" && git -c safe.directory="$APP_DIR" -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
 else
   git clone -q --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
 fi
