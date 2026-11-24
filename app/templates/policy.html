@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}سياسة الاستخدام{% endblock %}
+{% block body %}{% if user %}{{ super() }}{% else %}<main class="auth"><div class="box">{{ self.content() }}</div></main>{% endif %}{% endblock %}
+{% block heading %}سياسة الاستخدام{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>سياسة استخدام نظام «{{ org.system_title }}»</h2>
+  {% include "_policy.html" %}
+</div>
+{% endblock %}

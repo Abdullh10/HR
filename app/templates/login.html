@@ -15,7 +15,7 @@
           <div><b class="wordmark">{{ org.system_title }}</b><small>{{ org.tagline }}</small></div>
         </div>
         <h1 id="login-title" class="login-h">تسجيل الدخول</h1>
-        <p class="sub">أدخل بيانات حسابك للوصول إلى نظام {{ org.system_title }}.</p>
+        <p class="sub">يُرجى إدخال اسم المستخدم وكلمة المرور للدخول إلى النظام.</p>
         {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
         {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
         <form method="post" action="/login" novalidate>
@@ -33,13 +33,16 @@
             </div></div>
           <button class="btn primary block lg" type="submit">دخول</button>
         </form>
+        <p class="gate-notice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span>هذا النظام مخصّص للاستخدام الرسمي المصرّح به لمنسوبي {{ org.college }}، وجميع العمليات فيه مسجّلة وتخضع للمراجعة. ويُعدّ الدخول إليه موافقةً على <button type="button" class="inline-link" data-open-dialog="policy-dlg" aria-haspopup="dialog">سياسة الاستخدام</button>.</span></p>
         <p class="gate-help">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
           <span><b>نسيت كلمة المرور؟</b> تواصل مع مدير النظام في الكلية لإعادة تعيينها.</span>
         </p>
         <div class="card-foot">
-          <button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>عن النظام</button>
+          <div class="foot-links">
+            <button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>عن النظام</button>
+            <button class="about-link" type="button" data-open-dialog="policy-dlg" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>سياسة الاستخدام</button>
+          </div>
           <p class="card-credit"><span>جميع الحقوق محفوظة © {{ today.year }}</span>{% if org.credit %}<span>{{ org.credit }}</span>{% endif %}</p>
         </div>
       </section>
@@ -48,14 +51,14 @@
         <span class="eyebrow">نظام داخلي · {{ org.college }}</span>
         <h2 id="intro-title">{{ org.tagline }}</h2>
         <svg class="gate-hero" role="img" aria-label="رسم توضيحي: تقويم وساعة وبطاقة اعتماد"><use href="#hero"/></svg>{{ HERO_SPRITE }}
-        <p class="lead">منصة داخلية لمنسوبي {{ org.college }} في {{ org.university }} لإدارة أيام بدل الراحة: من تسجيل ساعات العمل حتى اعتماد الطلبات وإصدار الكشوف.</p>
+        <p class="lead">منصة إلكترونية داخلية لمنسوبي {{ org.college }} في {{ org.university }}، توحّد إجراءات بدل الراحة: من توثيق التوصيات واحتساب الأرصدة آلياً، إلى معالجة الغياب واعتمادها وإصدار الخطابات الرسمية.</p>
         <ul class="gate-features">
-          <li><span class="ico" aria-hidden="true">{{ ico('clock') }}</span>
-            <div><b>تسجيل المهام والساعات</b><span>توثيق ساعات العمل الإضافية واحتساب الأيام المستحقة آلياً.</span></div></li>
+          <li><span class="ico" aria-hidden="true">{{ ico('calendar-plus') }}</span>
+            <div><b>التوصيات والأرصدة</b><span>توصيات موثّقة بالأيام أو بالساعات، ورصيد يُحتسب آلياً ضمن حد سنوي معتمد.</span></div></li>
           <li><span class="ico" aria-hidden="true">{{ ico('approvals') }}</span>
-            <div><b>اعتماد الطلبات إلكترونياً</b><span>رفع طلبات التمتع واعتمادها من المدير المباشر مع سجل تدقيق.</span></div></li>
+            <div><b>معالجة الغياب</b><span>طلبات بالأيام من الرصيد، يعتمدها مسؤول شؤون الموظفين إلكترونياً مع سجل تدقيق.</span></div></li>
           <li><span class="ico" aria-hidden="true">{{ ico('idcard') }}</span>
-            <div><b>كشوف أرصدة رسمية</b><span>كشف سنوي لكل موظف جاهز للطباعة والحفظ بصيغة PDF.</span></div></li>
+            <div><b>خطابات وتقارير رسمية</b><span>إشعارات ونماذج وتقارير برقم مرجعي، جاهزة للطباعة والحفظ بصيغة PDF.</span></div></li>
         </ul>
       </section>
     </div>
@@ -65,5 +68,9 @@
 <dialog id="about-dlg" class="about-dlg" aria-labelledby="about-title">
   <form method="dialog" class="about-head"><h2 id="about-title">عن نظام «{{ org.system_title }}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
   {% include "_about.html" %}
+</dialog>
+<dialog id="policy-dlg" class="about-dlg" aria-labelledby="policy-title">
+  <form method="dialog" class="about-head"><h2 id="policy-title">سياسة استخدام نظام «{{ org.system_title }}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
+  {% include "_policy.html" %}
 </dialog>
 {% endblock %}

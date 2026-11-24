@@ -36,3 +36,14 @@ def test_admin_without_employee_updates_name_email_unit(world):
         assert (u.full_name, u.email, u.phone, u.department_id) == ("مدير النظام الرئيسي", "admin@example.com", "0500000000", did)
         assert u.display_name == "مدير النظام الرئيسي" and u.contact_email == "admin@example.com"
     assert "مدير النظام الرئيسي" in adm.get("/profile").text
+
+
+def test_login_page_policy_and_about(world):
+    from .conftest import TestClient, app
+    c = TestClient(app)
+    html = c.get("/login").text
+    assert 'id="policy-dlg"' in html and "سياسة الاستخدام" in html and "مخصّص للاستخدام الرسمي" in html
+    assert html.index('id="about-dlg"') > html.index("<body")  # النافذة داخل الصفحة لا في العنوان
+    p = c.get("/policy")
+    assert p.status_code == 200 and "المادة (12)" in p.text
+    assert "قواعد الرصيد" in c.get("/about").text

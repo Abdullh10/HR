@@ -175,6 +175,14 @@ def healthz():
     return "ok"
 
 
+@app.get("/policy", response_class=HTMLResponse)
+def policy(request: Request):
+    with SessionLocal() as db:
+        from .web import _load_user
+
+        return render(request, db, "policy.html", user=_load_user(request, db))
+
+
 @app.get("/about", response_class=HTMLResponse)
 def about(request: Request):
     with SessionLocal() as db:
