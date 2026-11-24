@@ -364,4 +364,17 @@
     box.appendChild(inp);
     inp.focus();
   });
+
+  // إظهار/إخفاء كلمة المرور (button[data-pw-toggle] بجانب الحقل)
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-pw-toggle]");
+    if (!b) return;
+    var inp = b.parentElement.querySelector("input");
+    var show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    b.setAttribute("aria-pressed", String(show));
+    var t = show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور";
+    b.setAttribute("aria-label", t); b.title = t;
+    inp.focus();
+  });
 })();

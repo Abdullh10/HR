@@ -408,7 +408,7 @@
       ${flashQ.splice(0).map(([k, m]) => `<div class="alert ${k}" role="alert">${h(m)}</div>`).join("")}
       <form data-form="login" novalidate>
         <div class="field"><label for="u">اسم المستخدم</label><div class="input-icon">${SV('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/>')}<input id="u" name="username" type="text" autocomplete="username" required autofocus></div></div>
-        <div class="field"><label for="p">كلمة المرور</label><div class="input-icon">${SV('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>')}<input id="p" name="password" type="password" autocomplete="current-password" required></div></div>
+        <div class="field"><label for="p">كلمة المرور</label><div class="input-icon">${SV('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>')}<input id="p" name="password" type="password" autocomplete="current-password" required><button type="button" class="pw-toggle" data-pw-toggle aria-label="إظهار كلمة المرور" aria-pressed="false" title="إظهار كلمة المرور"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div></div>
         <button class="btn primary block lg" type="submit">دخول</button>
       </form>
       <p class="gate-help">${SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>')}<span><b>نسيت كلمة المرور؟</b> تواصل مع مدير النظام في الكلية لإعادة تعيينها.</span></p>
@@ -1523,6 +1523,8 @@
       const c = box.querySelector("[data-assign-count]"); if (c) c.textContent = box.querySelectorAll('input[name="assign"]:checked').length + " محدد"; });
   }
   document.addEventListener("input", (ev) => { const f = ev.target.closest("[data-assign-filter]"); if (!f) return; const q = f.value.trim(); f.closest(".assign-box").querySelectorAll(".check-list .check").forEach((l) => (l.hidden = !!q && !l.dataset.text.includes(q))); });
+  // إظهار/إخفاء كلمة المرور
+  document.addEventListener("click", (ev) => { const b = ev.target.closest("[data-pw-toggle]"); if (!b) return; const inp = b.parentElement.querySelector("input"); const show = inp.type === "password"; inp.type = show ? "text" : "password"; b.setAttribute("aria-pressed", String(show)); const t = show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"; b.setAttribute("aria-label", t); b.title = t; inp.focus(); });
   document.addEventListener("click", (ev) => { const b = ev.target.closest("[data-assign-all]"); if (!b) return; const on = b.dataset.assignAll === "1"; b.closest(".assign-box").querySelectorAll(".check-list .check").forEach((l) => { if (!l.hidden) l.querySelector("input").checked = on; }); assignSync(b.form); });
   const NAVKEY = "nav_groups";
   const navState = () => { try { return JSON.parse(localStorage.getItem(NAVKEY) || "{}"); } catch (e) { return {}; } };
