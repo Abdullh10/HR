@@ -113,7 +113,12 @@
   // ============================================================ الجلسة
   const me = () => { const id = Number(sessionStorage.getItem("hr_uid") || 0); const u = DB && DB.users.find((x) => x.id === id && x.active); return u || null; };
   const empOf = (u) => (u && u.emp ? byId("emps", u.emp) : null);
-  const displayName = (u) => { if (!u) return "إشعار النظام"; const e = empOf(u); return e ? e.name : u.username; };
+  const displayName = (u) => { if (!u) return "إشعار النظام"; const e = empOf(u); return e ? e.name : (u.name || u.username); };
+  // التحقق من بيانات التواصل (مطابق للخادم)
+  const DIG = (s) => String(s || "").replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c));
+  function cleanEmail(v) { v = String(v || "").trim(); if (v && (v.length > 160 || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v))) throw new RuleError("البريد الإلكتروني غير صحيح."); return v.toLowerCase(); }
+  function cleanPhone(v) { v = DIG(v).replace(/[\s\-()]/g, ""); if (!v) return ""; v = v.replace(/^(\+|00)/, ""); if (v.startsWith("966")) v = v.slice(3); if (v.startsWith("5") && v.length === 9) v = "0" + v; if (!/^05\d{8}$/.test(v)) throw new RuleError("رقم الجوال غير صحيح. اكتبه بصيغة 05XXXXXXXX."); return v; }
+  function cleanExt(v) { v = DIG(v).replace(/\s/g, ""); if (v && !/^\d{2,6}$/.test(v)) throw new RuleError("رقم التحويلة يجب أن يكون من 2 إلى 6 أرقام."); return v; }
   const activeYear = () => DB.years.find((y) => y.active) || DB.years[0];
   const yearFor = (d) => DB.years.find((y) => y.start <= d && d <= y.end) || null;
   const deptName = (e) => { const d = e && e.dept ? byId("depts", e.dept) : null; return d ? d.name : ""; };
@@ -309,11 +314,12 @@
       ${group("records", "السجلات", "open", inRecords, item("#/recs", "التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات الموظفين", "calendar", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
       ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield") + item("#/admin/cards", "بطاقات الدخول", "idcard")
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}
-      <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}`;
+      <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}
+      <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "idcard")}`;
     const nav = u.role === "admin" ? adminNav : [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}
         <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}` : "",
-      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}` : "",
+      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
       u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}` : "",
     ].join("");
@@ -339,6 +345,7 @@
         <div class="acct-menu">
           <div class="who-full"><b>${h(displayName(u))}</b><small>${ROLES[u.role]}</small></div>
           <button class="btn" type="button" data-theme-toggle>${ico("moon")}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="#/profile">${ico("idcard")}الملف الشخصي</a>
           <a class="btn" href="#/password">${ico("shield")}كلمة المرور</a>
           ${bannerHidden() ? `<button class="btn" type="button" data-act="showBanner">${ico("palette")}إظهار شريط نسخة العرض</button>` : ""}
           <button class="btn" type="button" data-act="reset">${ico("adjust")}استعادة بيانات العرض</button>
@@ -442,6 +449,25 @@
       <div class="field"><label for="cf">تأكيد كلمة المرور</label><input id="cf" type="password" name="confirm" required></div>
       <button class="btn primary">حفظ</button></form></div>`);
 
+  V.profile = (u) => {
+    const e = empOf(u), adm = u.role === "admin", ro = (v) => `value="${h(v || "—")}" readonly`, cur = e ? e.dept : u.dept;
+    return layout(u, "الملف الشخصي", `<div class="page-head"><div><h1>${ico("idcard", "h-ico")} الملف الشخصي</h1>
+      <p>${adm ? "حدّث بياناتك ووحدتك وبيانات التواصل." : "حدّث بيانات التواصل الخاصة بك. لتعديل الاسم أو القسم أو المسمى الوظيفي تواصل مع مدير النظام."}</p></div></div>
+      <div class="grid two profile-grid"><form class="card" data-form="profile"><h2>البيانات الشخصية</h2><div class="form-grid">
+        <div class="field"><label for="pn">الاسم</label>${adm ? `<input id="pn" name="name" value="${h(e ? e.name : u.name || "")}" placeholder="الاسم الذي يظهر في النظام والخطابات">` : `<input id="pn" ${ro(displayName(u))}>`}</div>
+        ${e ? `<div class="field"><label for="pno">الرقم الوظيفي</label><input id="pno" ${ro(e.no)}></div>` : ""}
+        <div class="field"><label for="pd">الوحدة / القسم</label>${adm ? `<select id="pd" name="dept"><option value="">—</option>${DB.depts.slice().sort((a, b) => a.name.localeCompare(b.name, "ar")).map((d) => `<option value="${d.id}" ${cur === d.id ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select>` : `<input id="pd" ${ro(deptName(e))}>`}</div>
+        ${e ? `<div class="field"><label for="pt">المسمى الوظيفي</label>${adm ? `<input id="pt" name="title" value="${h(e.title || "")}">` : `<input id="pt" ${ro(e.title)}>`}</div>` : ""}
+        ${e && !adm ? `<div class="field"><label for="pm">مسؤول شؤون الموظفين</label><input id="pm" ${ro(mgrName(e))}></div>` : ""}</div>
+        <h2 class="mt">بيانات التواصل</h2><div class="form-grid">
+        <div class="field"><label for="pe">البريد الإلكتروني <span class="hint">(تصلك عليه الإشعارات)</span></label><input id="pe" name="email" type="email" dir="ltr" value="${h((e ? e.email : u.email) || "")}" placeholder="name@example.com"></div>
+        <div class="field"><label for="pp">رقم الجوال</label><input id="pp" name="phone" type="tel" dir="ltr" inputmode="tel" value="${h((e ? e.phone : u.phone) || "")}" placeholder="05XXXXXXXX"></div>
+        ${e ? `<div class="field"><label for="px">التحويلة <span class="hint">(اختياري)</span></label><input id="px" name="ext" dir="ltr" inputmode="numeric" value="${h(e.ext || "")}" placeholder="1234"></div>` : ""}</div>
+        <div class="actions"><button class="btn primary">حفظ البيانات</button></div></form>
+      <div><section class="card"><h2>الحساب</h2><dl class="kv"><div><dt>اسم المستخدم</dt><dd class="num">${h(u.username)}</dd></div><div><dt>الدور</dt><dd>${ROLES[u.role]}</dd></div><div><dt>آخر دخول</dt><dd class="num">${h(u.last || "—")}</dd></div></dl></section>
+        <section class="card"><h2>كلمة المرور</h2><p class="hint">غيّر كلمة المرور دورياً، ولا تشاركها مع أحد.</p><a class="btn" href="#/password">${ico("shield")} تغيير كلمة المرور</a></section></div></div>`);
+  };
+
   V.dashboard = (u, q) => {
     if (u.role === "employee") { go("#/me"); return ""; }
     const y = pickYear(q), emps = managedEmps(u), ids = new Set(emps.map((e) => e.id));
@@ -522,7 +548,7 @@
     const y = pickYear(q), b = balance(e.id, y), mg = canManage(u, e);
     const recs = DB.recs.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.date.localeCompare(a.date));
     const reqs = DB.leaves.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.created.localeCompare(a.created));
-    return layout(u, "كشف موظف", `<div class="page-head"><div><h1>${h(e.name)}</h1><p>${h(e.no)}${deptName(e) ? " · " + h(deptName(e)) : ""}${e.title ? " · " + h(e.title) : ""} · مسؤول شؤون الموظفين: ${h(mgrName(e) || "— غير مُسند —")}</p></div>
+    return layout(u, "كشف موظف", `<div class="page-head"><div><h1>${h(e.name)}</h1><p>${h(e.no)}${deptName(e) ? " · " + h(deptName(e)) : ""}${e.title ? " · " + h(e.title) : ""} · مسؤول شؤون الموظفين: ${h(mgrName(e) || "— غير مُسند —")}${e.email || e.phone || e.ext ? `<br><span class="contact-line">${[e.phone ? `الجوال: <a href="tel:${h(e.phone)}" dir="ltr">${h(e.phone)}</a>` : "", e.ext ? `التحويلة: <span dir="ltr">${h(e.ext)}</span>` : "", e.email ? `البريد: <a href="mailto:${h(e.email)}" dir="ltr">${h(e.email)}</a>` : ""].filter(Boolean).join(" · ")}</span>` : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a>${u.role === "admin" ? `<a class="btn" href="#/employee/${e.id}/edit">تعديل البيانات</a>` : ""}</div></div>
       ${e.active ? "" : '<div class="alert warn">الموظف غير نشط.</div>'}
       ${board(b)}
@@ -641,7 +667,9 @@
         <div class="field"><label for="dp">القسم</label><select id="dp" name="dept"><option value="">—</option>${DB.depts.filter((d) => d.active).map((d) => `<option value="${d.id}" ${e && e.dept === d.id ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select></div>
         <div class="field"><label for="mg">مسؤول شؤون الموظفين <span class="hint">(يرفع توصياته ويعتمد طلباته)</span></label><select id="mg" name="mgr"><option value="">— غير مُسند —</option>${offs.map((o) => `<option value="${o.id}" ${e && e.mgr === o.id ? "selected" : ""}>${h(o.name)} (${h(o.no)})</option>`).join("")}</select></div>
         <div class="field"><label for="tt">المسمى الوظيفي</label><input id="tt" name="title" value="${e ? h(e.title) : ""}"></div>
-        <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" type="email" name="email" value="${e ? h(e.email) : ""}"></div></div>
+        <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" type="email" name="email" dir="ltr" value="${e ? h(e.email) : ""}"></div>
+        <div class="field"><label for="ph">رقم الجوال</label><input id="ph" type="tel" name="phone" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" value="${e ? h(e.phone || "") : ""}"></div>
+        <div class="field"><label for="ex">التحويلة</label><input id="ex" name="ext" dir="ltr" inputmode="numeric" value="${e ? h(e.ext || "") : ""}"></div></div>
         ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : ""}
         <div class="actions"><button class="btn primary">حفظ</button><a class="btn" href="${e ? "#/employee/" + e.id : "#/employees"}">إلغاء</a></div></form>`);
   }
@@ -1102,6 +1130,17 @@
     if (nw.length < 8 || /^\d+$/.test(nw) || /^[^\d]+$/.test(nw)) throw new RuleError("كلمة المرور يجب ألا تقل عن 8 أحرف وتحتوي على أحرف وأرقام.");
     u.pw = await sha(nw); u.mustChange = false; (DB.cards || []).forEach((c) => { if (c.user === u.id && c.pw) { c.pw = null; c.activatedAt = nowStr(); } }); audit("password_changed", "user", u.id); save(); flash("تم تغيير كلمة المرور بنجاح."); go("#/");
   };
+  F.profile = (form, u) => {
+    const d = fd(form), e = empOf(u), adm = u.role === "admin", ch = [];
+    const email = cleanEmail(d.get("email")), phone = cleanPhone(d.get("phone")), ext = e ? cleanExt(d.get("ext")) : "";
+    const name = String(d.get("name") || "").replace(/\s+/g, " ").trim(), dept = Number(d.get("dept") || 0) || null;
+    const T = e || u, set = (k, v) => { if ((T[k] || "") !== (v || "")) { T[k] = v; ch.push(k); } };
+    if (adm && e && name && name !== e.name && DB.emps.some((x) => norm(x.name) === norm(name) && x.id !== e.id)) throw new RuleError("يوجد موظف مسجل بنفس الاسم.");
+    set("email", email); set("phone", phone); if (e) set("ext", ext);
+    if (adm) { if (e) { if (name) set("name", name); set("title", String(d.get("title") || "").replace(/\s+/g, " ").trim()); } else set("name", name); if ((T.dept || null) !== dept) { T.dept = dept; ch.push("dept"); } }
+    if (!ch.length) { flash("لم يتغيّر شيء.", "info"); render(); return; }
+    audit("profile_updated", "user", u.id, { fields: ch }); save(); flash("تم حفظ بياناتك الشخصية."); render();
+  };
   F.quicksearch = (form) => go("#/employees?q=" + encodeURIComponent(fd(form).get("q") || ""));
   let keepFocus = null, liveMsg = false, ftimer = null;
   F.filter = (form) => { liveMsg = true; const p = new URLSearchParams(); for (const [k, v] of fd(form)) if (v) p.append(k, v); go("#/" + form.dataset.route + (p.toString() ? "?" + p : "")); };
@@ -1112,10 +1151,11 @@
     const dup = DB.emps.find((e) => e.no === no && e.id !== id); if (dup) throw new RuleError("الرقم الوظيفي مستخدم لموظف آخر: " + dup.name + ".");
     if (DB.emps.find((e) => norm(e.name) === norm(name) && e.id !== id)) throw new RuleError("يوجد موظف مسجل بنفس الاسم. أضف ما يميّزه.");
     const mgr = Number(d.get("mgr") || 0) || null; if (id && mgr === id) throw new RuleError("لا يمكن إسناد الموظف إلى نفسه.");
+    const email = cleanEmail(d.get("email")), phone = cleanPhone(d.get("phone")), ext = cleanExt(d.get("ext"));
     let e = id ? byId("emps", id) : null;
     const wasActive = e ? e.active : true, oldMgr = e ? e.mgr : null;
     if (!e) { e = { id: nid(), active: true }; DB.emps.push(e); } else e.active = !!d.get("active");
-    Object.assign(e, { no, name, dept: Number(d.get("dept") || 0) || null, mgr, title: String(d.get("title") || ""), email: String(d.get("email") || "") });
+    Object.assign(e, { no, name, dept: Number(d.get("dept") || 0) || null, mgr, title: String(d.get("title") || ""), email, phone, ext });
     if (mgr && mgr !== oldMgr) notifyReassign(e, mgr, u);
     if (id && wasActive !== e.active) {
       const acct = DB.users.find((x) => x.emp === e.id); const pend = DB.leaves.filter((x) => x.emp === e.id && x.status === "pending").length;

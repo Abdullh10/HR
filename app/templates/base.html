@@ -58,6 +58,8 @@
         <li class="sep">التقارير والأرشيف</li>
         {{ item('/reports', 'التقارير', 'reports') }}
         {{ item('/archive', 'الأرشيف', 'archive') }}
+        <li class="sep">حسابي</li>
+        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
       {% else %}
       {% if user.role == 'officer' %}
         <li class="sep">المتابعة</li>
@@ -77,6 +79,7 @@
         {% if year and year.employee_can_request %}
           {{ item('/requests/new', 'طلب معالجة غياب', 'calendar-plus', prefix='/requests/new') }}
         {% endif %}
+        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
       {% endif %}
       <li class="sep">التواصل</li>
       {{ item('/messages', 'المراسلات', 'mail', unread) }}
@@ -102,6 +105,7 @@
         <div class="acct-menu">
           <div class="who-full"><b>{{ user.display_name }}</b><small>{{ user.role_label }}</small></div>
           <button class="btn" type="button" data-theme-toggle>{{ ico('moon') }}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="/profile">{{ ico('idcard') }}الملف الشخصي</a>
           <a class="btn" href="/change-password">{{ ico('shield') }}كلمة المرور</a>
           <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn logout" type="submit">{{ ico('logout') }}خروج</button></form>
         </div>

@@ -115,6 +115,8 @@ class Employee(Base):
     manager_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id"))
     job_title: Mapped[str] = mapped_column(String(160), default="")
     email: Mapped[str] = mapped_column(String(160), default="")
+    phone: Mapped[str] = mapped_column(String(32), default="")  # الجوال
+    extension: Mapped[str] = mapped_column(String(16), default="")  # التحويلة
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str] = mapped_column(Text, default="")
 
@@ -152,8 +154,14 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    # بيانات شخصية للحسابات غير المرتبطة بسجل موظف (مثل حساب الأدمن)
+    full_name: Mapped[str] = mapped_column(String(160), default="")
+    email: Mapped[str] = mapped_column(String(160), default="")
+    phone: Mapped[str] = mapped_column(String(32), default="")
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
 
     employee: Mapped[Employee | None] = relationship()
+    department: Mapped[Department | None] = relationship()
 
     @property
     def role_label(self) -> str:
@@ -161,7 +169,11 @@ class User(Base):
 
     @property
     def display_name(self) -> str:
-        return self.employee.full_name if self.employee else self.username
+        return self.employee.full_name if self.employee else (self.full_name or self.username)
+
+    @property
+    def contact_email(self) -> str:
+        return (self.employee.email if self.employee else "") or self.email or ""
 
 
 class Attachment(Base):

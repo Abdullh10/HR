@@ -40,6 +40,39 @@ class RuleError(ValueError):
     """مخالفة قاعدة عمل — الرسالة تُعرض للمستخدم."""
 
 
+_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")
+
+
+def clean_email(v: str) -> str:
+    v = (v or "").strip()
+    if v and (len(v) > 160 or not _EMAIL_RE.match(v)):
+        raise RuleError("البريد الإلكتروني غير صحيح.")
+    return v.lower()
+
+
+def clean_phone(v: str) -> str:
+    """رقم جوال سعودي: يُقبل 05XXXXXXXX أو 5XXXXXXXX أو 9665XXXXXXXX (مع + أو 00)، ويُحفظ بصيغة 05XXXXXXXX."""
+    v = re.sub(r"[\s\-()]", "", (v or "").translate(_DIGITS))
+    if not v:
+        return ""
+    v = re.sub(r"^(\+|00)", "", v)
+    if v.startswith("966"):
+        v = v[3:]
+    if v.startswith("5") and len(v) == 9:
+        v = "0" + v
+    if not re.fullmatch(r"05\d{8}", v):
+        raise RuleError("رقم الجوال غير صحيح. اكتبه بصيغة 05XXXXXXXX.")
+    return v
+
+
+def clean_extension(v: str) -> str:
+    v = re.sub(r"\s", "", (v or "").translate(_DIGITS))
+    if v and not re.fullmatch(r"\d{2,6}", v):
+        raise RuleError("رقم التحويلة يجب أن يكون من 2 إلى 6 أرقام.")
+    return v
+
+
 # ---------------------------------------------------------------- صياغة عربية
 def days_ar(n: int | float) -> str:
     n = int(n)
@@ -378,7 +411,7 @@ def notify(db: Session, to: User | None, subject: str, body: str = "", link: str
     from . import mailer
     m = Message(sender_id=sender.id if sender else None, recipient_id=to.id, subject=subject[:200],
                 body=body, link=link, created_at=datetime.now())
-    email = to.employee.email if to.employee else ""
+    email = to.contact_email
     if email:
         org = "إتمام"
         m.emailed = mailer.send(email, f"[{org}] {subject}", f"{body}\n\n— نظام {org}")

@@ -268,6 +268,7 @@ def employee_edit(request: Request, emp_id: int, user: User = Depends(require("a
 def employee_save(request: Request, emp_id: int | None = Form(None), employee_no: str = Form(...),
                   full_name: str = Form(...), department_id: int | None = Form(None),
                   manager_id: int | None = Form(None), job_title: str = Form(""), email: str = Form(""),
+                  phone: str = Form(""), extension: str = Form(""),
                   notes: str = Form(""), is_active: str = Form(""),
                   user: User = Depends(require("admin")), db: Session = Depends(get_db)):
     employee_no, full_name = employee_no.strip(), " ".join(full_name.split())
@@ -284,6 +285,12 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
             err = "يوجد موظف مسجل بنفس الاسم. أضف ما يميّزه (مثل الاسم الرباعي)."
         if not err and emp_id and manager_id == emp_id:
             err = "لا يمكن إسناد الموظف إلى نفسه."
+        if not err:
+            from .services import clean_email, clean_extension, clean_phone
+            try:
+                email, phone, extension = clean_email(email), clean_phone(phone), clean_extension(extension)
+            except RuleError as e:
+                err = str(e)
     if err:
         flash(request, err, "error")
         return back(request, "/employees")
@@ -291,7 +298,8 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
     was_active, old_officer = (emp.is_active, emp.manager_id) if emp_id else (True, None)
     emp.employee_no, emp.full_name = employee_no, full_name
     emp.department_id, emp.manager_id = department_id or None, manager_id or None
-    emp.job_title, emp.email, emp.notes = job_title.strip(), email.strip(), notes.strip()
+    emp.job_title, emp.email, emp.notes = job_title.strip(), email, notes.strip()
+    emp.phone, emp.extension = phone, extension
     if emp_id:
         emp.is_active = bool(is_active)
     else:

@@ -11,7 +11,9 @@
     <div class="field"><label for="dp">القسم</label><select id="dp" name="department_id"><option value="">—</option>{% for d in depts %}<option value="{{ d.id }}" {% if emp and emp.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
     <div class="field"><label for="mg">مسؤول شؤون الموظفين <span class="hint">(يرفع توصياته ويعتمد طلباته)</span></label><select id="mg" name="manager_id"><option value="">— غير مُسند —</option>{% for m in officers if not emp or m.id != emp.id %}<option value="{{ m.id }}" {% if emp and emp.manager_id == m.id %}selected{% endif %}>{{ m.full_name }} ({{ m.employee_no }})</option>{% endfor %}</select>{% if not officers %}<span class="hint">لا يوجد مسؤولو شؤون موظفين بعد: أنشئ حساباً بدور «شؤون الموظفين» من المستخدمين.</span>{% endif %}</div>
     <div class="field"><label for="jt">المسمى الوظيفي</label><input id="jt" name="job_title" type="text" value="{{ emp.job_title if emp else '' }}"></div>
-    <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" name="email" type="email" value="{{ emp.email if emp else '' }}"></div>
+    <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" name="email" type="email" dir="ltr" value="{{ emp.email if emp else '' }}"></div>
+    <div class="field"><label for="ph">رقم الجوال</label><input id="ph" name="phone" type="tel" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" value="{{ emp.phone if emp else '' }}"></div>
+    <div class="field"><label for="ex">التحويلة</label><input id="ex" name="extension" type="text" dir="ltr" inputmode="numeric" value="{{ emp.extension if emp else '' }}"></div>
   </div>
   <div class="field"><label for="nt">ملاحظات</label><textarea id="nt" name="notes">{{ emp.notes if emp else '' }}</textarea></div>
   {% if emp %}<label class="check"><input type="checkbox" name="is_active" value="1" {% if emp.is_active %}checked{% endif %}> على رأس العمل (نشط)</label>{% endif %}

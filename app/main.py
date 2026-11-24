@@ -94,6 +94,12 @@ _NEW_COLUMNS = [
     ("leave_requests", "cancelled_at", "TIMESTAMP"),
     ("leave_requests", "cancel_note", "TEXT DEFAULT ''"),
     ("leave_requests", "ref_code", "VARCHAR(32) DEFAULT ''"),
+    ("employees", "phone", "VARCHAR(32) DEFAULT ''"),
+    ("employees", "extension", "VARCHAR(16) DEFAULT ''"),
+    ("users", "full_name", "VARCHAR(160) DEFAULT ''"),
+    ("users", "email", "VARCHAR(160) DEFAULT ''"),
+    ("users", "phone", "VARCHAR(32) DEFAULT ''"),
+    ("users", "department_id", "INTEGER"),
 ]
 
 

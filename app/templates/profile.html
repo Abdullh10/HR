@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico %}
+{% block title %}الملف الشخصي{% endblock %}
+{% block heading %}الملف الشخصي{% endblock %}
+{% set is_admin = user.role == 'admin' %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('idcard', 'h-ico') }} الملف الشخصي</h1>
+  <p>{{ 'حدّث بياناتك ووحدتك وبيانات التواصل.' if is_admin else 'حدّث بيانات التواصل الخاصة بك. لتعديل الاسم أو القسم أو المسمى الوظيفي تواصل مع مدير النظام.' }}</p></div></div>
+
+<div class="grid two profile-grid">
+<form method="post" action="/profile" class="card" data-keep>
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <h2>البيانات الشخصية</h2>
+  <div class="form-grid">
+    <div class="field"><label for="pn">الاسم</label>
+      {% if is_admin %}<input id="pn" name="full_name" type="text" value="{{ emp.full_name if emp else user.full_name }}" placeholder="الاسم الذي يظهر في النظام والخطابات">
+      {% else %}<input id="pn" type="text" value="{{ emp.full_name if emp else user.display_name }}" readonly>{% endif %}</div>
+    {% if emp %}<div class="field"><label for="pno">الرقم الوظيفي</label><input id="pno" type="text" value="{{ emp.employee_no }}" readonly></div>{% endif %}
+    <div class="field"><label for="pd">الوحدة / القسم</label>
+      {% if is_admin %}<select id="pd" name="department_id"><option value="">—</option>{% set cur = emp.department_id if emp else user.department_id %}{% for d in depts %}<option value="{{ d.id }}" {% if cur == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+      {% else %}<input id="pd" type="text" value="{{ emp.department.name if emp and emp.department else '—' }}" readonly>{% endif %}</div>
+    {% if emp %}<div class="field"><label for="pt">المسمى الوظيفي</label>
+      {% if is_admin %}<input id="pt" name="job_title" type="text" value="{{ emp.job_title }}">
+      {% else %}<input id="pt" type="text" value="{{ emp.job_title or '—' }}" readonly>{% endif %}</div>{% endif %}
+    {% if emp and not is_admin %}<div class="field"><label for="pm">مسؤول شؤون الموظفين</label><input id="pm" type="text" value="{{ emp.manager.full_name if emp.manager else '—' }}" readonly></div>{% endif %}
+  </div>
+  <h2 class="mt">بيانات التواصل</h2>
+  <div class="form-grid">
+    <div class="field"><label for="pe">البريد الإلكتروني <span class="hint">(تصلك عليه الإشعارات)</span></label><input id="pe" name="email" type="email" dir="ltr" value="{{ emp.email if emp else user.email }}" placeholder="name@example.com" autocomplete="email"></div>
+    <div class="field"><label for="pp">رقم الجوال</label><input id="pp" name="phone" type="tel" dir="ltr" inputmode="tel" value="{{ emp.phone if emp else user.phone }}" placeholder="05XXXXXXXX" autocomplete="tel"></div>
+    {% if emp %}<div class="field"><label for="px">التحويلة <span class="hint">(اختياري)</span></label><input id="px" name="extension" type="text" dir="ltr" inputmode="numeric" value="{{ emp.extension }}" placeholder="1234"></div>{% endif %}
+  </div>
+  <div class="actions"><button class="btn primary" type="submit">حفظ البيانات</button></div>
+</form>
+
+<div>
+  <section class="card">
+    <h2>الحساب</h2>
+    <dl class="kv">
+      <div><dt>اسم المستخدم</dt><dd class="num">{{ user.username }}</dd></div>
+      <div><dt>الدور</dt><dd>{{ user.role_label }}</dd></div>
+      <div><dt>آخر دخول</dt><dd class="num">{{ user.last_login|d if user.last_login else '—' }}</dd></div>
+    </dl>
+  </section>
+  <section class="card">
+    <h2>كلمة المرور</h2>
+    <p class="hint">غيّر كلمة المرور دورياً، ولا تشاركها مع أحد.</p>
+    <a class="btn" href="/change-password">{{ ico('shield') }} تغيير كلمة المرور</a>
+  </section>
+</div>
+</div>
+{% endblock %}

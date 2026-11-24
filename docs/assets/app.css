@@ -341,6 +341,18 @@ details.disclose summary { cursor: pointer; color: var(--brand-2); font-weight: 
 .nowrap { white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* ---------- الملف الشخصي */
+.profile-grid { align-items: start; }
+.profile-grid > div { display: grid; gap: 1rem; align-content: start; }
+.kv { display: grid; margin: 0; }
+.kv > div { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed var(--border); }
+.kv > div:last-child { border-bottom: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 600; }
+input[readonly] { background: var(--surface-2); color: var(--muted); cursor: default; }
+.contact-line { font-size: .9rem; }
+.contact-line a { color: inherit; }
+
 /* ---------- الطباعة */
 .print-only { display: none; }
 @media print {
