@@ -3,6 +3,7 @@
 # الاستعادة:  gunzip -c db-XXXX.sql.gz | sudo -u postgres psql hr
 #             sudo tar -xzf files-XXXX.tar.gz -C /
 set -euo pipefail
+cd /
 BACKUP_DIR=/var/backups/hr
 KEEP="${KEEP:-14}"
 TS="$(date +%Y%m%d-%H%M%S)"

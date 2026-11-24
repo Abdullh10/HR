@@ -4,6 +4,7 @@ set -euo pipefail
 APP_DIR=/opt/hr
 BRANCH="${BRANCH:-main}"
 [ "$(id -u)" -eq 0 ] || { echo "استخدم sudo"; exit 1; }
+cd /
 /usr/local/bin/hr-backup
 git -C "$APP_DIR" fetch -q origin "$BRANCH"
 git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
