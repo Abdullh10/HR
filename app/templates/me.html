@@ -4,6 +4,10 @@
 {% block heading %}رصيدي{% endblock %}
 {% block content %}
 {{ welcome_banner(user) }}
+<div class="push-prompt" data-push-prompt hidden role="region" aria-label="تفعيل الإشعارات">
+  {{ ico('mail') }}<div><b>فعّل إشعارات الجهاز</b><span>لتصلك تنبيهات الطلبات والتوصيات والرسائل على جهازك كالتطبيق.</span></div>
+  <button class="btn primary sm" type="button" data-push-enable>تفعيل</button><button class="btn ghost sm" type="button" data-push-later aria-label="لاحقاً">لاحقاً</button>
+</div>
 <div class="page-head">
   <div><h1>{{ ico('pie', 'h-ico') }} رصيدي</h1><p>رصيد بدل الراحة للسنة {{ sel_year.name }}{% if emp.manager %} · مسؤول شؤون الموظفين: {{ emp.manager.full_name }}{% endif %}</p></div>
   <div class="actions no-print">{{ year_select(years, sel_year) }}<a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a></div>

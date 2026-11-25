@@ -444,3 +444,127 @@
   window.fillHijri = fillHijri;
   document.addEventListener("DOMContentLoaded", function () { fillHijri(); });
 })();
+
+/* تطبيق الويب وإشعارات الأجهزة: تسجيل عامل الخدمة، وشارة عدد الرسائل على الأيقونة، والاشتراك في الإشعارات */
+(function () {
+  var hasSW = "serviceWorker" in navigator;
+  var canPush = hasSW && "PushManager" in window && "Notification" in window;
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  function meta(n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content : ""; }
+  function post(url, data) {
+    var fd = new FormData(); fd.append("csrf_token", meta("csrf-token"));
+    Object.keys(data || {}).forEach(function (k) { fd.append(k, data[k]); });
+    return fetch(url, { method: "POST", body: fd, credentials: "same-origin", keepalive: true });
+  }
+  function keyBytes(b64) {
+    var s = (b64 + "===".slice((b64.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(s), out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function deviceLabel() {
+    var ua = navigator.userAgent;
+    var os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "جهاز";
+    var br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+    return (os + " " + br + (standalone ? " (تطبيق)" : "")).trim();
+  }
+  var regP = hasSW ? navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function () { return null; }) : Promise.resolve(null);
+
+  // شارة الرسائل غير المقروءة على أيقونة التطبيق
+  var unread = parseInt(meta("hr-unread"), 10);
+  if (!isNaN(unread) && "setAppBadge" in navigator) { (unread > 0 ? navigator.setAppBadge(unread) : navigator.clearAppBadge()).catch(function () {}); }
+
+  function currentSub() {
+    return regP.then(function (reg) { return reg && reg.pushManager ? reg.pushManager.getSubscription() : null; }).catch(function () { return null; });
+  }
+  function enable() {
+    if (!canPush) return Promise.reject(new Error("unsupported"));
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== "granted") throw new Error(perm === "denied" ? "denied" : "dismissed");
+      return Promise.all([navigator.serviceWorker.ready, fetch("/push/key", { credentials: "same-origin" }).then(function (r) { return r.json(); })]);
+    }).then(function (res) {
+      var reg = res[0], key = res[1].key;
+      return reg.pushManager.getSubscription().then(function (old) {
+        return old || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) })
+          .catch(function () { throw new Error("pushsvc"); });
+      });
+    }).then(function (sub) {
+      return post("/push/subscribe", { subscription: JSON.stringify(sub), device: deviceLabel() }).then(function (r) { if (!r.ok) throw new Error("server"); return sub; });
+    });
+  }
+  function disable() {
+    return currentSub().then(function (sub) {
+      if (!sub) return;
+      var ep = sub.endpoint;
+      return sub.unsubscribe().catch(function () {}).then(function () { return post("/push/unsubscribe", { endpoint: ep }); });
+    });
+  }
+  var MSG = {
+    denied: "الإشعارات محظورة لهذا الموقع في إعدادات المتصفح. اسمح بها من إعدادات الموقع (رمز القفل بجانب العنوان) ثم أعد المحاولة.",
+    dismissed: "لم تُمنح الموافقة على الإشعارات. اضغط «تفعيل» مرة أخرى واختر «السماح».",
+    unsupported: "هذا المتصفح لا يدعم إشعارات الأجهزة. جرّب Chrome أو Edge أو Safari بإصدار حديث.",
+    server: "تعذّر حفظ الاشتراك على الخادم. أعد تحميل الصفحة وحاول مرة أخرى.",
+    pushsvc: "تعذّر الاتصال بخدمة الإشعارات في المتصفح. تأكد من اتصالك بالإنترنت، وأنك لا تستخدم التصفح الخاص (Incognito)، ثم أعد المحاولة.",
+  };
+
+  // لوحة «إشعارات الجهاز» في الملف الشخصي
+  function panel(root) {
+    var st = root.querySelector("[data-push-status]"), en = root.querySelector("[data-push-enable]"),
+      te = root.querySelector("[data-push-test]"), di = root.querySelector("[data-push-disable]"), ios = root.querySelector("[data-push-ios]");
+    function show(text, on) { st.textContent = text; en.hidden = on !== false; te.hidden = di.hidden = on !== true; }
+    function refresh() {
+      if (!canPush) {
+        if (isIOS && !standalone) { st.textContent = "لتفعيل الإشعارات على هذا الجهاز أضف النظام إلى الشاشة الرئيسية أولاً."; ios.hidden = false; }
+        else st.textContent = MSG.unsupported;
+        en.hidden = te.hidden = di.hidden = true; return;
+      }
+      if (Notification.permission === "denied") { show(MSG.denied, null); return; }
+      currentSub().then(function (sub) {
+        if (sub && Notification.permission === "granted") show("الإشعارات مفعّلة على هذا الجهاز ✓", true);
+        else show("الإشعارات غير مفعّلة على هذا الجهاز.", false);
+      });
+    }
+    en.addEventListener("click", function () {
+      en.disabled = true; st.textContent = "جارٍ التفعيل…";
+      enable().then(function () { refresh(); }).catch(function (e) { st.textContent = MSG[e.message] || MSG.server; }).then(function () { en.disabled = false; });
+    });
+    di.addEventListener("click", function () { disable().then(refresh); });
+    te.addEventListener("click", function () {
+      te.disabled = true;
+      post("/push/test").then(function (r) { return r.json(); }).then(function (d) {
+        st.textContent = d.ok ? "أُرسل إشعار تجريبي؛ سيظهر خلال ثوانٍ." : "لا يوجد جهاز مشترك؛ فعّل الإشعارات أولاً.";
+      }).catch(function () { st.textContent = MSG.server; }).then(function () { te.disabled = false; });
+    });
+    refresh();
+  }
+
+  // شريط الدعوة للتفعيل في الصفحة الرئيسية (مرة واحدة، ويمكن تأجيله)
+  function prompt(root) {
+    var later = 0; try { later = +localStorage.getItem("push_later") || 0; } catch (e) {}
+    if (!canPush || Notification.permission !== "default" || Date.now() - later < 7 * 864e5) return;
+    if (isIOS && !standalone) return;
+    root.hidden = false;
+    root.querySelector("[data-push-enable]").addEventListener("click", function () {
+      enable().then(function () { root.innerHTML = "<span>تم تفعيل الإشعارات على هذا الجهاز ✓</span>"; setTimeout(function () { root.hidden = true; }, 2500); })
+        .catch(function (e) { root.querySelector("span").textContent = MSG[e.message] || MSG.server; });
+    });
+    root.querySelector("[data-push-later]").addEventListener("click", function () {
+      try { localStorage.setItem("push_later", String(Date.now())); } catch (e) {}
+      root.hidden = true;
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("[data-push-panel]").forEach(panel);
+    document.querySelectorAll("[data-push-prompt]").forEach(prompt);
+    // عند تسجيل الخروج: إيقاف إشعارات هذا الجهاز حتى لا تصل تنبيهات الحساب لمن يستخدم الجهاز بعده
+    document.querySelectorAll('form[action="/logout"]').forEach(function (f) {
+      f.addEventListener("submit", function (ev) {
+        if (f.dataset.pushDone) return;
+        ev.preventDefault(); f.dataset.pushDone = "1";
+        Promise.race([disable(), new Promise(function (r) { setTimeout(r, 1500); })]).then(function () { f.submit(); });
+      });
+    });
+  });
+})();

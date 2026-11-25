@@ -485,6 +485,8 @@ def notify(db: Session, to: User | None, subject: str, body: str = "", link: str
         org = {s.key: s.value for s in db.scalars(select(AppSetting))}
         m.emailed = mailer.send(email, subject, body, link, org)
     db.add(m)
+    from . import push  # إشعار الأجهزة المشتركة (كالتطبيق) — في الخلفية
+    push.notify_user(db, to.id, subject, body, link or "/messages")
 
 
 # ---------------------------------------------------------------- التحقق

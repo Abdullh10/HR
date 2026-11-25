@@ -10,6 +10,10 @@
 {%- endmacro %}
 {% block content %}
 {{ welcome_banner(user) }}
+<div class="push-prompt" data-push-prompt hidden role="region" aria-label="تفعيل الإشعارات">
+  {{ ico('mail') }}<div><b>فعّل إشعارات الجهاز</b><span>لتصلك تنبيهات الطلبات والتوصيات والرسائل على جهازك كالتطبيق.</span></div>
+  <button class="btn primary sm" type="button" data-push-enable>تفعيل</button><button class="btn ghost sm" type="button" data-push-later aria-label="لاحقاً">لاحقاً</button>
+</div>
 <div class="page-head">
   <div><h1>{{ ico('dashboard', 'h-ico') }} لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
   {{ year_select(years, sel_year) }}

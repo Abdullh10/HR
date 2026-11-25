@@ -1134,3 +1134,12 @@ details.danger-zone[open] > summary { margin-bottom: .8rem; }
 .faq-item[open] { background: var(--surface); }
 .faq-item > p { margin: 0; padding: 0 .9rem .85rem 2.4rem; padding-inline-start: 2.5rem; padding-inline-end: .9rem; color: var(--muted); line-height: 1.9; }
 .faq-item > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 10px; }
+
+/* ---------- إشعارات الجهاز */
+.push-status { margin: .3rem 0 .8rem; font-weight: 600; color: var(--text); }
+.push-ios { margin-top: .8rem; padding: .8rem 1rem; border-radius: 10px; background: var(--brand-soft); color: var(--brand-ink); font-size: .92rem; }
+.push-ios ol { margin: .4rem 0 0; padding-inline-start: 1.2rem; }
+.push-prompt { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin: 0 0 1.1rem; padding: .75rem 1rem; border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border)); border-radius: 12px; background: var(--brand-soft); }
+.push-prompt[hidden] { display: none; }
+.push-prompt > div { flex: 1; min-width: 200px; display: grid; gap: .1rem; }
+.push-prompt b { color: var(--brand-ink); } .push-prompt span { color: var(--muted); font-size: .9rem; }

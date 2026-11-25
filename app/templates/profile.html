@@ -47,6 +47,20 @@
     <p class="hint">يمكنك تغيير كلمة المرور الأولية الواردة في بطاقة الدخول متى شئت، ويُستحسن تغييرها دورياً وعدم مشاركتها مع أحد.</p>
     <a class="btn" href="/change-password">{{ ico('shield') }} تغيير كلمة المرور</a>
   </section>
+  <section class="card push-card" data-push-panel>
+    <h2>{{ ico('mail') }} إشعارات الجهاز</h2>
+    <p class="hint">فعّل الإشعارات لتصلك التنبيهات على هذا الجهاز كالتطبيق تماماً (اعتماد طلب، توصية جديدة، رسالة…) حتى مع إغلاق الموقع. يُفعَّل كل جهاز على حدة.</p>
+    <p class="push-status" data-push-status role="status">جارٍ التحقق من دعم الجهاز…</p>
+    <div class="actions">
+      <button class="btn primary" type="button" data-push-enable hidden>تفعيل الإشعارات على هذا الجهاز</button>
+      <button class="btn" type="button" data-push-test hidden>إرسال إشعار تجريبي</button>
+      <button class="btn danger" type="button" data-push-disable hidden>إيقاف الإشعارات على هذا الجهاز</button>
+    </div>
+    <div class="push-ios" data-push-ios hidden>
+      <b>على الآيفون والآيباد:</b> تعمل الإشعارات بعد إضافة النظام إلى الشاشة الرئيسية:
+      <ol><li>افتح الموقع في Safari.</li><li>اضغط زر المشاركة <span aria-hidden="true">⎋</span> أسفل الشاشة.</li><li>اختر «إضافة إلى الشاشة الرئيسية» ثم «إضافة».</li><li>افتح «إتمام» من أيقونته على الشاشة الرئيسية، ثم ارجع إلى هذه الصفحة وفعّل الإشعارات.</li></ol>
+    </div>
+  </section>
 </div>
 </div>
 {% endblock %}

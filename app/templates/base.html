@@ -10,6 +10,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap">
 <link rel="icon" href="/static/logo.svg?v={{ ASSET_V }}" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{ ASSET_V }}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="{{ org.system_title or 'إتمام' }}">
+{% if user %}<meta name="csrf-token" content="{{ csrf }}"><meta name="hr-unread" content="{{ unread or 0 }}">{% endif %}
 <link rel="stylesheet" href="/static/app.css?v={{ ASSET_V }}">
 <script src="/static/app.js?v={{ ASSET_V }}"></script>
 </head>
