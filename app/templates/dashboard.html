@@ -37,7 +37,7 @@
 <nav class="action-tiles" aria-label="إجراءات سريعة">
   <a class="tile days" href="/recommendations/new?kind=days">{{ ico('calendar-plus') }}<span><b>توصية بدل راحة بالأيام</b><small>رفع التوصية بأيام ممنوحة</small></span></a>
   <a class="tile hours" href="/recommendations/new?kind=hours">{{ ico('clock-plus') }}<span><b>توصية بدل راحة بالساعات</b><small>كل {{ sel_year.hours_per_day|n }} ساعات = يوم</small></span></a>
-  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ count_ar(pending_count, 'req') }} بانتظار قرارك</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
+  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>طلبات الموظفين</b><small>{{ count_ar(pending_count, 'req') }} بانتظار قرارك</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
   <a class="tile msg" href="/messages">{{ ico('mail') }}<span><b>المراسلات</b><small>{{ count_ar(unread, 'msg') }} غير مقروءة</small></span>{% if unread %}<span class="badge warn">{{ unread }}</span>{% endif %}</a>
 </nav>
 {% endif %}

@@ -253,8 +253,8 @@ def remind_year_end(request: Request, year_id: int | None = Form(None), user: Us
         sent += 1
     audit(db, user, "reminder_sent", "employee", None, ip=client_ip(request), count=sent, year=year.name)
     db.commit()
-    flash(request, (f"أُرسل التذكير إلى {count_ar(sent, 'emp')}." if sent else "لم يُرسل تذكير جديد.")
-          + (f" ({count_ar(skipped, 'emp')} ذُكّروا خلال الأيام السبعة الماضية.)" if skipped else ""))
+    flash(request, (f"أُرسل التذكير (عدد الموظفين: {count_ar(sent, 'emp')})." if sent else "لم يُرسل تذكير جديد.")
+          + (f" لم يُكرَّر لمن ذُكّروا خلال الأيام السبعة الماضية ({count_ar(skipped, 'emp')})." if skipped else ""))
     return redirect("/dashboard")
 
 
@@ -552,7 +552,7 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
     if len(emps) == 1:
         flash(request, f"تم رفع التوصية وإضافة {amount_txt} إلى رصيد {emps[0].full_name}.")
         return redirect(f"/employees/{emps[0].id}" if emps[0].id != user.employee_id else "/me")
-    flash(request, f"تم رفع التوصية بخطاب واحد لـ{count_ar(len(emps), 'emp')}، وأُضيف {amount_txt} إلى رصيد كل منهم.")
+    flash(request, f"تم رفع التوصية بخطاب واحد، وأُضيف {amount_txt} إلى رصيد كل موظف (عدد الموظفين: {count_ar(len(emps), 'emp')}).")
     return redirect("/recommendations")
 
 

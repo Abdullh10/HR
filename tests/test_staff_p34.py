@@ -90,9 +90,9 @@ def test_year_end_reminder_button(world):
     mgr = login("mgr")
     rec(mgr, world["e"], "days", 3)
     r = post(mgr, "/reminders/year-end", {"year_id": str(world["year"])})
-    assert "أُرسل التذكير إلى موظف واحد" in mgr.get(r.headers["location"]).text
+    assert "أُرسل التذكير (عدد الموظفين: موظف واحد)" in mgr.get(r.headers["location"]).text
     r = post(mgr, "/reminders/year-end", {"year_id": str(world["year"])})
-    assert "ذُكّروا خلال الأيام السبعة الماضية" in mgr.get(r.headers["location"]).text
+    assert "لم يُكرَّر لمن ذُكّروا خلال الأيام السبعة الماضية" in mgr.get(r.headers["location"]).text
 
 
 def test_delegation_banner_for_delegate(world):

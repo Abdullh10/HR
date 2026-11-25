@@ -595,7 +595,7 @@
     var n = box.querySelectorAll('input[name="emps"]:checked').length, c = box.querySelector("[data-pick-count]");
     if (c) c.textContent = n ? (n === 1 ? "موظف واحد محدد" : n === 2 ? "موظفان محددان" : n + " موظفين محددين") : "لم يُحدَّد أحد";
     var btn = box.form && box.form.querySelector("[data-pick-submit]");
-    if (btn) btn.textContent = n > 1 ? "رفع التوصية لـ" + n + " موظفين بخطاب واحد" : "رفع التوصية وإضافة الرصيد";
+    if (btn) btn.textContent = n > 1 ? "رفع التوصية بخطاب واحد (" + n + ")" : "رفع التوصية وإضافة الرصيد";
   }
   document.addEventListener("change", function (ev) { var b = ev.target.closest && ev.target.closest("[data-pick-box]"); if (b) sync(b); });
   document.addEventListener("click", function (ev) { if (ev.target.closest("[data-assign-all]")) { var b = ev.target.closest("[data-pick-box]"); if (b) setTimeout(function () { sync(b); }, 0); } });

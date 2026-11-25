@@ -1192,6 +1192,12 @@ td[data-label="تحديد"] label, th label.chk { display: inline-grid; place-it
 .timeline li.tl-late b { color: var(--err); }
 .timeline li.tl-err b { color: var(--err); }
 .tl-note { margin: .35rem 0 0; padding: .5rem .7rem; border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: .92rem; }
+/* اختيار موظفي التوصية */
+.pick-box { border: 1px solid var(--border); border-radius: 12px; padding: .8rem 1rem; margin: 0 0 1rem; }
+.pick-box legend { padding: 0 .4rem; display: flex; gap: .6rem; align-items: baseline; }
+.pick-box .check-list { max-height: 300px; overflow: auto; }
+.pick-box .check.is-off { opacity: .55; }
+.err-text { color: var(--err) !important; font-weight: 700; }
 
 /* ---------- نسخة العرض */
 .demo-banner .banner-x { margin-inline-start: auto; background: none; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; width: 2rem; height: 2rem; border-radius: 8px; cursor: pointer; }
