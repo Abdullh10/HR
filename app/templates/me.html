@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select, balance_board, kind_badge, rec_amount, status_badge, welcome_banner %}
+{% from "_macros.html" import ico, year_select, balance_board, kind_badge, rec_amount, status_badge, welcome_banner, drange %}
 {% block title %}رصيدي{% endblock %}
 {% block heading %}رصيدي{% endblock %}
 {% block content %}
-{{ welcome_banner(user) }}
+{% if user.role == 'employee' %}{{ welcome_banner(user) }}{% endif %}
 <div class="push-prompt" data-push-prompt hidden role="region" aria-label="تفعيل الإشعارات">
   {{ ico('mail') }}<div><b>فعّل إشعارات الجهاز</b><span>لتصلك تنبيهات الطلبات والتوصيات والرسائل على جهازك كالتطبيق.</span></div>
   <button class="btn primary sm" type="button" data-push-enable>تفعيل</button><button class="btn ghost sm" type="button" data-push-later aria-label="لاحقاً">لاحقاً</button>
@@ -12,10 +12,13 @@
   <div><h1>{{ ico('pie', 'h-ico') }} رصيدي</h1><p>رصيد بدل الراحة للسنة {{ sel_year.name }}{% if emp.manager %} · مسؤول شؤون الموظفين: {{ emp.manager.full_name }}{% endif %}</p></div>
   <div class="actions no-print">{{ year_select(years, sel_year) }}<a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a></div>
 </div>
+{% if today.month >= 10 and sel_year.start_date <= today <= sel_year.end_date and info.bookable_days > 0 %}
+<div class="alert warn" role="status">{{ ico('calendar', 'sm-ico') }} لديك <b>{{ days_ar(info.bookable_days) }}</b> متاحة للطلب تسقط في <bdi class="d">{{ sel_year.end_date|d }}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.{% if sel_year.employee_can_request %} <a href="/requests/new">قدّم طلباً الآن</a>.{% endif %}</div>
+{% endif %}
 {{ balance_board(info, big=True) }}
 {% if sel_year.employee_can_request %}
 <nav class="action-tiles" aria-label="طلبات">
-  <a class="tile days" href="/requests/new">{{ ico('calendar-plus') }}<span><b>طلب معالجة غياب</b><small>إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث</small></span></a>
+  <a class="tile days" href="/requests/new">{{ ico('request') }}<span><b>طلب معالجة غياب</b><small>استخدام رصيد بدل الراحة في تاريخ تختاره</small></span></a>
   <a class="tile msg" href="/messages/new">{{ ico('send') }}<span><b>مراسلة شؤون الموظفين</b><small>استفسار أو متابعة</small></span></a>
 </nav>
 {% endif %}
@@ -23,17 +26,18 @@
     <div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية عن تكليف أنجزته، فزاد رصيدك.</p></div></div>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>الموضوع</th><th></th></tr></thead><tbody>
-      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ" class="num">{{ r.rec_date|d }}</td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ"><bdi class="d">{{ r.rec_date|d }}</bdi></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد توصيات بعد.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>
   <section class="card flush">
     <div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات معالجة الغياب التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div>
     <div class="table-wrap"><table class="responsive">
-      <thead><tr><th>النوع</th><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
-      {% for r in reqs %}<tr><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
-        <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
-      {% else %}<tr><td colspan="5" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
+      <thead><tr><th>المدة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
+      {% for r in reqs[:5] %}<tr><td data-label="المدة"><a href="/requests/{{ r.id }}">{{ r.amount_label }}</a>{% if r.kind != 'use' %} {{ kind_badge(r.kind) }}{% endif %}</td><td data-label="التاريخ">{{ drange(r.start_date, r.end_date) }}</td><td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
+        <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}">التفاصيل</a><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إلغاء الطلب؟">إلغاء</button></form>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
       </tbody></table></div>
+    {% if reqs|length > 5 %}<p class="pad"><a href="/requests?year_id={{ sel_year.id }}">عرض كل طلباتي ({{ count_ar(reqs|length, 'req') }})</a></p>{% endif %}
   </section>
 {% endblock %}

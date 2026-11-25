@@ -1,13 +1,7 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select, kind_badge, donut, welcome_banner %}
+{% from "_macros.html" import ico, year_select, kind_badge, donut, welcome_banner, age_badge %}
 {% block title %}لوحة المؤشرات{% endblock %}
 {% block heading %}لوحة المؤشرات{% endblock %}
-{% macro age_badge(d) -%}
-  {%- if d >= 7 -%}<span class="badge err">منذ {{ days_ar(d) }}</span>
-  {%- elif d >= 3 -%}<span class="badge warn">منذ {{ days_ar(d) }}</span>
-  {%- elif d >= 1 -%}<span class="badge muted">منذ {{ days_ar(d) }}</span>
-  {%- else -%}<span class="badge muted">اليوم</span>{%- endif -%}
-{%- endmacro %}
 {% block content %}
 {{ welcome_banner(user) }}
 <div class="push-prompt" data-push-prompt hidden role="region" aria-label="تفعيل الإشعارات">
@@ -34,17 +28,17 @@
 
 {% if user.role == 'admin' %}
 <nav class="action-tiles" aria-label="إجراءات سريعة">
-  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ pending_count }} طلب بانتظار الاعتماد</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
+  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ count_ar(pending_count, 'req') }} بانتظار الاعتماد</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
   <a class="tile days" href="/admin/import">{{ ico('upload') }}<span><b>استيراد الموظفين</b><small>ملف Excel للإضافة أو التحديث</small></span></a>
-  <a class="tile hours" href="/admin/users">{{ ico('userkey') }}<span><b>الحسابات الناقصة</b><small>{{ quick.no_account or 0 }} موظف بلا حساب</small></span>{% if quick.no_account %}<span class="badge warn">{{ quick.no_account }}</span>{% endif %}</a>
+  <a class="tile hours" href="/admin/users">{{ ico('userkey') }}<span><b>الحسابات الناقصة</b><small>{{ count_ar(quick.no_account or 0, 'emp') }} بلا حساب</small></span>{% if quick.no_account %}<span class="badge warn">{{ quick.no_account }}</span>{% endif %}</a>
   <a class="tile msg" href="/admin/cards?state=pending">{{ ico('badge') }}<span><b>بطاقات الدخول</b><small>{{ quick.pending_cards or 0 }} بطاقة سارية</small></span></a>
 </nav>
 {% else %}
 <nav class="action-tiles" aria-label="إجراءات سريعة">
   <a class="tile days" href="/recommendations/new?kind=days">{{ ico('calendar-plus') }}<span><b>توصية بدل راحة بالأيام</b><small>رفع التوصية بأيام ممنوحة</small></span></a>
   <a class="tile hours" href="/recommendations/new?kind=hours">{{ ico('clock-plus') }}<span><b>توصية بدل راحة بالساعات</b><small>كل {{ sel_year.hours_per_day|n }} ساعات = يوم</small></span></a>
-  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ pending_count }} طلب بانتظار قرارك</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
-  <a class="tile msg" href="/messages">{{ ico('mail') }}<span><b>المراسلات</b><small>{{ unread }} رسالة غير مقروءة</small></span>{% if unread %}<span class="badge warn">{{ unread }}</span>{% endif %}</a>
+  <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ count_ar(pending_count, 'req') }} بانتظار قرارك</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
+  <a class="tile msg" href="/messages">{{ ico('mail') }}<span><b>المراسلات</b><small>{{ count_ar(unread, 'msg') }} غير مقروءة</small></span>{% if unread %}<span class="badge warn">{{ unread }}</span>{% endif %}</a>
 </nav>
 {% endif %}
 
@@ -87,7 +81,7 @@
     <h2>حسب مسؤول شؤون الموظفين</h2>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th><th class="n">معلّقة</th></tr></thead><tbody>
-      {% for name, d in by_officer %}<tr><td data-label="مسؤول شؤون الموظفين">{% if name == '— غير مُسند —' %}<a href="/employees?officer=-1">{{ name }}</a>{% else %}{{ name }}{% endif %}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="ممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="مستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="متاح">{{ d.left|round(1)|n }}</td><td class="n" data-label="معلّقة">{% if d.pending %}{{ d.pending }}{% if d.oldest >= 3 %} <span class="badge {{ 'err' if d.oldest >= 7 else 'warn' }}">أقدمها {{ days_ar(d.oldest) }}</span>{% endif %}{% else %}—{% endif %}</td></tr>
+      {% for name, d in by_officer %}<tr><td data-label="مسؤول شؤون الموظفين">{% if name == '— غير مُسند —' %}<a href="/employees?officer=-1">{{ name }}</a>{% else %}{{ name }}{% endif %}</td><td class="n" data-label="موظفون">{{ d.count }}</td><td class="n" data-label="ممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="مستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="متاح">{{ d.left|round(1)|n }}</td><td class="n" data-label="معلّقة">{% if d.pending %}{{ d.pending }}{% if d.oldest >= LATE_DAYS %} <span class="badge err late">أقدمها {{ days_ar(d.oldest) }}</span>{% endif %}{% else %}—{% endif %}</td></tr>
       {% else %}<tr><td colspan="6" class="empty">لا توجد بيانات.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>

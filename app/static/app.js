@@ -75,7 +75,7 @@
         }
       });
     }
-    d.querySelector("#reason-title").textContent = kind === "reject" ? "سبب الرفض" : "سبب الإلغاء";
+    d.querySelector("#reason-title").textContent = btn.getAttribute("data-note-prompt") || (kind === "reject" ? "سبب الرفض" : "سبب الإلغاء");
     d.querySelector("[data-chips]").innerHTML = REASONS[kind].map(function (r) { return '<button type="button" class="chip" data-chip>' + r + "</button>"; }).join("");
     d.querySelector("#reason-text").value = "";
     d.querySelector("[data-reason-err]").hidden = true;
@@ -566,5 +566,25 @@
         Promise.race([disable(), new Promise(function (r) { setTimeout(r, 1500); })]).then(function () { f.submit(); });
       });
     });
+  });
+})();
+
+/* معاينة فورية لعدد الأيام التي ستُخصم في نموذج طلب معالجة الغياب */
+(function () {
+  document.addEventListener("DOMContentLoaded", function () {
+    var f = document.querySelector("form[data-days-preview]"); if (!f) return;
+    var out = f.querySelector("[data-days-out]"), sd = f.querySelector('[name="start_date"]'), ed = f.querySelector('[name="end_date"]'), emp = f.querySelector('[name="emp"]');
+    var t;
+    function run() {
+      if (!sd.value) { out.textContent = ""; return; }
+      var q = "start=" + encodeURIComponent(sd.value) + "&end=" + encodeURIComponent(ed.value || sd.value) + (emp && emp.value ? "&emp=" + encodeURIComponent(emp.value) : "");
+      fetch("/requests/preview?" + q, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { out.textContent = d.msg || ""; out.classList.toggle("err", !!d.msg); return; }
+        out.classList.toggle("err", !!d.over);
+        out.textContent = d.days ? ("سيُخصم من الرصيد: " + d.label + (d.over ? " — يتجاوز المتاح (" + d.avail + ")" : "")) : d.label;
+      }).catch(function () { out.textContent = ""; });
+    }
+    [sd, ed].forEach(function (el) { if (el) el.addEventListener("change", function () { clearTimeout(t); t = setTimeout(run, 150); }); });
+    run();
   });
 })();

@@ -292,7 +292,7 @@
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
   // الأيقونات تُضمَّن في الصفحة (inline sprite): مراجع <use> لملف خارجي لا تحلّ التدرجات في Safari/iOS فتختفي الرموز.
-  const ASSET_V = "8";
+  const ASSET_V = "9";
   let SPRITE_INLINE = false, HERO_INLINE = false;
   const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="${SPRITE_INLINE ? "" : "assets/icons.svg?v=" + ASSET_V}#i-${n}"/></svg>`;
   async function inlineSprite(file) {
@@ -324,13 +324,13 @@
       ${group("admin", "الإدارة", "open", inAdmin, `<li><a href="#/admin/users" title="المستخدمون والصلاحيات" ${inAdmin && ["users", "cards", "teams"].includes(sg[1]) ? 'aria-current="page"' : ""}>${ico("userkey")}<span class="lbl">المستخدمون والصلاحيات</span></a></li>`
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "backup") + item("#/admin/audit", "سجل التدقيق", "audit"))}
       <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}
-      <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "user")}`;
+      <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "idcard")}`;
     const nav = u.role === "admin" ? adminNav : [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}${u.role === "officer" ? item("#/delegation", "التفويض", "swap", delegatedFrom(u).length ? "مفوَّض" : 0) : ""}
         <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "inbox")}` : "",
-      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "user")}` : "",
-      `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
-      u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}` : "",
+      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "inbox") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("request")}<span class="lbl">${u.role === "employee" ? "طلب معالجة غياب" : "طلب معالجة غياب لي"}</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
+      `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}${u.role === "employee" ? item("#/faq", "الأسئلة الشائعة", "shield") : ""}`,
+      u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}${item("#/faq", "الأسئلة الشائعة", "shield")}` : "",
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
     flashQ = [];
@@ -346,7 +346,7 @@
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <a class="t-logo" href="#/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></a>
-      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", delegation: "المتابعة", employee: "المتابعة", approvals: "المتابعة" }[sg[0]] || "";
+      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", delegation: "المتابعة", employee: "المتابعة", approvals: "المتابعة", faq: "المساعدة" }[sg[0]] || "";
         return `<nav class="title crumbs" aria-label="مسار التنقل">${sec ? `<span class="crumb">${sec}</span><span class="crumb-sep" aria-hidden="true">‹</span>` : ""}<span aria-current="page">${h(title)}</span></nav>`; })()}<span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}<span class="sr-only">الوضع</span></button>
@@ -374,19 +374,23 @@
   const yearSelect = (sel, name) => `<div class="field"><label for="ysel">السنة</label><select id="ysel" name="${name || "year"}" data-yearnav>${DB.years.slice().sort((a, b) => b.start.localeCompare(a.start)).map((y) => `<option value="${y.id}" ${y.id === sel.id ? "selected" : ""}>${h(y.name)}${y.active ? " (النشطة)" : ""}${y.locked ? " – مقفلة" : ""}</option>`).join("")}</select></div>`;
   const pickYear = (q) => (q.get("year") && byId("years", q.get("year"))) || activeYear();
   const empOptions = (list, sel, ph) => `<option value="">${ph || "— اختر الموظف —"}</option>` + list.map((e) => `<option value="${e.id}" ${String(sel) === String(e.id) ? "selected" : ""}>${h(e.name)} (${h(e.no)})</option>`).join("");
-  const dateRange = (r) => r.start + (r.end && r.end !== r.start ? " ← " + r.end : "");
+  const dateRange = (r) => `<span class="d-range"><bdi class="d">${r.start}</bdi>${r.end && r.end !== r.start ? `<span aria-hidden="true">←</span><span class="sr-only">إلى</span><bdi class="d">${r.end}</bdi>` : ""}</span>`;
+  const LATE_DAYS = 3; // معيار الخدمة: يُعدّ الطلب متأخراً إذا بقي بلا قرار 3 أيام فأكثر
+  const COUNT_FORMS = { emp: ["لا يوجد موظفون", "موظف واحد", "موظفان", "موظفين", "موظفاً"], req: ["لا توجد طلبات", "طلب واحد", "طلبان", "طلبات", "طلباً"], rec: ["لا توجد توصيات", "توصية واحدة", "توصيتان", "توصيات", "توصية"], msg: ["لا توجد رسائل", "رسالة واحدة", "رسالتان", "رسائل", "رسالة"], acc: ["لا توجد حسابات", "حساب واحد", "حسابان", "حسابات", "حساباً"] };
+  const cnt = (v, k) => { const x = Math.trunc(Number(v) || 0), f = COUNT_FORMS[k]; return x === 0 ? f[0] : x === 1 ? f[1] : x === 2 ? f[2] : x <= 10 ? x + " " + f[3] : x + " " + f[4]; };
+  const balanceLine = (b) => `<div class="bal-line" role="status">${ico("pie", "sm-ico")}<span>المتاح للطلب: <b class="big">${daysAr(b.bookable)}</b></span>${b.pDays ? `<span class="muted">معلّق بانتظار الاعتماد: ${daysAr(b.pDays)}</span>` : ""}${b.hAvailRem ? `<span class="muted">${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</span>` : ""}</div>`;
   const pdfChip = (name) => (name ? `<span class="badge muted" title="نسخة العرض لا تحفظ محتوى الملفات">📎 ${h(name)}</span>` : "");
   const months = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "يول", "أغس", "سبت", "أكت", "نوف", "ديس"];
 
   function board(b, big) {
     return `${(b.alerts || []).map(([k, t]) => `<div class="alert ${k} balance-alert" role="status">⚠ ${h(t)}</div>`).join("")}<section class="board${big ? " big" : ""}">
-  <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="الرصيد المتبقي ${b.totalDays} يوم و${n(b.totalRem)} ساعة">
-    <div class="gauge-in"><b class="num">${b.totalDays}</b><span>يوماً متبقياً</span>${b.totalRem ? `<small>+ ${hoursAr(b.totalRem)}</small>` : ""}</div></div>
+  <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="المتاح للطلب ${daysAr(b.bookable)}">
+    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</div></div>
   <div class="board-cards">
     <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span><span class="s book">${b.bookable ? `يمكن طلب <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}` : "لا توجد أيام قابلة للطلب حالياً"}</span></div></div>
     <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</b>` : ""}</span></div></div>
     <div class="bcard cap">${ico("pie")}<div><span class="l">من الحد الأقصى السنوي</span><b class="v num">${n(b.grantedEq)} <small class="of">من ${n(b.cap)} يوماً</small></b>
-      <div class="progress" role="progressbar" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
+      <div class="progress" role="progressbar" aria-label="الممنوح من الحد الأقصى السنوي" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
   </div></section>`;
   }
   // رسم دائري (حلقة): أجزاء من كل واحد، فجوة بين الأجزاء، والقيم ظاهرة في المفتاح
@@ -460,7 +464,7 @@
 </dialog>`;
   };
 
-  V.password = (u) => layout(u, "تغيير كلمة المرور", `<div class="card" style="max-width:480px">
+  V.password = (u) => layout(u, "تغيير كلمة المرور", `<div class="page-head"><div><h1>${ico("key", "h-ico")} تغيير كلمة المرور</h1></div></div><div class="card" style="max-width:480px">
     ${u.mustChange ? '<div class="alert info">يجب تعيين كلمة مرور جديدة قبل المتابعة.</div>' : ""}
     <form data-form="password">
       <div class="field"><label for="c">كلمة المرور الحالية</label><input id="c" type="password" name="current" required></div>
@@ -470,7 +474,7 @@
 
   V.profile = (u) => {
     const e = empOf(u), adm = u.role === "admin", ro = (v) => `value="${h(v || "—")}" readonly`, cur = e ? e.dept : u.dept;
-    return layout(u, "الملف الشخصي", `<div class="page-head"><div><h1>${ico("user", "h-ico")} الملف الشخصي</h1>
+    return layout(u, "الملف الشخصي", `<div class="page-head"><div><h1>${ico("idcard", "h-ico")} الملف الشخصي</h1>
       <p>${adm ? "حدّث بياناتك ووحدتك وبيانات التواصل." : "حدّث بيانات التواصل الخاصة بك. لتعديل الاسم أو القسم أو المسمى الوظيفي تواصل مع مدير النظام."}</p></div></div>
       <div class="grid two profile-grid"><form class="card" data-form="profile"><h2>البيانات الشخصية</h2><div class="form-grid">
         <div class="field"><label for="pn">الاسم</label>${adm ? `<input id="pn" name="name" value="${h(e ? e.name : u.name || "")}" placeholder="الاسم الذي يظهر في النظام والخطابات">` : `<input id="pn" ${ro(displayName(u))}>`}</div>
@@ -488,7 +492,7 @@
   };
 
   const ageDays = (stamp) => Math.max(0, Math.floor((Date.now() - new Date(String(stamp).replace(" ", "T")).getTime()) / 864e5));
-  const ageBadge = (d) => d >= 7 ? `<span class="badge err">منذ ${daysAr(d)}</span>` : d >= 3 ? `<span class="badge warn">منذ ${daysAr(d)}</span>` : d >= 1 ? `<span class="badge muted">منذ ${daysAr(d)}</span>` : '<span class="badge muted">اليوم</span>';
+  const ageBadge = (d) => d >= LATE_DAYS ? `<span class="badge err late" title="تجاوز مدة القرار المعتمدة (${daysAr(LATE_DAYS)})">متأخر · منذ ${daysAr(d)}</span>` : d >= 1 ? `<span class="badge muted">منذ ${daysAr(d)}</span>` : '<span class="badge muted">اليوم</span>';
   const onBehalf = (u, e) => u.role === "admin" && !!e.mgr && e.mgr !== u.emp;
   // شريط الترحيب: تحية حسب الوقت (توقيت الرياض)، وعبارة يومية، ومسار أيام العمل، والتاريخ الميلادي والهجري
   const W_PHRASES = ["الراحة المنظّمة جزء من الإنجاز، لا استراحة منه.", "خطوة صغيرة كل يوم تصنع فرقاً كبيراً مع الوقت.", "العمل المتقن يبدأ بذهنٍ مرتاح وخطةٍ واضحة.", "التوازن بين الجهد والراحة سرّ الاستمرار.", "كل مهمة تُنجَز اليوم تخفّف عبء الغد.", "الفريق المتعاون يصل أبعد مما يصل إليه الفرد.", "النظام في التفاصيل الصغيرة يصنع جودة النتائج الكبيرة.", "ابدأ يومك بأهم مهمة، وسيتبعها الباقي بسهولة.", "الدقة في العمل احترامٌ للوقت وللآخرين.", "حقّك في الراحة يعيد إليك طاقتك للعطاء.", "التقدّم المستمر أهم من الكمال المؤجَّل.", "الوضوح في التواصل يختصر نصف الطريق.", "يوم منظّم يبدأ بقائمة قصيرة وأولويات واضحة.", "الإنجاز الحقيقي ما يبقى أثره بعد انتهاء المهمة.", "استثمر وقتك فيما يضيف قيمة، ودع ما سواه.", "التعاون يحوّل المهام الصعبة إلى إنجازات مشتركة.", "خذ استراحة قصيرة، ثم عُد بتركيز أعلى.", "الالتزام اليومي يبني الثقة قبل أن يبني النتائج.", "كل جهد تبذله اليوم محسوبٌ لك في رصيد الغد.", "الهدوء في التعامل يصنع بيئة عمل أفضل للجميع.", "التخطيط الجيد يوفّر عليك ساعات من التصحيح.", "النجاح سلسلة من الأيام الجيدة المتتالية.", "اجعل جودة عملك توقيعك الذي يعرفك به الآخرون.", "التعلّم المستمر يفتح أبواباً لم تكن تتوقعها.", "التقدير الصادق لزملائك يضاعف حماس الفريق.", "أنجِز ما بين يديك بإتقان، فهو أفضل استعداد لما بعده.", "الراحة في وقتها تحمي جودة العمل من الإرهاق.", "المبادرة بحلّ صغير خيرٌ من انتظار حلّ كامل.", "بيئة العمل الإيجابية يصنعها كل فرد فيها.", "اختم يومك بمراجعة ما أنجزت، وابدأ غدك بما تبقّى.", "الثبات على العادات الجيدة يصنع الفارق الحقيقي."];
@@ -501,7 +505,7 @@
     const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"].map((label, i) => { const d = new Date(sunday); d.setDate(sunday.getDate() + i); return [label, d.getTime() === today.getTime() ? "today" : d < today ? "past" : "next"]; });
     let hij = ""; try { const t = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)); if (/\d/.test(t)) hij = t.replace(/\s*هـ$/, "") + " هـ"; } catch (e) {}
     const weekend = wd === 5 || wd === 6;
-    return `<section class="welcome" aria-label="ترحيب"><div class="w-top"><div><h2 class="w-hi">${4 <= hr && hr < 12 ? "صباح الخير" : "مساء الخير"}${first ? "، " + h(first) : ""}</h2><p class="w-quote">${W_PHRASES[ord % W_PHRASES.length]}</p></div>
+    return `<section class="welcome" aria-label="ترحيب"><div class="w-top"><div><p class="w-hi">${4 <= hr && hr < 12 ? "صباح الخير" : "مساء الخير"}${first ? "، " + h(first) : ""}</p><p class="w-quote">${W_PHRASES[ord % W_PHRASES.length]}</p></div>
       <p class="w-date"><span>${today.getDate()} ${W_MONTHS[today.getMonth()]} ${today.getFullYear()}</span>${hij ? `<span class="w-hijri">${hij}</span>` : ""}</p></div>
       <ol class="w-week" aria-label="أيام أسبوع العمل${weekend ? " — عطلة نهاية الأسبوع" : ""}">${days.map(([l, st]) => `<li class="${st}"${st === "today" ? ' aria-current="date"' : ""}><span>${l}</span><i aria-hidden="true"></i></li>`).join("")}</ol>
       ${weekend ? '<p class="w-off">عطلة نهاية الأسبوع — نتمنى لك راحة طيبة.</p>' : ""}</section>`;
@@ -520,12 +524,12 @@
     const oldest = Math.max(0, ...pending.map((r) => r._age)), unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
     // تنبيهات تحتاج إجراء
     const alerts = [], A = (level, icon, text, href, cta) => alerts.push({ level, icon, text, href, cta });
-    const late7 = pending.filter((r) => r._age >= 7).length, late3 = pending.filter((r) => r._age >= 3 && r._age < 7).length;
-    if (late7) A("err", "hourglass", `${late7} طلب بانتظار الاعتماد منذ 7 أيام أو أكثر (أقدمها منذ ${daysAr(oldest)}).`, "#/approvals", "مراجعة الاعتمادات");
-    else if (late3) A("warn", "hourglass", `${late3} طلب بانتظار الاعتماد منذ 3 أيام أو أكثر.`, "#/approvals", "مراجعة الاعتمادات");
+    const late = pending.filter((r) => r._age >= LATE_DAYS).length;
+    if (late) A("err", "hourglass", `طلبات تجاوزت مدة القرار المعتمدة (${daysAr(LATE_DAYS)}): ${cnt(late, "req")}، أقدمها منذ ${daysAr(oldest)}.`, "#/approvals", "مراجعة الاعتمادات");
+    if (u.role === "officer") { const t0 = todayISO(); if (Number(t0.slice(5, 7)) >= 10 && y.start <= t0 && t0 <= y.end) { const lapse = emps.filter((e) => e.active && bals.get(e.id) && bals.get(e.id).bookable > 0); if (lapse.length) A("warn", "calendar", `${cnt(lapse.length, "emp")} في فريقك لديهم رصيد متاح (${daysAr(lapse.reduce((s2, e) => s2 + bals.get(e.id).bookable, 0))} إجمالاً) يسقط في ${y.end} لأن الرصيد لا يُرحَّل؛ ذكّرهم باستخدامه.`, "#/reports", "عرض الأرصدة"); } }
     let noAcc = 0, pendCards = 0;
     if (adm) {
-      const backlog = Object.entries(byOff).filter(([k, o]) => o.old >= 3 && k !== "— غير مُسند —").map(([k]) => k);
+      const backlog = Object.entries(byOff).filter(([k, o]) => o.old >= LATE_DAYS && k !== "— غير مُسند —").map(([k]) => k);
       if (backlog.length) A("warn", "userkey", "مسؤولون لديهم طلبات متأخرة: " + backlog.slice(0, 4).join("، ") + (backlog.length > 4 ? "…" : "") + ".", "#/approvals", "عرض الطلبات");
       const un = emps.filter((e) => e.active && !e.mgr).length;
       if (un) A("warn", "users", `${un} موظف غير مُسند لمسؤول شؤون موظفين، فلا يعتمد طلباتهم إلا مدير النظام.`, "#/employees?officer=-1", "إسنادهم");
@@ -545,10 +549,10 @@
     const empty = adm && !emps.length ? `<section class="card empty-start">${ico("upload", "lg")}<div><h2>ابدأ بإعداد النظام</h2><ol>
         <li>راجع <a href="#/admin/years">السنة وقواعد الرصيد</a> و<a href="#/admin/settings">هوية الجهة</a>.</li><li><a href="#/admin/import">استورد الموظفين</a> من ملف Excel، فتُنشأ حساباتهم وبطاقات دخولهم تلقائياً.</li>
         <li>حدّد حسابات <a href="#/admin/users">شؤون الموظفين</a> وأسند لكل منهم موظفيه، ثم اطبع <a href="#/admin/cards">بطاقات الدخول</a>.</li></ol><a class="btn primary" href="#/admin/import">${ico("upload", "sm-ico")}استيراد الموظفين</a></div></section>` : "";
-    const quick = adm ? tiles([["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار الاعتماد", pending.length], ["days", "#/admin/import", "upload", "استيراد الموظفين", "ملف Excel للإضافة أو التحديث"],
-        ["hours", "#/admin/users", "userkey", "الحسابات الناقصة", noAcc + " موظف بلا حساب", noAcc], ["msg", "#/admin/cards?state=pending", "badge", "بطاقات الدخول", pendCards + " بطاقة سارية"]])
+    const quick = adm ? tiles([["appr", "#/approvals", "stamp", "الاعتمادات", cnt(pending.length, "req") + " بانتظار الاعتماد", pending.length], ["days", "#/admin/import", "upload", "استيراد الموظفين", "ملف Excel للإضافة أو التحديث"],
+        ["hours", "#/admin/users", "userkey", "الحسابات الناقصة", cnt(noAcc, "emp") + " بلا حساب", noAcc], ["msg", "#/admin/cards?state=pending", "badge", "بطاقات الدخول", pendCards + " بطاقة سارية"]])
       : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
-        ["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]]);
+        ["appr", "#/approvals", "stamp", "الاعتمادات", cnt(pending.length, "req") + " بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", cnt(unread, "msg") + " غير مقروءة", unread]]);
     const lvlBadge = alerts.length ? (alerts[0].level === "err" ? "err" : alerts[0].level === "warn" ? "warn" : "muted") : "";
     return layout(u, "لوحة المؤشرات", `${welcomeBanner(u)}<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${adm ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
       ${empty}${quick}
@@ -567,7 +571,7 @@
         </tbody></table></div>${pending.length ? `<p class="pad"><a href="#/approvals">فتح الاعتمادات${pending.length > 8 ? " (" + pending.length + ")" : ""}</a></p>` : ""}</section></div>
       <div>
         ${adm ? `<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th><th class="n">معلّقة</th></tr></thead><tbody>
-          ${Object.entries(byOff).sort((a, b) => b[1].c - a[1].c).map(([k, o]) => `<tr><td data-label="مسؤول شؤون الموظفين">${k === "— غير مُسند —" ? `<a href="#/employees?officer=-1">${k}</a>` : h(k)}</td><td class="n" data-label="موظفون">${o.c}</td><td class="n" data-label="ممنوح">${n(round2(o.g))}</td><td class="n" data-label="مستخدم">${n(round2(o.u))}</td><td class="n" data-label="متاح">${n(round2(o.l))}</td><td class="n" data-label="معلّقة">${o.p ? o.p + (o.old >= 3 ? ` <span class="badge ${o.old >= 7 ? "err" : "warn"}">أقدمها ${daysAr(o.old)}</span>` : "") : "—"}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">لا توجد بيانات.</td></tr>'}
+          ${Object.entries(byOff).sort((a, b) => b[1].c - a[1].c).map(([k, o]) => `<tr><td data-label="مسؤول شؤون الموظفين">${k === "— غير مُسند —" ? `<a href="#/employees?officer=-1">${k}</a>` : h(k)}</td><td class="n" data-label="موظفون">${o.c}</td><td class="n" data-label="ممنوح">${n(round2(o.g))}</td><td class="n" data-label="مستخدم">${n(round2(o.u))}</td><td class="n" data-label="متاح">${n(round2(o.l))}</td><td class="n" data-label="معلّقة">${o.p ? o.p + (o.old >= LATE_DAYS ? ` <span class="badge err late">أقدمها ${daysAr(o.old)}</span>` : "") : "—"}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">لا توجد بيانات.</td></tr>'}
           </tbody></table></div></section>` : ""}
         <section class="card"><h2>قاربوا الحد الأقصى (80% فأكثر)</h2>${near.length ? `<ul class="plain">${near.slice(0, 8).map(([e, b]) => `<li><a href="#/employee/${e.id}">${h(e.name)}</a> — ${n(b.grantedEq)} من ${n(b.cap)} يوماً</li>`).join("")}</ul>` : '<p class="empty">لا يوجد موظفون قاربوا الحد الأقصى.</p>'}</section>
       </div>`);
@@ -579,26 +583,27 @@
       <td class="actions-cell"><a class="btn sm" href="#/print/rec/${r.id}">خطاب المنح</a> ${pdfChip(r.att)}${manage && r.status === "active" && canManage(u, e) ? ` <button class="btn sm danger" type="button" data-act="cancel-rec" data-id="${r.id}">إلغاء</button>` : ""}</td></tr>`; }).join("");
   }
   function leaveRows(u, rows, withEmp) {
-    return rows.map((r) => { const e = byId("emps", r.emp), mg = canManage(u, e); return `<tr><td data-label="الرقم الصادر" class="num">${h(r.ref || r.id)}</td>${withEmp ? `<td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td>` : ""}<td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة"><b>${leaveAmount(r)}</b></td><td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="السبب">${h(r.reason)}</td>
+    return rows.map((r) => { const e = byId("emps", r.emp), mg = canManage(u, e); return `<tr><td data-label="الرقم الصادر"><a class="num" href="#/requests/${r.id}" title="تفاصيل الطلب ومساره">${h(r.ref || r.id)}</a></td>${withEmp ? `<td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td>` : ""}<td data-label="المدة"><b>${leaveAmount(r)}</b>${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</td><td data-label="التاريخ">${dateRange(r)}</td><td data-label="السبب">${h(r.reason)}</td>
       <td data-label="الحالة">${statusBadge(r.status, REQ_ST[r.status])}${noteText(r) ? `<small class="muted d-block">${h(noteText(r))}</small>` : ""}</td>
-      <td class="actions-cell"><a class="btn sm" href="#/print/req/${r.id}">طباعة</a>
+      <td class="actions-cell"><a class="btn sm" href="#/requests/${r.id}" aria-label="تفاصيل طلب ${h(r.ref || r.id)}">التفاصيل</a><a class="btn sm" href="#/print/req/${r.id}">طباعة</a>
         ${mg && r.status === "pending" ? `<button class="btn sm ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn sm danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button>` : ""}
         ${(r.status === "pending" && r.emp === u.emp) || (mg && ["pending", "approved"].includes(r.status)) ? `${r.status === "approved" ? `<button class="btn sm danger" type="button" data-act="cancel-leave" data-id="${r.id}" data-need-note="1" title="لتصحيح خطأ (مثل التاريخ) أو لأي سبب آخر">إلغاء الاعتماد</button>` : `<button class="btn sm" type="button" data-act="cancel-leave" data-id="${r.id}">إلغاء</button>`}` : ""}</td></tr>`; }).join("");
   }
   const recHead = (withEmp) => `<thead><tr><th>التاريخ</th>${withEmp ? "<th>الموظف</th>" : ""}<th>النوع</th><th>القيمة</th><th>رقم خطاب التوصية</th><th>الموضوع</th><th>الحالة</th><th></th></tr></thead>`;
-  const leaveHead = (withEmp) => `<thead><tr><th>الرقم الصادر</th>${withEmp ? "<th>الموظف</th>" : ""}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead>`;
+  const leaveHead = (withEmp) => `<caption class="sr-only">طلبات معالجة الغياب</caption><thead><tr><th>الرقم الصادر</th>${withEmp ? "<th>الموظف</th>" : ""}<th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead>`;
 
   V.me = (u, q) => {
     const e = empOf(u); if (!e) { if (u.role === "employee") throw new Forbidden("حسابك غير مرتبط بسجل موظف."); go("#/dashboard"); return ""; }
     const y = pickYear(q), b = balance(e.id, y);
     const recs = DB.recs.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.date.localeCompare(a.date));
     const reqs = DB.leaves.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.created.localeCompare(a.created));
-    return layout(u, "رصيدي", `${welcomeBanner(u)}<div class="page-head"><div><h1>${ico("pie", "h-ico")} رصيدي</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
+    const yEnd = (() => { const t = todayISO(); return Number(t.slice(5, 7)) >= 10 && y.start <= t && t <= y.end && b.bookable > 0 ? `<div class="alert warn" role="status">${ico("calendar", "sm-ico")} لديك <b>${daysAr(b.bookable)}</b> متاحة للطلب تسقط في <bdi class="d">${y.end}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.${y.empCanRequest ? ' <a href="#/requests/new">قدّم طلباً الآن</a>.' : ""}</div>` : ""; })();
+    return layout(u, "رصيدي", `${u.role === "employee" ? welcomeBanner(u) : ""}<div class="page-head"><div><h1>${ico("pie", "h-ico")} رصيدي</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a></div></div>
-      ${board(b, true)}
-      ${y.empCanRequest ? tiles([["days", "#/requests/new", "calendar-plus", "طلب معالجة غياب", "إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث"], ["msg", "#/messages/new", "send", "مراسلة شؤون الموظفين", "استفسار أو متابعة"]]) : ""}
+      ${yEnd}${board(b, true)}
+      ${y.empCanRequest ? tiles([["days", "#/requests/new", "request", "طلب معالجة غياب", "استخدام رصيد بدل الراحة في تاريخ تختاره"], ["msg", "#/messages/new", "send", "مراسلة شؤون الموظفين", "استفسار أو متابعة"]]) : ""}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية عن تكليف أنجزته، فزاد رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, false) || '<tr><td colspan="7" class="empty">لا توجد توصيات بعد.</td></tr>'}</tbody></table></div></section>
-        <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات معالجة الغياب التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs, false) || '<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></section>`);
+        <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات معالجة الغياب التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs.slice(0, 5), false) || '<tr><td colspan="6" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div>${reqs.length > 5 ? `<p class="pad"><a href="#/requests?year=${y.id}">عرض كل طلباتي (${cnt(reqs.length, "req")})</a></p>` : ""}</section>`);
   };
 
   V.employee = (u, q, seg) => {
@@ -610,7 +615,7 @@
     const y = pickYear(q), b = balance(e.id, y), mg = canManage(u, e);
     const recs = DB.recs.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.date.localeCompare(a.date));
     const reqs = DB.leaves.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.created.localeCompare(a.created));
-    return layout(u, "كشف موظف", `<div class="page-head"><div><h1>${h(e.name)}</h1><p>${h(e.no)}${deptName(e) ? " · " + h(deptName(e)) : ""}${e.title ? " · " + h(e.title) : ""} · مسؤول شؤون الموظفين: ${h(mgrName(e) || "— غير مُسند —")}${e.email || e.phone || e.ext ? `<br><span class="contact-line">${[e.phone ? `الجوال: <a href="tel:${h(e.phone)}" dir="ltr">${h(e.phone)}</a>` : "", e.ext ? `التحويلة: <span dir="ltr">${h(e.ext)}</span>` : "", e.email ? `البريد: <a href="mailto:${h(e.email)}" dir="ltr">${h(e.email)}</a>` : ""].filter(Boolean).join(" · ")}</span>` : ""}</p></div>
+    return layout(u, "كشف موظف", `<div class="page-head"><div><h1>${ico("user", "h-ico")} ${h(e.name)}</h1><p>${h(e.no)}${deptName(e) ? " · " + h(deptName(e)) : ""}${e.title ? " · " + h(e.title) : ""} · مسؤول شؤون الموظفين: ${h(mgrName(e) || "— غير مُسند —")}${e.email || e.phone || e.ext ? `<br><span class="contact-line">${[e.phone ? `الجوال: <a href="tel:${h(e.phone)}" dir="ltr">${h(e.phone)}</a>` : "", e.ext ? `التحويلة: <span dir="ltr">${h(e.ext)}</span>` : "", e.email ? `البريد: <a href="mailto:${h(e.email)}" dir="ltr">${h(e.email)}</a>` : ""].filter(Boolean).join(" · ")}</span>` : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a>${u.role === "admin" ? `<a class="btn" href="#/employee/${e.id}/edit">تعديل البيانات</a>` : ""}</div></div>
       ${e.active ? "" : '<div class="alert warn">الموظف غير نشط.</div>'}
       ${u.role === "admin" ? (() => { const acc = DB.users.find((x) => x.emp === e.id), card = acc && (DB.cards || []).filter((c) => c.user === acc.id && c.pw).pop();
@@ -707,7 +712,7 @@
     let rows = list.map((e) => [e, balance(e.id, y)]);
     if (st === "cap") rows = rows.filter(([, b]) => b.capLeftHours <= 0); if (st === "none") rows = rows.filter(([, b]) => !b.gDays && !b.gHours);
     const admin = u.role === "admin";
-    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `${admin ? peopleTabs("list") : ""}<div class="page-head"><div><h1>${ico("users", "h-ico")} ${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
+    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `${admin ? peopleTabs("list") : ""}<div class="page-head"><div><h1>${ico("users", "h-ico")} ${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${cnt(rows.length, "emp")} · الحد الأقصى ${daysAr(y.cap)}</p></div>
       <div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button>${admin ? '<a class="btn primary" href="#/employee/new">+ إضافة موظف</a>' : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="employees" role="search">
         <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="${h(qs)}"></div>
@@ -715,12 +720,12 @@
         ${admin ? `<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" ${off === -1 ? "selected" : ""}>— غير مُسند —</option>${officers().map((o) => `<option value="${o.id}" ${off === o.id ? "selected" : ""}>${h(o.name)}</option>`).join("")}</select></div>` : ""}
         <div class="field"><label for="st">تصفية</label><select id="st" name="state"><option value="">النشطون</option><option value="cap" ${st === "cap" ? "selected" : ""}>بلغوا الحد الأقصى</option><option value="none" ${st === "none" ? "selected" : ""}>بلا توصيات</option><option value="inactive" ${st === "inactive" ? "selected" : ""}>غير النشطين</option></select></div>
         ${yearSelect(y)}<button class="btn primary">عرض</button></form>
-      <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>${admin ? "<th>مسؤول شؤون الموظفين</th>" : ""}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">الإجمالي</th><th>من الحد الأقصى</th><th></th></tr></thead><tbody>
+      <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>${admin ? "<th>مسؤول شؤون الموظفين</th>" : ""}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th>من الحد الأقصى</th><th></th></tr></thead><tbody>
       ${rows.map(([e, b], i) => `<tr><td data-label="م">${i + 1}</td><td data-label="الاسم"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a>${isDelegated(u, e) ? ` <span class="badge muted" title="فريق ${h(mgrName(e))}">بالتفويض</span>` : ""}${deptName(e) ? `<small class="muted d-block">${h(deptName(e))}</small>` : ""}</td><td data-label="الرقم" class="num">${h(e.no)}</td>
         ${admin ? `<td data-label="مسؤول شؤون الموظفين">${h(mgrName(e) || "—")}</td>` : ""}<td class="n" data-label="رصيد الأيام">${n(b.daysLeft)}</td><td class="n" data-label="رصيد الساعات">${n(b.hoursLeft)}</td>
-        <td class="n" data-label="الإجمالي"><b>${b.totalDays}</b>${b.totalRem ? `<small> +${n(b.totalRem)}س</small>` : ""}</td>
+        <td class="n" data-label="المتاح للطلب"><b>${daysAr(b.bookable)}</b>${b.hAvailRem ? `<small class="muted d-block">و${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</td>
         <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width:${b.capPct}%"></span></div><span class="num">${n(b.grantedEq)}/${n(b.cap)}</span></div></td>
-        <td class="actions-cell"><a class="btn sm" href="#/recs/new?kind=days&emp=${e.id}">+ أيام</a> <a class="btn sm" href="#/recs/new?kind=hours&emp=${e.id}">+ ساعات</a></td></tr>`).join("") || `<tr><td colspan="9" class="empty">لا توجد نتيجة.${u.role === "officer" ? " لم يُسند إليك موظفون بعد — تواصل مع مدير النظام." : ""}</td></tr>`}
+        <td class="actions-cell"><a class="btn sm" href="#/recs/new?kind=days&emp=${e.id}" aria-label="توصية بالأيام لـ${h(e.name)}">+ أيام</a> <a class="btn sm" href="#/recs/new?kind=hours&emp=${e.id}" aria-label="توصية بالساعات لـ${h(e.name)}">+ ساعات</a></td></tr>`).join("") || `<tr><td colspan="9" class="empty">لا توجد نتيجة.${u.role === "officer" ? " لم يُسند إليك موظفون بعد — تواصل مع مدير النظام." : ""}</td></tr>`}
       </tbody></table></div></div>`);
   };
 
@@ -744,7 +749,7 @@
     if (seg[1] === "new") return recForm(u, q);
     const y = pickYear(q), kind = q.get("kind") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id));
     const rows = DB.recs.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!emp || r.emp === emp)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-    return layout(u, "سجل التوصيات", `<div class="page-head"><div><h1>${ico("cal-check", "h-ico")} سجل التوصيات</h1><p>السنة ${h(y.name)} · ${rows.length} توصية</p></div>
+    return layout(u, "سجل التوصيات", `<div class="page-head"><div><h1>${ico("cal-check", "h-ico")} سجل التوصيات</h1><p>السنة ${h(y.name)} · ${cnt(rows.length, "rec")}</p></div>
       <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button><a class="btn primary" href="#/recs/new?kind=days">+ توصية بالأيام</a><a class="btn primary" href="#/recs/new?kind=hours">+ توصية بالساعات</a>` : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="recs"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="days" ${kind === "days" ? "selected" : ""}>بالأيام</option><option value="hours" ${kind === "hours" ? "selected" : ""}>بالساعات</option></select></div>
         <div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(managedEmps(u, true), emp, "الكل")}</select></div>${yearSelect(y)}<button class="btn primary">عرض</button></form>
@@ -770,14 +775,14 @@
 
   V.requests = (u, q, seg) => {
     if (seg[1] === "new") return reqForm(u, q);
+    if (seg[1] && /^\d+$/.test(seg[1])) return reqView(u, Number(seg[1]));
     const y = pickYear(q), kind = q.get("kind") || "", st = q.get("status") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id)), isE = u.role === "employee";
     const rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!st || r.status === st) && (!emp || r.emp === emp)).sort((a, b) => b.created.localeCompare(a.created));
-    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${ico("inbox", "h-ico")} ${isE ? "طلباتي" : "طلبات معالجة الغياب"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
+    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${ico("inbox", "h-ico")} ${isE ? "طلباتي" : "طلبات معالجة الغياب"}</h1><p>السنة ${h(y.name)} · ${cnt(rows.length, "req")}</p></div>
       <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new">+ طلب معالجة غياب</a></div></div>
-      <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" ${kind === "use" ? "selected" : ""}>معالجة غياب</option><option value="compensation" ${kind === "compensation" ? "selected" : ""}>تعويض غياب</option></select></div>
-        <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>${Object.entries(REQ_ST).map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+      <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>${Object.entries(REQ_ST).map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
         ${isE ? "" : `<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(visibleEmps(u, true), emp, "الكل")}</select></div>`}${yearSelect(y)}<button class="btn primary">عرض</button></form>
-      <div class="card flush"><div class="table-wrap"><table class="responsive">${leaveHead(!isE)}<tbody>${leaveRows(u, rows, !isE) || '<tr><td colspan="8" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div></div>`);
+      <div class="card flush"><div class="table-wrap"><table class="responsive">${leaveHead(!isE)}<tbody>${leaveRows(u, rows, !isE) || `<tr><td colspan="${isE ? 6 : 7}" class="empty">لا توجد طلبات.</td></tr>`}</tbody></table></div></div>`);
   };
   function reqForm(u, q) {
     const kind = "use", y = activeYear();
@@ -785,16 +790,17 @@
     if (!managed.length && !self) throw new Forbidden("حسابك غير مرتبط بسجل موظف.");
     if (self && !managed.length && !y.empCanRequest) throw new Forbidden("تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.");
     const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "";
-    return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("calendar-plus", "h-ico")} طلب معالجة غياب</h1>
+    return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("request", "h-ico")} طلب معالجة غياب</h1>
       <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد مسؤول شؤون الموظفين.</p></div></div>
-      ${b ? board(b) : ""}
-      <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form>
+      ${b ? balanceLine(b) : ""}
+      <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form data-days-preview>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
-        <div class="alert info days-only">${ico("calendar")}<div><b>تُعالج الطلبات بالأيام فقط.</b> تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل ${n(y.hpd)} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.${b ? `<br>المتاح للطلب: <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}${b.hAvailRem ? " · ساعات متبقية غير قابلة للاستخدام: " + hoursAr(b.hAvailRem) : ""}.` : ""}</div></div>
+        <div class="alert info days-only">${ico("calendar")}<div><b>تُعالج الطلبات بالأيام فقط.</b> تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل ${n(y.hpd)} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.</div></div>
         <div class="form-grid">
           <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start" type="date" required></div>
           <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
 </div>
+        <p class="days-preview" data-days-out role="status" aria-live="polite"></p>
         <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
         <div class="field"><label for="fl">مستند مؤيد (PDF)${y.reqReqAtt ? " *" : ""}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" ${y.reqReqAtt ? "required" : ""}></div>
         <div class="actions"><button class="btn primary">رفع الطلب</button><a class="btn" href="#/requests">إلغاء</a></div></form>`);
@@ -804,14 +810,14 @@
     need(u, STAFF);
     const rows = DB.leaves.filter((r) => r.status === "pending" && canManage(u, byId("emps", r.emp))).sort((a, b) => a.created.localeCompare(b.created));
     rows.forEach((r) => (r._age = ageDays(r.created)));
-    const oldest = Math.max(0, ...rows.map((r) => r._age)), late = rows.filter((r) => r._age >= 3).length, anyBehalf = rows.some((r) => onBehalf(u, byId("emps", r.emp)));
-    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>${ico("stamp", "h-ico")} الاعتمادات</h1><p>${rows.length} طلب بانتظار الاعتماد${rows.length ? " · أقدمها منذ " + (oldest ? daysAr(oldest) : "اليوم") : ""}${late ? ` · <b>${late} متأخر (3 أيام فأكثر)</b>` : ""}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+    const oldest = Math.max(0, ...rows.map((r) => r._age)), late = rows.filter((r) => r._age >= LATE_DAYS).length, anyBehalf = rows.some((r) => onBehalf(u, byId("emps", r.emp)));
+    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>${ico("stamp", "h-ico")} الاعتمادات</h1><p>${cnt(rows.length, "req")} بانتظار الاعتماد${rows.length ? " · أقدمها منذ " + (oldest ? daysAr(oldest) : "اليوم") : ""}${late ? ` · <b>المتأخرة (تجاوزت ${daysAr(LATE_DAYS)}): ${cnt(late, "req")}</b>` : ""}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
       ${anyBehalf ? '<div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>' : ""}
-      ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح بعد الطلب</th><th></th></tr></thead><tbody>
-      ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)), ob = onBehalf(u, e); return `<tr><td data-label="تحديد"><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></td>
+      ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><caption class="sr-only">الطلبات بانتظار الاعتماد</caption><thead><tr><th><label class="chk"><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></label></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح للطلب حالياً</th><th></th></tr></thead><tbody>
+      ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)), ob = onBehalf(u, e); return `<tr><td data-label="تحديد"><label><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></label></td>
         <td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a>${u.role === "admin" ? `<br><small class="muted">${h(mgrName(e) || "غير مُسند")}</small>${ob ? ' <span class="badge muted">بالنيابة</span>' : ""}` : ""}${isDelegated(u, e) ? `<br><small class="muted">فريق ${h(mgrName(e))}</small> <span class="badge muted">بالتفويض</span>` : ""}</td>
-        <td data-label="المدة"><b>${leaveAmount(r)}</b>${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</td><td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="منذ" class="age-col">${ageBadge(r._age)}</td>
-        <td data-label="السبب">${h(r.reason) || "—"} ${pdfChip(r.att)}</td><td data-label="المتاح بعد الطلب">${daysAr(b.bookable)}</td>
+        <td data-label="المدة"><b>${leaveAmount(r)}</b>${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</td><td data-label="التاريخ">${dateRange(r)}</td><td data-label="منذ" class="age-col">${ageBadge(r._age)}</td>
+        <td data-label="السبب">${h(r.reason) || "—"} ${pdfChip(r.att)}</td><td data-label="المتاح للطلب حالياً" title="بعد خصم جميع الطلبات المعلّقة، ومنها هذا الطلب">${daysAr(b.bookable)}</td>
         <td class="actions-cell"><button class="btn sm ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn sm danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button></td></tr>`; }).join("")}
       </tbody></table></div><div class="actions pad"><button class="btn ok" type="button" data-act="bulk" data-a="approve">اعتماد المحدد</button><button class="btn danger" type="button" data-act="bulk" data-a="reject">رفض المحدد</button></div></div>` : '<div class="card empty">لا توجد طلبات بانتظار الاعتماد.</div>'}`);
   };
@@ -830,7 +836,7 @@
     const rec = recipients(u); let to = Number(q.get("to") || 0), subject = "", body = "";
     const re = q.get("re") && byId("msgs", q.get("re"));
     if (re && [re.to, re.from].includes(u.id)) { to = to || re.from; subject = re.subject.startsWith("رد:") ? re.subject : "رد: " + re.subject; body = "\n\n—— الرسالة الأصلية ——\n" + re.body; }
-    return layout(u, "رسالة جديدة", `<div class="page-head"><div><h1>رسالة جديدة</h1><p>${u.role === "employee" ? "تُرسل إلى مسؤول شؤون الموظفين عنك." : u.role === "officer" ? "إلى مدير النظام أو الموظفين المسندين إليك." : "إلى أي مستخدم في المنصة."}</p></div></div>
+    return layout(u, "رسالة جديدة", `<div class="page-head"><div><h1>${ico("send", "h-ico")} رسالة جديدة</h1><p>${u.role === "employee" ? "تُرسل إلى مسؤول شؤون الموظفين عنك." : u.role === "officer" ? "إلى مدير النظام أو الموظفين المسندين إليك." : "إلى أي مستخدم في المنصة."}</p></div></div>
       <form class="card form-narrow" data-form="msg"><div class="field"><label for="to">إلى *</label><select id="to" name="to" required ${rec.length > 1 ? `multiple size="${Math.min(rec.length, 6)}"` : ""}>
         ${rec.map((x) => `<option value="${x.id}" ${to === x.id || rec.length === 1 ? "selected" : ""}>${h(displayName(x))} — ${ROLES[x.role]}${empOf(x) && empOf(x).email ? " ✉" : ""}</option>`).join("")}</select>${rec.length > 1 ? '<span class="hint">يمكن اختيار أكثر من مستلم (Ctrl/⌘).</span>' : ""}</div>
         <div class="field"><label for="sb">الموضوع *</label><input id="sb" name="subject" required maxlength="200" value="${h(subject)}"></div>
@@ -841,7 +847,7 @@
     const m = byId("msgs", id); if (!m || ![m.to, m.from].includes(u.id)) throw new Forbidden("الرسالة غير موجودة.");
     if (m.to === u.id && !m.read) { m.read = true; save(); }
     const fr = m.from ? byId("users", m.from) : null, canReply = fr && fr.id !== u.id && recipients(u).some((x) => x.id === fr.id);
-    return layout(u, "المراسلات", `<div class="page-head"><div><h1>${h(m.subject)}</h1><p>من: ${h(displayName(fr))} · إلى: ${h(displayName(byId("users", m.to)))} · ${m.at}</p></div>
+    return layout(u, "المراسلات", `<div class="page-head"><div><h1>${ico("mail", "h-ico")} ${h(m.subject)}</h1><p>من: ${h(displayName(fr))} · إلى: ${h(displayName(byId("users", m.to)))} · ${m.at}</p></div>
       <div class="actions">${canReply ? `<a class="btn primary" href="#/messages/new?re=${m.id}">رد</a>` : ""}<a class="btn" href="#/print/msg/${m.id}">طباعة</a>${m.link ? `<a class="btn" href="${m.link}">فتح المرتبط</a>` : ""}<a class="btn" href="#/messages">رجوع</a></div></div>
       <article class="card msg-body">${h(m.body)}</article>`);
   }
@@ -1620,9 +1626,9 @@
   ACT.decide = async (b, u) => { const a = b.dataset.a; let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } decideLeave(u, byId("leaves", b.dataset.id), a, note); save(); flash(a === "approve" ? "تم الاعتماد وخصم الرصيد." : "تم الرفض."); render(); };
   ACT.bulk = async (b, u) => { const a = b.dataset.a; const rs = [...document.querySelectorAll('input[name="req"]:checked')].map((c) => Number(c.value));
     if (!rs.length) return toast("حدّد طلباً واحداً على الأقل.", "error");
-    let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } else if (!await confirmDlg("اعتماد كل الطلبات المحددة؟")) return;
+    let note = ""; if (a === "reject") { note = await askReason("reject", "سبب الرفض (سيُطبَّق السبب نفسه على جميع الطلبات المحددة ويصل لكل موظف)"); if (!note) return; } else if (!await confirmDlg("اعتماد كل الطلبات المحددة؟")) return;
     let ok = 0; const errs = []; rs.forEach((id) => { try { decideLeave(u, byId("leaves", id), a, note); ok++; } catch (e) { errs.push(byId("emps", byId("leaves", id).emp).name + ": " + e.message); } });
-    save(); flash("تمت معالجة " + ok + " طلب." + (errs.length ? " تعذّر " + errs.length + "." : ""), errs.length ? "error" : "ok"); errs.slice(0, 5).forEach((m) => flash(m, "error")); render(); };
+    save(); flash("تمت معالجة " + cnt(ok, "req") + "." + (errs.length ? " تعذّر " + errs.length + "." : ""), errs.length ? "error" : "ok"); errs.slice(0, 5).forEach((m) => flash(m, "error")); render(); };
   ACT.export = (b) => { exportXlsx(b.dataset.kind, b.dataset.year); audit("data_exported", "export", null, { kind: b.dataset.kind }); save(); };
   ACT["audit-dl"] = () => { const rows = auditRows(parts().q); download([["الوقت", "المستخدم", "العملية", "الكيان", "التفاصيل", "رمز العملية"], ...rows.map((a) => [a.at, a.user || "النظام", AUDIT_ACTIONS[a.action] || a.action, AUDIT_ENTITIES[a.entity] || a.entity || "", auditDetails(a.details), a.action])], "سجل التدقيق"); audit("audit_exported", "system", null, { rows: rows.length }); save(); };
   ACT.template = (b) => {
@@ -1785,7 +1791,7 @@
     need(u, ["officer", "admin"]); if (u.role === "admin") { go("#/admin/teams"); return ""; }
     const offs = officers().filter((o) => o.id !== u.emp), mine = (DB.delegations || []).filter((d) => d.from === u.emp || d.to === u.emp);
     const team = DB.emps.filter((e) => e.active && e.mgr === u.emp).length, cover = mine.filter((d) => d.to === u.emp && delegState(d) === "active");
-    return layout(u, "التفويض", `<div class="page-head"><div><h1>${ico("swap", "h-ico")} التفويض</h1><p>فوّض زميلاً من مسؤولي شؤون الموظفين بمتابعة فريقك (${team} موظف) خلال غيابك، فيعتمد طلباتهم ويرفع توصياتهم حتى نهاية الفترة.</p></div></div>
+    return layout(u, "التفويض", `<div class="page-head"><div><h1>${ico("swap", "h-ico")} التفويض</h1><p>فوّض زميلاً من مسؤولي شؤون الموظفين بمتابعة فريقك (${cnt(team, "emp")}) خلال غيابك، فيعتمد طلباتهم ويرفع توصياتهم حتى نهاية الفترة.</p></div></div>
       ${cover.length ? `<div class="alert info" role="status">أنت مفوَّض حالياً بمتابعة: ${cover.map((d) => "فريق " + h(byId("emps", d.from).name) + " حتى " + h(d.end)).join("، ")}. تظهر طلباتهم في «الاعتمادات» وموظفوهم في «قائمة الموظفين».</div>` : ""}
       <section class="card"><h2>تفويض جديد</h2>${offs.length ? delegForm(offs, false) : '<p class="empty">لا يوجد مسؤولو شؤون موظفين آخرون للتفويض.</p>'}</section>
       <section class="card flush"><h2>تفويضاتي</h2>${delegTable(mine)}</section>`);
@@ -1848,6 +1854,45 @@
     DB.audit = keep; audit("audit_cleared", "system", null, { scope: label, rows: n }); save();
     flash("حُذف " + n + " قيد من سجل التدقيق (" + label + ")."); render();
   };
+
+  // تفاصيل الطلب ومساره الزمني
+  function reqView(u, id) {
+    const r = byId("leaves", id), e = r && byId("emps", r.emp);
+    if (!r || !canView(u, e)) throw new Forbidden("الطلب غير موجود.");
+    const mg = canManage(u, e), uName = (uid) => { const x = uid && byId("users", uid); return x ? displayName(x) : ""; };
+    const cap = (uid) => { const x = uid && byId("users", uid); if (!x) return ""; if (x.role === "admin") return "مدير النظام" + (e.mgr && e.mgr !== x.emp ? " (بالنيابة)" : ""); if (x.emp && x.emp === e.mgr) return "مسؤول شؤون الموظفين"; if (x.emp === e.id) return "صاحب الطلب"; return "مسؤول شؤون الموظفين (بالتفويض)"; };
+    const steps = [{ st: "done", t: "قُدّم الطلب", at: r.created, who: uName(r.by) || e.name, note: r.reason, icon: "request" }];
+    if (r.status === "pending") {
+      const due = new Date(String(r.created).replace(" ", "T")); due.setDate(due.getDate() + LATE_DAYS); const late = new Date() > due;
+      steps.push({ st: late ? "late" : "current", t: "بانتظار قرار مسؤول شؤون الموظفين", who: mgrName(e) || "مدير النظام", note: late ? `تجاوز الطلب مدة القرار المعتمدة (${daysAr(LATE_DAYS)}).` : `يُتوقع القرار قبل ${iso(due)} (خلال ${daysAr(LATE_DAYS)} من التقديم).`, icon: "hourglass" });
+    } else if (r.decidedAt || ["approved", "rejected"].includes(r.status)) {
+      steps.push({ st: r.status === "rejected" ? "err" : "ok", t: r.status === "rejected" ? "رُفض الطلب" : "اعتُمد الطلب", at: r.decidedAt, who: uName(r.decidedBy), role: cap(r.decidedBy), note: r.note, icon: "stamp" });
+    }
+    if (r.status === "cancelled") steps.push({ st: "err", t: "أُلغي الطلب" + (r.decidedAt ? " بعد اعتماده وأُعيد الرصيد" : ""), at: r.cancelledAt, who: uName(r.cancelledBy), role: cap(r.cancelledBy), note: r.cancelNote, icon: "adjust" });
+    const ref = r.ref || r.id;
+    const acts = r.status === "pending" && (r.emp === u.emp || mg) ? `<div class="actions">${mg ? `<button class="btn ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button>` : ""}<button class="btn" type="button" data-act="cancel-leave" data-id="${r.id}">إلغاء الطلب</button></div>`
+      : r.status === "approved" && mg ? `<div class="actions"><button class="btn danger" type="button" data-act="cancel-leave" data-id="${r.id}" data-need-note="1">إلغاء الاعتماد</button></div>` : "";
+    return layout(u, "تفاصيل الطلب", `<div class="page-head"><div><h1>${ico("request", "h-ico")} طلب معالجة غياب <bdi class="d">${h(ref)}</bdi></h1><p>${u.emp !== r.emp ? h(e.name) + " · " : ""}${statusBadge(r.status, REQ_ST[r.status])}${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</p></div>
+      <div class="actions"><a class="btn" href="#/print/req/${r.id}">طباعة النموذج</a><a class="btn" href="#/requests">كل الطلبات</a></div></div>
+      <div class="grid two"><section class="card"><h2>بيانات الطلب</h2><dl class="kv">
+        <div><dt>المدة</dt><dd><b>${leaveAmount(r)}</b></dd></div><div><dt>التاريخ</dt><dd>${dateRange(r)}</dd></div>
+        <div><dt>السبب</dt><dd>${h(r.reason) || "—"}</dd></div><div><dt>تاريخ التقديم</dt><dd class="num">${h(String(r.created).slice(0, 10))}</dd></div>
+        <div><dt>مسؤول شؤون الموظفين</dt><dd>${h(mgrName(e) || "غير مُسند (يعتمده مدير النظام)")}</dd></div></dl>${acts}</section>
+      <section class="card"><h2>مسار الطلب</h2><ol class="timeline">${steps.map((x) => `<li class="tl-${x.st}"><span class="tl-dot" aria-hidden="true">${ico(x.icon)}</span><div><b>${x.t}</b><small class="muted d-block">${x.at ? `<bdi class="d">${h(String(x.at).slice(0, 16))}</bdi>` : ""}${x.who ? " · " + h(x.who) : ""}${x.role ? " (" + x.role + ")" : ""}</small>${x.note ? `<p class="tl-note">${h(x.note)}</p>` : ""}</div></li>`).join("")}</ol></section></div>`);
+  }
+  V.faq = (u) => layout(u, "الأسئلة الشائعة", `<div class="page-head"><div><h1>${ico("shield", "h-ico")} الأسئلة الشائعة</h1></div></div><div class="card">${faqHTML(DB.settings)}</div>`);
+  // معاينة فورية لعدد الأيام التي ستُخصم في نموذج الطلب
+  function daysPreview(form) {
+    const out = form.querySelector("[data-days-out]"); if (!out) return;
+    const sd = form.querySelector('[name="start"]').value, ed = form.querySelector('[name="end"]').value || sd, emp = Number((form.querySelector('[name="emp"]') || {}).value || 0);
+    if (!sd) { out.textContent = ""; return; }
+    const y = yearFor(sd); if (!y) { out.textContent = "التاريخ لا يقع ضمن سنة معرّفة في النظام."; out.classList.add("err"); return; }
+    if (ed < sd) { out.textContent = ""; return; }
+    const nd = workingDays(y, sd, ed).length, avail = emp ? balance(emp, y).bookable : null, over = avail != null && nd > avail;
+    out.classList.toggle("err", over);
+    out.textContent = nd ? "سيُخصم من الرصيد: " + daysAr(nd) + (over ? " — يتجاوز المتاح (" + avail + ")" : "") : "لا توجد أيام عمل في هذه الفترة";
+  }
+  document.addEventListener("change", (ev) => { const f = ev.target.closest && ev.target.closest("form[data-days-preview]"); if (f && ["start", "end"].includes(ev.target.name)) daysPreview(f); });
 
   document.addEventListener("submit", async (ev) => {
     const form = ev.target.closest("form[data-form]"); if (!form) return;

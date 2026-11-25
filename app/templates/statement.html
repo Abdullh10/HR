@@ -4,7 +4,7 @@
 {% block heading %}كشف موظف{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ emp.full_name }}</h1><p>{{ emp.employee_no }}{% if emp.department %} · {{ emp.department.name }}{% endif %}{% if emp.job_title %} · {{ emp.job_title }}{% endif %} · مسؤول شؤون الموظفين: {{ emp.manager.full_name if emp.manager else '— غير مُسند —' }}{% if emp.email or emp.phone or emp.extension %}<br><span class="contact-line">{% if emp.phone %}الجوال: <a href="tel:{{ emp.phone }}" dir="ltr">{{ emp.phone }}</a>{% endif %}{% if emp.extension %} · التحويلة: <span dir="ltr">{{ emp.extension }}</span>{% endif %}{% if emp.email %} · البريد: <a href="mailto:{{ emp.email }}" dir="ltr">{{ emp.email }}</a>{% endif %}</span>{% endif %}</p></div>
+  <div><h1>{{ ico('user', 'h-ico') }} {{ emp.full_name }}</h1><p>{{ emp.employee_no }}{% if emp.department %} · {{ emp.department.name }}{% endif %}{% if emp.job_title %} · {{ emp.job_title }}{% endif %} · مسؤول شؤون الموظفين: {{ emp.manager.full_name if emp.manager else '— غير مُسند —' }}{% if emp.email or emp.phone or emp.extension %}<br><span class="contact-line">{% if emp.phone %}الجوال: <a href="tel:{{ emp.phone }}" dir="ltr">{{ emp.phone }}</a>{% endif %}{% if emp.extension %} · التحويلة: <span dir="ltr">{{ emp.extension }}</span>{% endif %}{% if emp.email %} · البريد: <a href="mailto:{{ emp.email }}" dir="ltr">{{ emp.email }}</a>{% endif %}</span>{% endif %}</p></div>
   <div class="actions no-print">
     {{ year_select(years, sel_year) }}
     <a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a>

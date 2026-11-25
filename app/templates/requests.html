@@ -1,34 +1,33 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge, status_badge, ico  %}
+{% from "_macros.html" import kind_badge, status_badge, ico, drange  %}
 {% block title %}الطلبات{% endblock %}
 {% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ ico('inbox', 'h-ico') }} {{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
+  <div><h1>{{ ico('inbox', 'h-ico') }} {{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'req') }}</p></div>
   <div class="actions">
     {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>{% endif %}
     {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new">+ طلب معالجة غياب</a>{% endif %}
   </div>
 </div>
 <form method="get" class="card filters" data-autofilter>
-  <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" {% if kind=='use' %}selected{% endif %}>معالجة غياب</option><option value="compensation" {% if kind=='compensation' %}selected{% endif %}>تعويض غياب</option></select></div>
   <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
   {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
   <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>الرقم الصادر</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
+  <caption class="sr-only">طلبات معالجة الغياب</caption><thead><tr><th>الرقم الصادر</th>{% if user.role != 'employee' %}<th>الموظف</th>{% endif %}<th>المدة</th><th>التاريخ</th><th>السبب</th><th>الحالة</th><th></th></tr></thead><tbody>
   {% for r in rows %}{% set mg = can_manage(r.employee) %}<tr>
-    <td data-label="الرقم الصادر" class="num">{{ r.ref_code or r.id }}</td>
+    <td data-label="الرقم الصادر"><a class="num" href="/requests/{{ r.id }}" title="تفاصيل الطلب ومساره">{{ r.ref_code or r.id }}</a></td>
     {% if user.role != 'employee' %}<td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td>{% endif %}
-    <td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة"><b>{{ r.amount_label }}</b></td>
-    <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
+    <td data-label="المدة"><b>{{ r.amount_label }}</b>{% if r.kind != 'use' %} {{ kind_badge(r.kind) }}{% endif %}</td>
+    <td data-label="التاريخ">{{ drange(r.start_date, r.end_date) }}</td>
     <td data-label="السبب">{{ r.reason }}</td>
     <td data-label="الحالة">{{ status_badge(r.status, r.status_label) }}{% if r.note_text %}<small class="muted d-block">{{ r.note_text }}</small>{% endif %}</td>
-    <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}
+    <td class="actions-cell"><a class="btn sm" href="/requests/{{ r.id }}" aria-label="تفاصيل طلب {{ r.ref_code or r.id }}">التفاصيل</a><a class="btn sm" href="/requests/{{ r.id }}/print" target="_blank" rel="noopener">طباعة</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}
       {% if mg and r.status == 'pending' %}<form method="post" action="/requests/{{ r.id }}/decide" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm ok" name="action" value="approve">اعتماد</button><button class="btn sm danger" name="action" value="reject" data-need-note>رفض</button></form>{% endif %}
       {% if (r.status == 'pending' and r.employee_id == user.employee_id) or (mg and r.status in ('pending','approved')) %}<form method="post" action="/requests/{{ r.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note">{% if r.status == 'approved' %}<button class="btn sm danger" data-need-note data-confirm="إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف؟" title="لتصحيح خطأ (مثل التاريخ) أو لأي سبب آخر">إلغاء الاعتماد</button>{% else %}<button class="btn sm" data-confirm="إلغاء الطلب؟">إلغاء</button>{% endif %}</form>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="8" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="7" class="empty">لا توجد طلبات.</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

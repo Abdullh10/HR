@@ -29,10 +29,11 @@
 {# مؤشر الرصيد: حلقة تجمع الأيام والساعات + بطاقتان مستقلتان #}
 {% for kind, text in info.alerts %}<div class="alert {{ kind }} balance-alert" role="status">⚠ {{ text }}</div>{% endfor %}
 <section class="board{{ ' big' if big }}">
-  <div class="gauge" style="--p: {{ info.left_pct }}" role="img" aria-label="الرصيد المتبقي {{ info.total_left_days }} يوم و{{ info.total_left_rem|n }} ساعة">
+  <div class="gauge" style="--p: {{ info.left_pct }}" role="img" aria-label="المتاح للطلب {{ days_ar(info.bookable_days) }}">
     <div class="gauge-in">
-      <b class="num">{{ info.total_left_days }}</b><span>يوماً متبقياً</span>
-      {% if info.total_left_rem %}<small>+ {{ hours_ar(info.total_left_rem) }}</small>{% endif %}
+      <b class="num">{{ info.bookable_days }}</b>{% set bd = info.bookable_days %}<span>{{ 'يوم متاح للطلب' if bd == 1 else 'يومان متاحان للطلب' if bd == 2 else 'يوماً متاحاً للطلب' if bd > 10 else 'أيام متاحة للطلب' }}</span>
+      {% if info.pending_days or info.pending_hours %}<small>معلّق: {{ days_ar(info.pending_days) if info.pending_days else '' }}{% if info.pending_days and info.pending_hours %} و{% endif %}{{ hours_ar(info.pending_hours) if info.pending_hours else '' }}</small>{% endif %}
+      {% if info.hours_avail_rem %}<small>+ {{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}
     </div>
   </div>
   <div class="board-cards">
@@ -48,10 +49,15 @@
     <div class="bcard cap">
       {{ ico('pie') }}
       <div><span class="l">من الحد الأقصى السنوي</span><b class="v num">{{ info.granted_equiv_days|n }} <small class="of">من {{ info.cap_days|n }} يوماً</small></b>
-        <div class="progress" role="progressbar" aria-valuenow="{{ info.cap_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ info.cap_pct }}%"></span></div></div>
+        <div class="progress" role="progressbar" aria-label="الممنوح من الحد الأقصى السنوي" aria-valuenow="{{ info.cap_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ info.cap_pct }}%"></span></div></div>
     </div>
   </div>
 </section>
+{%- endmacro %}
+{% macro balance_line(info) -%}
+<div class="bal-line" role="status">{{ ico('pie', 'sm-ico') }}<span>المتاح للطلب: <b class="big">{{ days_ar(info.bookable_days) }}</b></span>
+  {% if info.pending_days %}<span class="muted">معلّق بانتظار الاعتماد: {{ days_ar(info.pending_days) }}</span>{% endif %}
+  {% if info.hours_avail_rem %}<span class="muted">{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم فلا تُستخدم</span>{% endif %}</div>
 {%- endmacro %}
 {% macro letter_head(title, ref, extra='') -%}
 <header>
@@ -69,11 +75,22 @@
 </nav>
 {%- endmacro %}
 
+{% macro drange(a, b=None) -%}
+{# فترة تاريخين معزولة الاتجاه لا تنكسر في منتصف التاريخ #}
+<span class="d-range"><bdi class="d">{{ a|d }}</bdi>{% if b and b != a %}<span aria-hidden="true">←</span><span class="sr-only">إلى</span><bdi class="d">{{ b|d }}</bdi>{% endif %}</span>
+{%- endmacro %}
+{% macro age_badge(d) -%}
+{# عمر الطلب المعلّق: متأخر إذا بلغ معيار الخدمة (أيقونة + نص، لا لون فقط) #}
+{%- if d >= LATE_DAYS -%}<span class="badge err late" title="تجاوز مدة القرار المعتمدة ({{ days_ar(LATE_DAYS) }})">متأخر · منذ {{ days_ar(d) }}</span>
+{%- elif d >= 1 -%}<span class="badge muted">منذ {{ days_ar(d) }}</span>
+{%- else -%}<span class="badge muted">اليوم</span>{%- endif -%}
+{%- endmacro %}
+
 {% macro welcome_banner(user) -%}
 {% set w = welcome_info(user) %}
 <section class="welcome" aria-label="ترحيب">
   <div class="w-top">
-    <div><h2 class="w-hi">{{ w.greeting }}{% if w.first %}، {{ w.first }}{% endif %}</h2>
+    <div><p class="w-hi">{{ w.greeting }}{% if w.first %}، {{ w.first }}{% endif %}</p>
       <p class="w-quote">{{ w.phrase }}</p></div>
     <p class="w-date"><span>{{ w.greg }}</span><span class="w-hijri" data-hijri="{{ w.iso }}" hidden></span></p>
   </div>

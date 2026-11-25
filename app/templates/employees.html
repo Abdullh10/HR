@@ -5,7 +5,7 @@
 {% block content %}
 {% if user.role == 'admin' %}{{ people_tabs('list') }}{% endif %}
 <div class="page-head">
-  <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
+  <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'emp') }} · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
   <div class="actions">
     <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>
     {% if user.role == 'admin' %}<a class="btn primary" href="/employees/new/form">+ إضافة موظف</a>{% endif %}
@@ -22,7 +22,7 @@
   <button class="btn primary btn-apply" type="submit">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">الإجمالي</th><th>من الحد الأقصى</th><th></th></tr></thead>
+  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th>من الحد الأقصى</th><th></th></tr></thead>
   <tbody>
   {% for e, b in rows %}
   <tr><td data-label="م">{{ loop.index }}</td>
@@ -30,9 +30,9 @@
     <td data-label="الرقم" class="num">{{ e.employee_no }}</td>
     {% if user.role == 'admin' %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
     <td class="n" data-label="رصيد الأيام">{{ b.days_left|n }}</td><td class="n" data-label="رصيد الساعات">{{ b.hours_left|n }}</td>
-    <td class="n" data-label="الإجمالي"><b>{{ b.total_left_days }}</b>{% if b.total_left_rem %}<small> +{{ b.total_left_rem|n }}س</small>{% endif %}</td>
+    <td class="n" data-label="المتاح للطلب"><b>{{ days_ar(b.bookable_days) }}</b>{% if b.hours_avail_rem %}<small class="muted d-block">و{{ hours_ar(b.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}</td>
     <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width: {{ b.cap_pct }}%"></span></div><span class="num">{{ b.granted_equiv_days|n }}/{{ b.cap_days|n }}</span></div></td>
-    <td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات">+ ساعات</a></td></tr>
+    <td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام" aria-label="توصية بالأيام لـ{{ e.full_name }}">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات" aria-label="توصية بالساعات لـ{{ e.full_name }}">+ ساعات</a></td></tr>
   {% else %}<tr><td colspan="9" class="empty">لا توجد نتيجة.{% if user.role == 'officer' %} لم يُسند إليك موظفون بعد — تواصل مع مدير النظام.{% endif %}</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

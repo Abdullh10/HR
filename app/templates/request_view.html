@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico, status_badge, kind_badge, drange %}
+{% block title %}تفاصيل الطلب {{ ref }}{% endblock %}
+{% block heading %}تفاصيل الطلب{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ ico('request', 'h-ico') }} طلب معالجة غياب <bdi class="d">{{ ref }}</bdi></h1>
+    <p>{% if user.employee_id != req.employee_id %}{{ req.employee.full_name }} · {% endif %}{{ status_badge(req.status, req.status_label) }}{% if req.kind != 'use' %} {{ kind_badge(req.kind) }}{% endif %}</p></div>
+  <div class="actions"><a class="btn" href="/requests/{{ req.id }}/print" target="_blank" rel="noopener">طباعة النموذج</a><a class="btn" href="/requests">كل الطلبات</a></div>
+</div>
+<div class="grid two">
+  <section class="card">
+    <h2>بيانات الطلب</h2>
+    <dl class="kv">
+      <div><dt>المدة</dt><dd><b>{{ req.amount_label }}</b></dd></div>
+      <div><dt>التاريخ</dt><dd>{{ drange(req.start_date, req.end_date) }}</dd></div>
+      <div><dt>السبب</dt><dd>{{ req.reason or '—' }}</dd></div>
+      <div><dt>تاريخ التقديم</dt><dd class="num">{{ req.created_at|d }}</dd></div>
+      {% if req.attachment_id %}<div><dt>المرفق</dt><dd><a href="/files/{{ req.attachment_id }}" target="_blank" rel="noopener">ملف PDF</a></dd></div>{% endif %}
+      <div><dt>مسؤول شؤون الموظفين</dt><dd>{{ req.employee.manager.full_name if req.employee.manager else 'غير مُسند (يعتمده مدير النظام)' }}</dd></div>
+    </dl>
+    {% if req.status == 'pending' and (req.employee_id == user.employee_id or mg) %}
+    <div class="actions">
+      {% if mg %}<form method="post" action="/requests/{{ req.id }}/decide" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn ok" name="action" value="approve">اعتماد</button><button class="btn danger" name="action" value="reject" data-need-note>رفض</button></form>{% endif %}
+      <form method="post" action="/requests/{{ req.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn" data-confirm="إلغاء الطلب؟">إلغاء الطلب</button></form>
+    </div>
+    {% elif req.status == 'approved' and mg %}
+    <div class="actions"><form method="post" action="/requests/{{ req.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn danger" data-need-note data-confirm="إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف؟">إلغاء الاعتماد</button></form></div>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>مسار الطلب</h2>
+    <ol class="timeline">
+      {% for s in steps %}<li class="tl-{{ s.state }}">
+        <span class="tl-dot" aria-hidden="true">{{ ico(s.icon) }}</span>
+        <div><b>{{ s.title }}</b>
+          <small class="muted d-block">{% if s.at %}<bdi class="d">{{ s.at|d }}</bdi>{% endif %}{% if s.who %} · {{ s.who }}{% endif %}{% if s.role %} ({{ s.role }}){% endif %}</small>
+          {% if s.note %}<p class="tl-note">{{ s.note }}</p>{% endif %}</div></li>{% endfor %}
+    </ol>
+  </section>
+</div>
+{% endblock %}

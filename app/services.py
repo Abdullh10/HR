@@ -87,6 +87,31 @@ def days_ar(n: int | float) -> str:
     return f"{n} يوماً"
 
 
+LATE_DAYS = 3  # معيار الخدمة: يُعدّ الطلب متأخراً إذا بقي بلا قرار 3 أيام فأكثر
+
+COUNT_FORMS = {
+    # (صفر، واحد، اثنان، 3–10، 11 فأكثر)
+    "emp": ("لا يوجد موظفون", "موظف واحد", "موظفان", "موظفين", "موظفاً"),
+    "req": ("لا توجد طلبات", "طلب واحد", "طلبان", "طلبات", "طلباً"),
+    "rec": ("لا توجد توصيات", "توصية واحدة", "توصيتان", "توصيات", "توصية"),
+    "msg": ("لا توجد رسائل", "رسالة واحدة", "رسالتان", "رسائل", "رسالة"),
+    "acc": ("لا توجد حسابات", "حساب واحد", "حسابان", "حسابات", "حساباً"),
+}
+
+
+def count_ar(n: int | float, kind: str) -> str:
+    """العدد مع المعدود بصيغة عربية صحيحة: «طلب واحد»، «طلبان»، «5 طلبات»، «12 طلباً»."""
+    n = int(n or 0)
+    z, one, two, few, many = COUNT_FORMS[kind]
+    if n == 0:
+        return z
+    if n == 1:
+        return one
+    if n == 2:
+        return two
+    return f"{n} {few}" if 3 <= n <= 10 else f"{n} {many}"
+
+
 def hours_ar(h: float) -> str:
     h = round(float(h), 2)
     txt = f"{h:g}"
@@ -626,3 +651,23 @@ def audit(db: Session, user: User | None, action: str, entity: str = "", entity_
             created_at=datetime.now(),
         )
     )
+
+
+def year_end_reminder(db: Session, user: User) -> bool:
+    """تذكير سنوي واحد (من أول دخول في ديسمبر) بأن الرصيد المتاح يسقط بنهاية السنة. يعيد True إن أُرسل."""
+    today = date.today()
+    if today.month != 12 or not user.employee_id:
+        return False
+    year = year_for_date(db, today)
+    if not year or year.end_date > date(today.year, 12, 31) or year.end_date < today:
+        return False
+    subject = f"تذكير: رصيدك من بدل الراحة يسقط بنهاية السنة {year.name}"
+    if db.scalar(select(Message.id).where(Message.recipient_id == user.id, Message.subject == subject)):
+        return False
+    b = compute_balance(db, user.employee_id, year)
+    if b.bookable_days <= 0:
+        return False
+    notify(db, user, subject,
+           f"لديك {days_ar(b.bookable_days)} متاحة للطلب من رصيد بدل الراحة، وتسقط في {year.end_date:%Y-%m-%d} "
+           "لأن الرصيد لا يُرحَّل إلى السنة التالية. قدّم طلب معالجة غياب قبل نهاية السنة إن رغبت في استخدامها.", "/requests/new")
+    return True

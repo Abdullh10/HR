@@ -40,6 +40,8 @@ from .services import (
     message_recipients,
     notify,
     officer_users_for,
+    LATE_DAYS,
+    count_ar,
     is_delegated,
     alert_keys,
     assign_ref,
@@ -165,16 +167,19 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     oldest = max((r.age_days for r in pending), default=0)
     # تنبيهات تحتاج إجراء (مرتبة حسب الأهمية)
     alerts = []
-    late7 = sum(1 for r in pending if r.age_days >= 7)
-    late3 = sum(1 for r in pending if 3 <= r.age_days < 7)
-    if late7:
-        alerts.append(dict(level="err", icon="hourglass", text=f"{late7} طلب بانتظار الاعتماد منذ 7 أيام أو أكثر (أقدمها منذ {days_ar(oldest)}).", href="/approvals", cta="مراجعة الاعتمادات"))
-    elif late3:
-        alerts.append(dict(level="warn", icon="hourglass", text=f"{late3} طلب بانتظار الاعتماد منذ 3 أيام أو أكثر.", href="/approvals", cta="مراجعة الاعتمادات"))
+    late = sum(1 for r in pending if r.age_days >= LATE_DAYS)
+    if late:
+        alerts.append(dict(level="err", icon="hourglass", text=f"طلبات تجاوزت مدة القرار المعتمدة ({days_ar(LATE_DAYS)}): {count_ar(late, 'req')}، أقدمها منذ {days_ar(oldest)}.", href="/approvals", cta="مراجعة الاعتمادات"))
+    today = date.today()
+    if user.role == "officer" and today.month >= 10 and year.start_date <= today <= year.end_date:
+        lapse = [(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps if e.is_active) if b.bookable_days > 0]
+        if lapse:
+            total = sum(b.bookable_days for _, b in lapse)
+            alerts.append(dict(level="warn", icon="calendar", text=f"{count_ar(len(lapse), 'emp')} في فريقك لديهم رصيد متاح ({days_ar(total)} إجمالاً) يسقط في {year.end_date:%Y-%m-%d} لأن الرصيد لا يُرحَّل؛ ذكّرهم باستخدامه.", href="/reports", cta="عرض الأرصدة"))
     quick = {}
     if user.role == "admin":
         from .models import AuditLog, LoginCard
-        backlog = [n for n, d in by_officer.items() if d.get("oldest", 0) >= 3 and n != "— غير مُسند —"]
+        backlog = [n for n, d in by_officer.items() if d.get("oldest", 0) >= LATE_DAYS and n != "— غير مُسند —"]
         if backlog:
             alerts.append(dict(level="warn", icon="userkey", text="مسؤولون لديهم طلبات متأخرة: " + "، ".join(backlog[:4]) + ("…" if len(backlog) > 4 else "") + ".", href="/approvals", cta="عرض الطلبات"))
         unassigned = [e for e in emps if not e.manager_id and e.is_active]
@@ -191,7 +196,6 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
                           User.last_login.is_(None), User.created_at < now - timedelta(days=7))) or 0
         if never:
             alerts.append(dict(level="info", icon="badge", text=f"{never} حساب لم يسجّل صاحبه الدخول بعد رغم مرور أكثر من أسبوع على إنشائه؛ تأكد من تسليم بطاقات الدخول.", href="/admin/cards?state=pending", cta="عرض البطاقات"))
-        today = date.today()
         if today.month >= 10 and year.start_date <= today <= year.end_date:
             lapse = [(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps) if b.bookable_days > 0]
             if lapse:
@@ -687,6 +691,72 @@ def request_cancel(request: Request, req_id: int, note: str = Form(""), user: Us
     return back(request, "/requests")
 
 
+@router.get("/requests/preview")
+def request_preview(start: str = "", end: str = "", emp: int | None = None, user: User = Depends(current_user),
+                    db: Session = Depends(get_db)):
+    """معاينة فورية لعدد أيام العمل التي ستُخصم (تستبعد عطلة نهاية الأسبوع والعطل الرسمية) ومقارنتها بالمتاح."""
+    from fastapi.responses import JSONResponse
+
+    from .services import working_days, year_for_date
+    sd, ed = parse_date(start), parse_date(end) or parse_date(start)
+    if not sd or not ed or ed < sd or (ed - sd).days > 120:
+        return JSONResponse({"ok": False})
+    year = year_for_date(db, sd)
+    if not year:
+        return JSONResponse({"ok": False, "msg": "التاريخ لا يقع ضمن سنة معرّفة في النظام."})
+    n = len(working_days(db, year, sd, ed))
+    target = db.get(Employee, emp) if emp else (db.get(Employee, user.employee_id) if user.employee_id else None)
+    avail = None
+    if target and can_view_employee(user, target):
+        avail = compute_balance(db, target.id, year).bookable_days
+    return JSONResponse({"ok": True, "days": n, "label": days_ar(n) if n else "لا توجد أيام عمل في هذه الفترة",
+                         "avail": avail, "over": avail is not None and n > avail})
+
+
+@router.get("/requests/{req_id}")
+def request_view(request: Request, req_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """تفاصيل الطلب ومساره الزمني: التقديم، ثم القرار (ومن اتخذه وصفته)، ثم الإلغاء إن وُجد."""
+    req = db.get(LeaveRequest, req_id)
+    if not req or not can_view_employee(user, req.employee):
+        raise HTTPException(404, "الطلب غير موجود.")
+    emp = req.employee
+    decider = db.get(User, req.decided_by) if req.decided_by else None
+    canceller = db.get(User, req.cancelled_by) if req.cancelled_by else None
+
+    def capacity(u: User | None) -> str:
+        if not u:
+            return ""
+        if u.role == "admin":
+            return "مدير النظام" + (" (بالنيابة)" if emp.manager_id and emp.manager_id != u.employee_id else "")
+        if u.employee_id and u.employee_id == emp.manager_id:
+            return "مسؤول شؤون الموظفين"
+        if u.employee_id == emp.id:
+            return "صاحب الطلب"
+        return "مسؤول شؤون الموظفين (بالتفويض)"
+    steps = [dict(state="done", title="قُدّم الطلب", at=req.created_at,
+                  who=(req.requester.display_name if req.requester else emp.full_name),
+                  note=req.reason, icon="request")]
+    if req.status == "pending":
+        due = req.created_at + timedelta(days=LATE_DAYS)
+        late = datetime.now() > due
+        steps.append(dict(state="late" if late else "current", title="بانتظار قرار مسؤول شؤون الموظفين",
+                          who=emp.manager.full_name if emp.manager else "مدير النظام",
+                          note=(f"تجاوز الطلب مدة القرار المعتمدة ({days_ar(LATE_DAYS)})." if late
+                                else f"يُتوقع القرار قبل {due:%Y-%m-%d} (خلال {days_ar(LATE_DAYS)} من التقديم)."), icon="hourglass"))
+    elif req.decided_at or req.status in ("approved", "rejected"):
+        steps.append(dict(state="err" if req.status == "rejected" else "ok",
+                          title="اعتُمد الطلب" if req.status in ("approved", "cancelled") else "رُفض الطلب",
+                          at=req.decided_at, who=(decider.display_name if decider else ""), role=capacity(decider),
+                          note=req.decision_note, icon="stamp"))
+    if req.status == "cancelled":
+        steps.append(dict(state="err", title="أُلغي الطلب" + (" بعد اعتماده وأُعيد الرصيد" if req.decided_at else ""),
+                          at=req.cancelled_at, who=(canceller.display_name if canceller else ""), role=capacity(canceller),
+                          note=req.cancel_note, icon="adjust"))
+    year = db.get(FiscalYear, req.fiscal_year_id)
+    return render(request, db, "request_view.html", user=user, req=req, steps=steps, sel_year=year,
+                  mg=can_manage(user, emp), ref=req.ref_code or ref_no("REQ", req.id, req.created_at))
+
+
 @router.get("/requests/{req_id}/print")
 def request_print(request: Request, req_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     req = db.get(LeaveRequest, req_id)
@@ -714,7 +784,7 @@ def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Sessi
             rows.append((r, compute_balance(db, r.employee_id, db.get(FiscalYear, r.fiscal_year_id))))
     oldest = max((r.age_days for r, _ in rows), default=0)
     return render(request, db, "approvals.html", user=user, rows=rows, oldest=oldest,
-                  late=sum(1 for r, _ in rows if r.age_days >= 3))
+                  late=sum(1 for r, _ in rows if r.age_days >= LATE_DAYS))
 
 
 @router.post("/approvals/bulk")

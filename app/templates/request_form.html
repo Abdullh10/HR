@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, balance_board %}
+{% from "_macros.html" import ico, balance_line %}
 {% block title %}طلب معالجة غياب{% endblock %}
 {% block heading %}طلب معالجة غياب{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('calendar-plus', 'h-ico') }} طلب معالجة غياب</h1>
+<div class="page-head"><div><h1>{{ ico('request', 'h-ico') }} طلب معالجة غياب</h1>
   <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد مسؤول شؤون الموظفين.</p></div>
 </div>
-{% if info %}{{ balance_board(info) }}{% endif %}
-<form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form>
+{% if info %}{{ balance_line(info) }}{% endif %}
+<form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form data-days-preview>
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="use">
   {% if managed %}
   <div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-autosubmit-get="/requests/new?emp="><option value="">— اختر —</option>
@@ -16,12 +16,12 @@
   {% else %}<input type="hidden" name="emp" value="{{ emp }}">{% endif %}
   <input type="hidden" name="unit" value="days">
   <div class="alert info days-only">{{ ico('calendar') }}<div><b>تُعالج الطلبات بالأيام فقط.</b>
-    تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل {{ sel_year.hours_per_day|n }} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.
-    {% if info %}<br>المتاح للطلب: <b>{{ days_ar(info.bookable_days) }}</b>{% if info.bookable_from_hours %} (منها {{ info.bookable_from_hours }} بتحويل الساعات){% endif %}{% if info.hours_avail_rem %} · ساعات متبقية غير قابلة للاستخدام: {{ hours_ar(info.hours_avail_rem) }}{% endif %}.{% endif %}</div></div>
+    تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل {{ sel_year.hours_per_day|n }} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.</div></div>
   <div class="form-grid">
     <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start_date" type="date" required></div>
     <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
   </div>
+  <p class="days-preview" data-days-out role="status" aria-live="polite"></p>
   <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
   <div class="field"><label for="fl">مستند مؤيد (PDF){{ ' *' if sel_year.require_request_attachment }}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" {% if sel_year.require_request_attachment %}required{% endif %}></div>
   <div class="actions"><button class="btn primary" type="submit">رفع الطلب</button><a class="btn" href="/requests">إلغاء</a></div>

@@ -65,7 +65,7 @@
         {{ item('/reports', 'التقارير', 'reports') }}
         {{ item('/archive', 'الأرشيف', 'archive') }}
         <li class="sep">حسابي</li>
-        {{ item('/profile', 'الملف الشخصي', 'user') }}
+        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
       {% else %}
       {% if user.role == 'officer' %}
         <li class="sep">المتابعة</li>
@@ -82,19 +82,21 @@
       {% if user.employee_id %}
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
         {{ item('/me', 'رصيدي', 'pie') }}
-        {% if user.role == 'employee' %}{{ item('/requests', 'طلباتي', 'calendar') }}{% endif %}
+        {% if user.role == 'employee' %}{{ item('/requests', 'طلباتي', 'inbox') }}{% endif %}
         {% if year and year.employee_can_request %}
-          {{ item('/requests/new', 'طلب معالجة غياب', 'calendar-plus', prefix='/requests/new') }}
+          {{ item('/requests/new', 'طلب معالجة غياب' if user.role == 'employee' else 'طلب معالجة غياب لي', 'request', prefix='/requests/new') }}
         {% endif %}
-        {{ item('/profile', 'الملف الشخصي', 'user') }}
+        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
       {% endif %}
       <li class="sep">التواصل</li>
       {{ item('/messages', 'المراسلات', 'mail', unread) }}
       {{ item('/messages/new', 'رسالة جديدة', 'send') }}
+      {% if user.role == 'employee' %}{{ item('/faq', 'الأسئلة الشائعة', 'shield') }}{% endif %}
       {% if user.role == 'officer' %}
         <li class="sep">التقارير والأرشيف</li>
         {{ item('/reports', 'التقارير', 'reports') }}
         {{ item('/archive', 'الأرشيف', 'archive') }}
+        {{ item('/faq', 'الأسئلة الشائعة', 'shield') }}
       {% endif %}
       {% endif %}
     </ul>
@@ -106,7 +108,7 @@
       {% set p0 = path.split('/')[1] if path.count('/') else '' %}
       {% set section = {'admin': 'الإدارة', 'recommendations': 'السجلات' if user.role == 'admin' else 'التوصيات', 'requests': 'السجلات' if user.role == 'admin' else 'الطلبات',
                         'messages': 'التواصل', 'reports': 'التقارير والأرشيف', 'archive': 'التقارير والأرشيف', 'profile': 'حسابي', 'me': 'حسابي',
-                        'dashboard': 'المتابعة', 'employees': 'المتابعة', 'delegation': 'المتابعة', 'approvals': 'المتابعة', 'change-password': 'حسابي'}.get(p0, '') %}
+                        'dashboard': 'المتابعة', 'employees': 'المتابعة', 'delegation': 'المتابعة', 'faq': 'المساعدة', 'approvals': 'المتابعة', 'change-password': 'حسابي'}.get(p0, '') %}
       <nav class="title crumbs" aria-label="مسار التنقل">{% if section %}<span class="crumb">{{ section }}</span><span class="crumb-sep" aria-hidden="true">‹</span>{% endif %}<span aria-current="page">{% block heading %}{% endblock %}</span></nav>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
@@ -116,7 +118,7 @@
         <div class="acct-menu">
           <div class="who-full"><b>{{ user.display_name }}</b><small>{{ user.role_label }}</small></div>
           <button class="btn" type="button" data-theme-toggle>{{ ico('moon', 'theme-moon') }}{{ ico('sun', 'theme-sun') }}الوضع الداكن/الفاتح</button>
-          <a class="btn" href="/profile">{{ ico('user') }}الملف الشخصي</a>
+          <a class="btn" href="/profile">{{ ico('idcard') }}الملف الشخصي</a>
           {% if user.role == 'admin' %}<a class="btn" href="/admin/years">{{ ico('gear') }}الإعدادات</a>{% endif %}
           <a class="btn" href="/change-password">{{ ico('key') }}كلمة المرور</a>
           <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn logout" type="submit">{{ ico('logout') }}خروج</button></form>

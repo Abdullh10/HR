@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import AppSetting, ROLES, User
 from .security import SESSION_IDLE_MINUTES, csrf_token
-from .services import WEEKDAYS_AR, active_year, days_ar, hours_ar
+from .services import LATE_DAYS, WEEKDAYS_AR, active_year, count_ar, days_ar, hours_ar
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -38,13 +38,15 @@ templates.env.filters["d"] = fmt_date
 templates.env.filters["n"] = fmt_num
 templates.env.globals["days_ar"] = days_ar
 templates.env.globals["hours_ar"] = hours_ar
+templates.env.globals["count_ar"] = count_ar
+templates.env.globals["LATE_DAYS"] = LATE_DAYS
 templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
 from .welcome import welcome_info  # noqa: E402
 templates.env.globals["welcome_info"] = welcome_info
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "48"
+ASSET_V = "49"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"

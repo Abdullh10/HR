@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ico %}
 {% block title %}{{ m.subject }}{% endblock %}
 {% block heading %}المراسلات{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ m.subject }}</h1><p>من: {{ m.sender.display_name if m.sender else 'إشعار النظام' }} · إلى: {{ m.recipient.display_name }} · {{ m.created_at|d }}{% if m.emailed %} · أُرسلت نسخة بالبريد{% endif %}</p></div>
+<div class="page-head"><div><h1>{{ ico('mail', 'h-ico') }} {{ m.subject }}</h1><p>من: {{ m.sender.display_name if m.sender else 'إشعار النظام' }} · إلى: {{ m.recipient.display_name }} · {{ m.created_at|d }}{% if m.emailed %} · أُرسلت نسخة بالبريد{% endif %}</p></div>
   <div class="actions">{% if can_reply %}<a class="btn primary" href="/messages/new?re={{ m.id }}">رد</a>{% endif %}<a class="btn" href="/messages/{{ m.id }}?print=1" target="_blank" rel="noopener">طباعة</a>{% if m.link %}<a class="btn" href="{{ m.link }}">فتح المرتبط</a>{% endif %}<a class="btn" href="/messages">رجوع</a></div></div>
 <article class="card msg-body">{{ m.body }}</article>
 {% endblock %}

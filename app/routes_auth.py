@@ -53,6 +53,11 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         start_session(request, user)
         request.session["seen"] = datetime.now().isoformat(timespec="seconds")
         audit(db, user, "login", "user", user.id, ip=client_ip(request))
+        try:
+            from .services import year_end_reminder
+            year_end_reminder(db, user)
+        except Exception:  # noqa: BLE001 - التذكير لا يعطّل الدخول
+            pass
         db.commit()
         return redirect("/")
     elif user:

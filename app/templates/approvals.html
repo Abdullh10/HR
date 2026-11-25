@@ -1,36 +1,30 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge, ico %}
+{% from "_macros.html" import kind_badge, ico, age_badge, drange %}
 {% block title %}الاعتمادات{% endblock %}
 {% block heading %}الاعتمادات{% endblock %}
-{% macro age_badge(d) -%}
-  {%- if d >= 7 -%}<span class="badge err">منذ {{ days_ar(d) }}</span>
-  {%- elif d >= 3 -%}<span class="badge warn">منذ {{ days_ar(d) }}</span>
-  {%- elif d >= 1 -%}<span class="badge muted">منذ {{ days_ar(d) }}</span>
-  {%- else -%}<span class="badge muted">اليوم</span>{%- endif -%}
-{%- endmacro %}
 {% block content %}
 <div class="page-head"><div><h1>{{ ico('stamp', 'h-ico') }} الاعتمادات</h1>
-  <p>{{ rows|length }} طلب بانتظار الاعتماد{% if rows %} · أقدمها منذ {{ days_ar(oldest) if oldest else 'اليوم' }}{% endif %}{% if late %} · <b>{{ late }} متأخر (3 أيام فأكثر)</b>{% endif %}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+  <p>{{ count_ar(rows|length, 'req') }} بانتظار الاعتماد{% if rows %} · أقدمها منذ {{ days_ar(oldest) if oldest else 'اليوم' }}{% endif %}{% if late %} · <b>المتأخرة (تجاوزت {{ days_ar(LATE_DAYS) }}): {{ count_ar(late, 'req') }}</b>{% endif %}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
 {% if user.role == 'admin' and rows|selectattr('0.on_behalf')|list %}
 <div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>
 {% endif %}
 {% if rows %}
 <form method="post" action="/approvals/bulk" class="card flush">
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note">
-  <div class="table-wrap"><table class="responsive">
-    <thead><tr><th><input type="checkbox" data-check-all="req_ids" aria-label="تحديد الكل"></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح بعد الطلب</th><th></th></tr></thead><tbody>
+  <div class="table-wrap"><table class="responsive"><caption class="sr-only">الطلبات بانتظار الاعتماد</caption>
+    <thead><tr><th><label class="chk"><input type="checkbox" data-check-all="req_ids" aria-label="تحديد الكل"></label></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح للطلب حالياً</th><th></th></tr></thead><tbody>
     {% for r, b in rows %}<tr>
-      <td data-label="تحديد"><input type="checkbox" name="req_ids" value="{{ r.id }}" aria-label="تحديد طلب {{ r.employee.full_name }}"></td>
+      <td data-label="تحديد"><label><input type="checkbox" name="req_ids" value="{{ r.id }}" aria-label="تحديد طلب {{ r.employee.full_name }}"></label></td>
       <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a>
         {% if user.role == 'admin' %}<br><small class="muted">{{ r.employee.manager.full_name if r.employee.manager else 'غير مُسند' }}</small>{% if r.on_behalf %} <span class="badge muted">بالنيابة</span>{% endif %}{% endif %}{% if r.delegated %}<br><small class="muted">فريق {{ r.employee.manager.full_name }}</small> <span class="badge muted">بالتفويض</span>{% endif %}</td>
       <td data-label="المدة"><b>{{ r.amount_label }}</b>{% if r.kind != 'use' %} {{ kind_badge(r.kind) }}{% endif %}</td>
-      <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
+      <td data-label="التاريخ">{{ drange(r.start_date, r.end_date) }}</td>
       <td data-label="منذ" class="age-col">{{ age_badge(r.age_days) }}</td>
       <td data-label="السبب">{{ r.reason or '—' }}{% if r.attachment_id %} <a class="badge info" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">مرفق PDF</a>{% endif %}</td>
-      <td data-label="المتاح بعد الطلب">{{ days_ar(b.bookable_days) }}</td>
+      <td data-label="المتاح للطلب حالياً" title="بعد خصم جميع الطلبات المعلّقة، ومنها هذا الطلب">{{ days_ar(b.bookable_days) }}</td>
       <td class="actions-cell"><button class="btn sm ok" formaction="/requests/{{ r.id }}/decide" name="action" value="approve">اعتماد</button><button class="btn sm danger" formaction="/requests/{{ r.id }}/decide" name="action" value="reject" data-need-note>رفض</button></td></tr>{% endfor %}
     </tbody></table></div>
-  <div class="actions pad"><button class="btn ok" name="action" value="approve" data-confirm="اعتماد الطلبات المحددة؟">اعتماد المحدد</button><button class="btn danger" name="action" value="reject" data-need-note>رفض المحدد</button></div>
+  <div class="actions pad"><button class="btn ok" name="action" value="approve" data-confirm="اعتماد الطلبات المحددة؟">اعتماد المحدد</button><button class="btn danger" name="action" value="reject" data-need-note data-note-prompt="سبب الرفض (سيُطبَّق السبب نفسه على جميع الطلبات المحددة ويصل لكل موظف)">رفض المحدد</button></div>
 </form>
 {% else %}<div class="card empty">لا توجد طلبات بانتظار الاعتماد.</div>{% endif %}
 {% endblock %}
