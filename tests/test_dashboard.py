@@ -79,7 +79,9 @@ def test_audit_log_clear(world):
         old.created_at = datetime.now() - timedelta(days=500)
         db.commit()
         total = db.query(AuditLog).count()
-    assert "حذف سجل التدقيق" in adm.get("/admin/audit").text
+    page = adm.get("/admin/audit").text
+    assert page.count('id="clear"') == 1  # القسم مرة واحدة فقط (لا في العنوان ولا في شريط المسار)
+    assert "<title>سجل التدقيق — " in page
     r = post(adm, "/admin/audit/clear", {"scope": "all", "confirm": "حذف", "password": "wrong"})
     assert "غير صحيحة" in adm.get(r.headers["location"]).text
     with SessionLocal() as db:
