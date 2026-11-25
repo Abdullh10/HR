@@ -323,7 +323,7 @@ def save_login_cards(db: Session, made: list[tuple], reason: str, by: User | Non
 
 
 def create_employee_account(db: Session, emp: Employee, by: User | None) -> tuple[str, str]:
-    """ينشئ حساب دخول لموظف (اسم المستخدم = الرقم الوظيفي، كلمة مرور مؤقتة) ويحفظ بطاقة دخوله.
+    """ينشئ حساب دخول لموظف (اسم المستخدم = الرقم الوظيفي، كلمة مرور أولية) ويحفظ بطاقة دخوله.
     يعيد (اسم المستخدم، كلمة المرور). يرفع RuleError إن تعذّر."""
     import secrets
     from .security import hash_password
@@ -339,7 +339,7 @@ def create_employee_account(db: Session, emp: Employee, by: User | None) -> tupl
     pw = secrets.token_urlsafe(8)
     role = "officer" if db.scalar(select(Employee.id).where(Employee.manager_id == emp.id)) else "employee"
     db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=emp.id,
-                must_change_password=True))
+                must_change_password=False))
     save_login_cards(db, [(emp.full_name, uname, pw, role)], "single", by)
     return uname, pw
 

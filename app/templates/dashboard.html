@@ -32,7 +32,7 @@
   <a class="tile appr" href="/approvals">{{ ico('stamp') }}<span><b>الاعتمادات</b><small>{{ pending_count }} طلب بانتظار الاعتماد</small></span>{% if pending_count %}<span class="badge warn">{{ pending_count }}</span>{% endif %}</a>
   <a class="tile days" href="/admin/import">{{ ico('upload') }}<span><b>استيراد الموظفين</b><small>ملف Excel للإضافة أو التحديث</small></span></a>
   <a class="tile hours" href="/admin/users">{{ ico('userkey') }}<span><b>الحسابات الناقصة</b><small>{{ quick.no_account or 0 }} موظف بلا حساب</small></span>{% if quick.no_account %}<span class="badge warn">{{ quick.no_account }}</span>{% endif %}</a>
-  <a class="tile msg" href="/admin/cards?state=pending">{{ ico('badge') }}<span><b>بطاقات الدخول</b><small>{{ quick.pending_cards or 0 }} بانتظار أول دخول</small></span></a>
+  <a class="tile msg" href="/admin/cards?state=pending">{{ ico('badge') }}<span><b>بطاقات الدخول</b><small>{{ quick.pending_cards or 0 }} بطاقة سارية</small></span></a>
 </nav>
 {% else %}
 <nav class="action-tiles" aria-label="إجراءات سريعة">

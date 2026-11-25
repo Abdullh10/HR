@@ -40,7 +40,7 @@
       <div class="field"><label for="un">اسم المستخدم</label><input id="un" name="username" required></div>
       <div class="field"><label for="rl">الدور</label><select id="rl" name="role" data-role-select>{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == 'employee' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
       <div class="field"><label for="ei">سجل الموظف المرتبط</label><select id="ei" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked %}<option value="{{ e.id }}">{{ e.full_name }} ({{ e.employee_no }})</option>{% endfor %}</select></div>
-      <div class="field"><label for="pw">كلمة مرور مؤقتة <span class="hint">(فارغ = توليد تلقائي)</span></label><input id="pw" name="password" type="text" autocomplete="off"></div>
+      <div class="field"><label for="pw">كلمة مرور أولية <span class="hint">(فارغ = توليد تلقائي)</span></label><input id="pw" name="password" type="text" autocomplete="off"></div>
     </div>
     {{ assign_box(None) }}
     <button class="btn primary">إنشاء الحساب</button>

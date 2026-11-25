@@ -66,7 +66,7 @@
 <form method="post" action="/admin/import/commit" class="card">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <textarea name="payload" hidden>{{ payload }}</textarea>
-  <label class="check"><input type="checkbox" name="create_accounts" value="1" checked> إنشاء حساب لكل موظف ليس له حساب (اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة)</label>
+  <label class="check"><input type="checkbox" name="create_accounts" value="1" checked> إنشاء حساب لكل موظف ليس له حساب (اسم المستخدم = الرقم الوظيفي، وكلمة مرور أولية)</label>
   <label class="check"><input type="checkbox" name="update_roles" value="1" checked> تحديث منصب الحسابات الموجودة حسب الملف (لا يمس حسابات مدير النظام)</label>
   {% if counts['error'] %}<div class="alert warn">ستُتجاوز الصفوف التي فيها أخطاء ({{ counts['error'] }}). يمكنك تصحيحها واستيرادها لاحقاً.</div>{% endif %}
   <div class="actions"><button class="btn primary" type="submit">استيراد {{ counts['new'] + counts['update'] }} موظف</button><a class="btn" href="/admin/import">رجوع</a></div>

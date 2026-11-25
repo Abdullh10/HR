@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/static/app.css?v={{ ASSET_V }}"><script src="/static/app.js?v={{ ASSET_V }}"></script></head>
 <body class="print-page">
 <div class="actions no-print" style="justify-content:center;padding:1rem"><button class="btn primary" type="button" data-print>طباعة / حفظ PDF</button><a class="btn" href="/admin/cards">رجوع</a></div>
-{% if not rows %}<p class="empty no-print" style="text-align:center">لا توجد بطاقات بانتظار أول دخول.</p>{% endif %}
+{% if not rows %}<p class="empty no-print" style="text-align:center">لا توجد بطاقات سارية.</p>{% endif %}
 <div class="login-cards">
   {% for c in rows %}
   <article class="login-card">
@@ -16,10 +16,10 @@
     <p class="lc-meta">{% if c.employee_no %}الرقم الوظيفي: {{ c.employee_no }} · {% endif %}{{ c.role_label }}</p>
     <dl>
       <dt>اسم المستخدم</dt><dd class="num">{{ c.username }}</dd>
-      <dt>كلمة المرور المؤقتة</dt><dd class="num">{% if c.temp_password %}{{ c.temp_password }}{% else %}— غُيّرت —{% endif %}</dd>
+      <dt>كلمة المرور</dt><dd class="num">{% if c.temp_password %}{{ c.temp_password }}{% else %}— غُيّرت —{% endif %}</dd>
     </dl>
     <p class="lc-url">رابط الدخول: <span class="num">{{ login_url }}</span></p>
-    <p class="lc-note">يُطلب تغيير كلمة المرور عند أول دخول. احتفظ بالبطاقة بسرّية ولا تشاركها.</p>
+    <p class="lc-note">يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي». احتفظ بالبطاقة بسرّية ولا تشاركها.</p>
     <footer>أُصدرت: {{ c.created_at|d }}</footer>
   </article>
   {% endfor %}

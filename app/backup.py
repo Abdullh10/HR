@@ -89,6 +89,21 @@ def auto_backup(db: Session, reason: str) -> str:
     return name
 
 
+def nightly_status() -> dict | None:
+    """آخر نسخة ليلية على الخادم (سكربت hr-backup)؛ None إن لم توجد أو تعذّرت قراءتها."""
+    import os
+    from pathlib import Path
+    d = Path(os.environ.get("HR_BACKUP_DIR", "/var/backups/hr"))
+    try:
+        files = sorted(d.glob("db-*.sql.gz"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return None
+    if not files:
+        return None
+    p = files[0]
+    return dict(name=p.name, at=datetime.fromtimestamp(p.stat().st_mtime), size=p.stat().st_size, count=len(files))
+
+
 def list_auto() -> list[dict]:
     if not AUTO_DIR.exists():
         return []
@@ -164,12 +179,14 @@ def write_uploads(files: list[tuple[str, bytes]]) -> None:
 
 
 def wipe(db: Session, keep_user_id: int) -> None:
-    """يحذف كل البيانات التشغيلية: الموظفين والحسابات (عدا الأدمن المنفّذ) والتوصيات والطلبات
-    والمراسلات والمرفقات والأقسام والعطل وسجل التدقيق. تبقى السنوات وهوية الجهة."""
-    keep = {"app_settings", "fiscal_years", "users"}
-    from .models import User
+    """يحذف كل البيانات التشغيلية: الموظفين والحسابات (عدا مدير النظام المنفّذ) والتوصيات والطلبات
+    والمراسلات والمرفقات والأقسام والعطل. تبقى السنوات وهوية الجهة و**سجل التدقيق** (للحوكمة؛ يبقى اسم
+    المستخدم في كل قيد حتى بعد حذف حسابه)."""
+    keep = {"app_settings", "fiscal_years", "users", "audit_log"}
+    from .models import AuditLog, User
 
     db.execute(update(User).where(User.id == keep_user_id).values(employee_id=None))
+    db.execute(update(AuditLog).where(AuditLog.user_id != keep_user_id).values(user_id=None))
     for t in reversed(_tables()):
         if t.name == "users":
             db.execute(delete(t).where(t.c.id != keep_user_id))

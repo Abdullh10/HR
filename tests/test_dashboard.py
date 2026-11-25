@@ -37,3 +37,35 @@ def test_admin_decision_on_behalf_notifies_officer(world):
         assert "on_behalf" in (log.details or "")
         mgr_user = db.query(User).filter_by(username="mgr").one()
         assert db.query(Message).filter(Message.recipient_id == mgr_user.id, Message.subject.like("قرار بالنيابة%")).count() == 1
+
+
+def test_audit_labels_filters_and_export(world):
+    adm = login("admin")
+    adm.get("/export/balances.xlsx")
+    page = adm.get("/admin/audit").text
+    assert "تسجيل دخول" in page and "تصدير بيانات إلى Excel" in page
+    filtered = adm.get("/admin/audit?action=data_exported").text
+    assert "تصدير بيانات إلى Excel" in filtered and "تسجيل دخول</b>" not in filtered
+    r = adm.get("/admin/audit.xlsx?action=login")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/vnd.openxmlformats")
+    r = adm.get("/admin/cards.xlsx")
+    assert r.status_code == 200
+    with SessionLocal() as db:
+        acts = [a.action for a in db.query(AuditLog)]
+        assert "audit_exported" in acts and acts.count("data_exported") >= 2
+
+
+def test_cannot_deactivate_officer_with_team(world):
+    adm = login("admin")
+    r = post(adm, "/employees/save", {"emp_id": str(world["m"]), "employee_no": "1001", "full_name": "الإداري المسؤول"})  # بلا is_active
+    assert "انقل الفريق" in adm.get(r.headers["location"]).text
+    with SessionLocal() as db:
+        assert db.get(Employee, world["m"]).is_active
+
+
+def test_holiday_overlap_warning(world):
+    mgr, emp, adm = login("mgr"), login("emp"), login("admin")
+    rec(mgr, world["e"], "days", 3)
+    leave(emp, world["e"], "use", "days", MON, MON)
+    r = post(adm, "/admin/holidays/add", {"start": str(MON), "end": str(MON), "name": "عطلة طارئة"})
+    assert "يتقاطع مع العطلة المضافة" in adm.get(r.headers["location"]).text

@@ -4,7 +4,7 @@ import zipfile
 from app.db import SessionLocal, UPLOAD_DIR
 from app.models import Employee, Message, Recommendation, User
 
-from .conftest import login, post
+from .conftest import PW, login, post
 
 PDF = ("t.pdf", b"%PDF-1.4 test", "application/pdf")
 
@@ -25,19 +25,25 @@ def test_backup_restore_roundtrip(world):
     z = zipfile.ZipFile(io.BytesIO(blob))
     assert "data.json" in z.namelist() and any(n.startswith("uploads/") for n in z.namelist())
     # الحذف يتطلب كلمة «حذف»
-    post(adm, "/admin/wipe", {"confirm": "نعم"})
+    post(adm, "/admin/wipe", {"confirm": "نعم", "password": PW})
     with SessionLocal() as db:
         assert db.query(Employee).count() == 3
-    post(adm, "/admin/wipe", {"confirm": "حذف"})
+    post(adm, "/admin/wipe", {"confirm": "حذف", "password": "wrong-pass"})  # كلمة مرور خاطئة
+    with SessionLocal() as db:
+        assert db.query(Employee).count() == 3
+    post(adm, "/admin/wipe", {"confirm": "حذف", "password": PW})
     with SessionLocal() as db:
         assert db.query(Employee).count() == 0 and db.query(Recommendation).count() == 0
         assert [u.username for u in db.query(User)] == ["admin"]
+        from app.models import AuditLog
+        acts = {a.action for a in db.query(AuditLog)}
+        assert "all_data_wiped" in acts and "wipe_denied" in acts and "login" in acts  # سجل التدقيق محفوظ
     assert not list(UPLOAD_DIR.glob("*"))
     # الاستعادة تتطلب كلمة «استعادة»
-    post(adm, "/admin/restore", {"confirm": "x"}, files={"file": ("b.zip", blob, "application/zip")})
+    post(adm, "/admin/restore", {"confirm": "x", "password": PW}, files={"file": ("b.zip", blob, "application/zip")})
     with SessionLocal() as db:
         assert db.query(Employee).count() == 0
-    r = post(adm, "/admin/restore", {"confirm": "استعادة"}, files={"file": ("b.zip", blob, "application/zip")})
+    r = post(adm, "/admin/restore", {"confirm": "استعادة", "password": PW}, files={"file": ("b.zip", blob, "application/zip")})
     assert r.headers["location"] == "/login"
     with SessionLocal() as db:
         assert db.query(Employee).count() == 3 and db.query(Recommendation).count() == 1
@@ -55,7 +61,7 @@ def test_backup_restore_roundtrip(world):
 
 def test_restore_rejects_bad_file(world):
     adm = login("admin")
-    post(adm, "/admin/restore", {"confirm": "استعادة"}, files={"file": ("b.zip", b"not a zip", "application/zip")})
+    post(adm, "/admin/restore", {"confirm": "استعادة", "password": PW}, files={"file": ("b.zip", b"not a zip", "application/zip")})
     with SessionLocal() as db:
         assert db.query(Employee).count() == 3
 
@@ -86,7 +92,7 @@ def test_old_session_cannot_open_new_account(world):
     emp = login("emp")
     assert emp.get("/me").status_code == 200
     adm = login("admin")
-    post(adm, "/admin/wipe", {"confirm": "حذف"})
+    post(adm, "/admin/wipe", {"confirm": "حذف", "password": PW})
     with SessionLocal() as db:
         for i in range(4):
             db.add(User(username=f"new{i}", role="officer", password_hash=hash_password("Passw0rd99"),
@@ -113,9 +119,9 @@ def test_safety_refs_and_audit(world):
     adm = login("admin")
     blob = adm.get("/admin/backup.zip").content
     # الحذف يحفظ نسخة تلقائية، والعدّاد لا يُعاد بعده
-    post(adm, "/admin/wipe", {"confirm": "حذف"})
+    post(adm, "/admin/wipe", {"confirm": "حذف", "password": PW})
     assert any("before-wipe" in a["name"] for a in backup.list_auto())
-    r = post(adm, "/admin/restore", {"confirm": "استعادة"}, files={"file": ("b.zip", blob, "application/zip")})
+    r = post(adm, "/admin/restore", {"confirm": "استعادة", "password": PW}, files={"file": ("b.zip", blob, "application/zip")})
     assert any("before-restore" in a["name"] for a in backup.list_auto())
     with SessionLocal() as db:
         actions = [a.action for a in db.query(AuditLog)]
@@ -134,7 +140,7 @@ def test_bad_restore_structure_no_500(world):
         z.writestr("data.json", json.dumps({"format": "itmam-backup", "version": 1,
                                             "tables": {"users": [{"id": 1, "username": "x", "role": "admin"}]}}))
     adm = login("admin")
-    r = post(adm, "/admin/restore", {"confirm": "استعادة"}, files={"file": ("b.zip", zbuf.getvalue(), "application/zip")})
+    r = post(adm, "/admin/restore", {"confirm": "استعادة", "password": PW}, files={"file": ("b.zip", zbuf.getvalue(), "application/zip")})
     assert r.status_code == 303
     with SessionLocal() as db:
         assert db.query(Employee).count() == 3

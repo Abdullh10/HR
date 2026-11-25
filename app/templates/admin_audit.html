@@ -3,12 +3,21 @@
 {% block title %}سجل التدقيق{% endblock %}
 {% block heading %}سجل التدقيق{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('audit', 'h-ico') }} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد. السجل للقراءة فقط.</p></div></div>
-<form method="get" class="card filters" data-autofilter><div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}"></div><button class="btn primary btn-apply">بحث</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}</form>
+<div class="page-head"><div><h1>{{ ico('audit', 'h-ico') }} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد وتصدير، بالمنفّذ والوقت. السجل للقراءة فقط ولا يُحذف.</p></div>
+  <div class="actions"><a class="btn" href="/admin/audit.xlsx{{ '?' ~ qs if qs }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a></div></div>
+<form method="get" class="card filters" data-autofilter>
+  <div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="اسم المستخدم، العملية، التفاصيل"></div>
+  <div class="field"><label for="w">المستخدم</label><select id="w" name="who"><option value="">الكل</option>{% for u in users %}<option value="{{ u }}" {% if who == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="a">العملية</label><select id="a" name="action"><option value="">الكل</option>{% for k, label in actions %}<option value="{{ k }}" {% if action == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="df">من تاريخ</label><input id="df" type="date" name="date_from" value="{{ date_from }}"></div>
+  <div class="field"><label for="dt">إلى تاريخ</label><input id="dt" type="date" name="date_to" value="{{ date_to }}"></div>
+  <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
+</form>
 <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th><th>IP</th></tr></thead><tbody>
-{% for a in rows %}<tr><td class="num nowrap" data-label="الوقت">{{ a.created_at|d }}</td><td data-label="المستخدم">{{ a.username }}</td><td data-label="العملية"><code>{{ a.action }}</code></td>
-<td data-label="الكيان">{{ a.entity }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td><td data-label="التفاصيل"><small>{{ a.details }}</small></td><td data-label="IP" class="num">{{ a.ip }}</td></tr>
-{% else %}<tr><td colspan="6" class="empty">لا توجد سجلات.</td></tr>{% endfor %}
+{% for a in rows %}<tr><td class="num nowrap" data-label="الوقت">{{ a.created_at|d }}</td><td data-label="المستخدم">{{ a.username or 'النظام' }}</td>
+<td data-label="العملية"><b>{{ action_label(a.action) }}</b>{% if action_label(a.action) == a.action %}{% else %}<br><small class="muted" dir="ltr">{{ a.action }}</small>{% endif %}</td>
+<td data-label="الكيان">{{ entity_label(a.entity) }}{% if a.entity_id %} <span class="num muted">#{{ a.entity_id }}</span>{% endif %}</td><td data-label="التفاصيل"><small>{{ details_text(a.details) }}</small></td><td data-label="IP" class="num muted"><small>{{ a.ip }}</small></td></tr>
+{% else %}<tr><td colspan="6" class="empty">لا توجد سجلات مطابقة.</td></tr>{% endfor %}
 </tbody></table></div></div>
-<div class="actions">{% if page > 1 %}<a class="btn" href="?q={{ q }}&page={{ page - 1 }}">السابق</a>{% endif %}{% if has_next %}<a class="btn" href="?q={{ q }}&page={{ page + 1 }}">التالي</a>{% endif %}</div>
+<div class="actions">{% if page > 1 %}<a class="btn" href="?{{ qs ~ '&' if qs }}page={{ page - 1 }}">السابق</a>{% endif %}<span class="muted">صفحة {{ page }}</span>{% if has_next %}<a class="btn" href="?{{ qs ~ '&' if qs }}page={{ page + 1 }}">التالي</a>{% endif %}</div>
 {% endblock %}

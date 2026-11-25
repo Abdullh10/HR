@@ -473,7 +473,7 @@
         ${e ? `<div class="field"><label for="px">التحويلة <span class="hint">(اختياري)</span></label><input id="px" name="ext" dir="ltr" inputmode="numeric" value="${h(e.ext || "")}" placeholder="1234"></div>` : ""}</div>
         <div class="actions"><button class="btn primary">حفظ البيانات</button></div></form>
       <div><section class="card"><h2>الحساب</h2><dl class="kv"><div><dt>اسم المستخدم</dt><dd class="num">${h(u.username)}</dd></div><div><dt>الدور</dt><dd>${ROLES[u.role]}</dd></div><div><dt>آخر دخول</dt><dd class="num">${h(u.last || "—")}</dd></div></dl></section>
-        <section class="card"><h2>كلمة المرور</h2><p class="hint">غيّر كلمة المرور دورياً، ولا تشاركها مع أحد.</p><a class="btn" href="#/password">${ico("shield")} تغيير كلمة المرور</a></section></div></div>`);
+        <section class="card"><h2>كلمة المرور</h2><p class="hint">يمكنك تغيير كلمة المرور الأولية الواردة في بطاقة الدخول متى شئت، ويُستحسن تغييرها دورياً وعدم مشاركتها مع أحد.</p><a class="btn" href="#/password">${ico("shield")} تغيير كلمة المرور</a></section></div></div>`);
   };
 
   const ageDays = (stamp) => Math.max(0, Math.floor((Date.now() - new Date(String(stamp).replace(" ", "T")).getTime()) / 864e5));
@@ -506,8 +506,8 @@
       if (noAcc) A("warn", "badge", `${noAcc} موظف نشط بلا حساب دخول، فلا يستطيعون استخدام النظام.`, "#/admin/users", "إنشاء الحسابات");
       const noMail = emps.filter((e) => e.active && !String(e.email || "").trim()).length;
       if (noMail) A("info", "mail", `${noMail} موظف بلا بريد إلكتروني، فتصلهم الإشعارات داخل النظام فقط.`, "#/admin/import", "تحديث البريد دفعة واحدة");
-      const cards = DB.cards || []; pendCards = cards.filter((c) => c.pw).length; const stale = cards.filter((c) => c.pw && ageDays(c.at) > 7).length;
-      if (stale) A("info", "badge", `${stale} بطاقة دخول لم تُفعَّل منذ أكثر من أسبوع.`, "#/admin/cards?state=pending", "عرض البطاقات");
+      const cards = DB.cards || []; pendCards = cards.filter((c) => c.pw).length; const stale = cards.filter((c) => { const cu = c.user && byId("users", c.user); return c.pw && cu && cu.active && !cu.last && ageDays(c.at) > 7; }).length;
+      if (stale) A("info", "badge", `${stale} حساب لم يسجّل صاحبه الدخول بعد رغم مرور أكثر من أسبوع على إنشائه؛ تأكد من تسليم بطاقات الدخول.`, "#/admin/cards?state=pending", "عرض البطاقات");
       const now = new Date(), today = todayISO();
       if (now.getMonth() >= 9 && y.start <= today && today <= y.end) { const lapse = emps.filter((e) => bals.get(e.id).bookable > 0); if (lapse.length) A("info", "calendar", `${lapse.length} موظف لديهم رصيد متاح (${daysAr(lapse.reduce((s, e) => s + bals.get(e.id).bookable, 0))} إجمالاً) يسقط بنهاية السنة ${h(y.name)} لأن الرصيد لا يُرحَّل.`, "#/employees", "عرض الأرصدة"); }
       if (now.getMonth() >= 10 && !yearFor((now.getFullYear() + 1) + "-01-01")) A("err", "calendar-plus", `لم تُنشأ سنة ${now.getFullYear() + 1} بعد؛ لن تُقبل توصيات أو طلبات بتواريخها حتى تُنشأ.`, "#/admin/years", "إنشاء السنة");
@@ -519,7 +519,7 @@
         <li>راجع <a href="#/admin/years">السنة وقواعد الرصيد</a> و<a href="#/admin/settings">هوية الجهة</a>.</li><li><a href="#/admin/import">استورد الموظفين</a> من ملف Excel، فتُنشأ حساباتهم وبطاقات دخولهم تلقائياً.</li>
         <li>حدّد حسابات <a href="#/admin/users">شؤون الموظفين</a> وأسند لكل منهم موظفيه، ثم اطبع <a href="#/admin/cards">بطاقات الدخول</a>.</li></ol><a class="btn primary" href="#/admin/import">${ico("upload", "sm-ico")}استيراد الموظفين</a></div></section>` : "";
     const quick = adm ? tiles([["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار الاعتماد", pending.length], ["days", "#/admin/import", "upload", "استيراد الموظفين", "ملف Excel للإضافة أو التحديث"],
-        ["hours", "#/admin/users", "userkey", "الحسابات الناقصة", noAcc + " موظف بلا حساب", noAcc], ["msg", "#/admin/cards?state=pending", "badge", "بطاقات الدخول", pendCards + " بانتظار أول دخول"]])
+        ["hours", "#/admin/users", "userkey", "الحسابات الناقصة", noAcc + " موظف بلا حساب", noAcc], ["msg", "#/admin/cards?state=pending", "badge", "بطاقات الدخول", pendCards + " بطاقة سارية"]])
       : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
         ["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]]);
     const lvlBadge = alerts.length ? (alerts[0].level === "err" ? "err" : alerts[0].level === "warn" ? "warn" : "muted") : "";
@@ -588,7 +588,7 @@
       ${e.active ? "" : '<div class="alert warn">الموظف غير نشط.</div>'}
       ${u.role === "admin" ? (() => { const acc = DB.users.find((x) => x.emp === e.id), card = acc && (DB.cards || []).filter((c) => c.user === acc.id && c.pw).pop();
         return `<section class="card account-strip no-print">${ico("idcard")}${acc
-          ? `<div><b>حساب الدخول:</b> <span class="num">${h(acc.username)}</span> · ${ROLES[acc.role]} · ${!acc.active ? '<span class="badge muted">معطّل</span>' : card ? '<span class="badge warn">بانتظار أول دخول</span>' : '<span class="badge ok">مفعّل</span>'}</div><div class="actions">${card ? `<a class="btn sm primary" href="#/print/cards?ids=${card.id}">طباعة بطاقة الدخول</a>` : ""}<a class="btn sm" href="#/admin/users">إدارة الحساب</a></div>`
+          ? `<div><b>حساب الدخول:</b> <span class="num">${h(acc.username)}</span> · ${ROLES[acc.role]} · ${!acc.active ? '<span class="badge muted">معطّل</span>' : card ? '<span class="badge ok">البطاقة سارية</span>' : '<span class="badge ok">مفعّل</span>'}</div><div class="actions">${card ? `<a class="btn sm primary" href="#/print/cards?ids=${card.id}">طباعة بطاقة الدخول</a>` : ""}<a class="btn sm" href="#/admin/users">إدارة الحساب</a></div>`
           : `<div><b>لا يوجد حساب دخول لهذا الموظف</b><br><small class="hint">لن يستطيع الدخول إلى النظام حتى يُنشأ له حساب (اسم المستخدم = الرقم الوظيفي).</small></div>${e.active ? `<button class="btn sm primary" type="button" data-act="emp-account" data-id="${e.id}">إنشاء حساب دخول</button>` : ""}`}</section>`; })() : ""}
       ${board(b)}
       ${mg ? tiles([["days", "#/recs/new?kind=days&emp=" + e.id, "calendar-plus", "رفع توصية بالأيام", "المتاح للمنح: " + n(b.capLeftHours / b.hpd) + " يوم"], ["hours", "#/recs/new?kind=hours&emp=" + e.id, "clock-plus", "رفع توصية بالساعات", "المتاح للمنح: " + n(b.capLeftHours) + " ساعة"], ["appr", "#/requests/new?emp=" + e.id, "calendar", "تسجيل طلب نيابةً عنه", "طلب معالجة غياب"]]) : ""}
@@ -655,11 +655,11 @@
       const loginUrl = location.href.split("#")[0];
       document.body.className = "print-page";
       return `<div class="actions no-print" style="justify-content:center;padding:1rem"><button class="btn primary" type="button" data-print>طباعة / حفظ PDF</button><a class="btn" href="#/admin/cards">رجوع</a></div>
-        ${rows.length ? "" : '<p class="empty no-print" style="text-align:center">لا توجد بطاقات بانتظار أول دخول.</p>'}
+        ${rows.length ? "" : '<p class="empty no-print" style="text-align:center">لا توجد بطاقات سارية.</p>'}
         <div class="login-cards">${rows.map((c) => `<article class="login-card"><header><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="34" height="34"><div><b>${h(s0.system_title)}</b><small>${h(s0.college)} · ${h(s0.university)}</small></div><span class="lc-tag">بطاقة دخول</span></header>
           <h3>${h(c.name)}</h3><p class="lc-meta">${c.no ? "الرقم الوظيفي: " + h(c.no) + " · " : ""}${ROLES[c.role] || c.role}</p>
-          <dl><dt>اسم المستخدم</dt><dd class="num">${h(c.username)}</dd><dt>كلمة المرور المؤقتة</dt><dd class="num">${c.pw ? h(c.pw) : "— غُيّرت —"}</dd></dl>
-          <p class="lc-url">رابط الدخول: <span class="num">${h(loginUrl)}</span></p><p class="lc-note">يُطلب تغيير كلمة المرور عند أول دخول. احتفظ بالبطاقة بسرّية ولا تشاركها.</p><footer>أُصدرت: ${h(c.at)} · نسخة عرض</footer></article>`).join("")}</div>`;
+          <dl><dt>اسم المستخدم</dt><dd class="num">${h(c.username)}</dd><dt>كلمة المرور</dt><dd class="num">${c.pw ? h(c.pw) : "— غُيّرت —"}</dd></dl>
+          <p class="lc-url">رابط الدخول: <span class="num">${h(loginUrl)}</span></p><p class="lc-note">يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي». احتفظ بالبطاقة بسرّية ولا تشاركها.</p><footer>أُصدرت: ${h(c.at)} · نسخة عرض</footer></article>`).join("")}</div>`;
     }
     if (kind === "msg") {
       const m = byId("msgs", id); if (!m || ![m.to, m.from].includes(u.id)) throw new Forbidden("الرسالة غير موجودة.");
@@ -709,7 +709,7 @@
         <div class="field"><label for="em">البريد الإلكتروني <span class="hint">(للإشعارات)</span></label><input id="em" type="email" name="email" dir="ltr" value="${e ? h(e.email) : ""}"></div>
         <div class="field"><label for="ph">رقم الجوال</label><input id="ph" type="tel" name="phone" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" value="${e ? h(e.phone || "") : ""}"></div>
         <div class="field"><label for="ex">التحويلة</label><input id="ex" name="ext" dir="ltr" inputmode="numeric" value="${e ? h(e.ext || "") : ""}"></div></div>
-        ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : `<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة تُحفظ في «بطاقات الدخول»)</span></label>`}
+        ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : `<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور أولية تُحفظ في «بطاقات الدخول»)</span></label>`}
         <div class="actions"><button class="btn primary">حفظ</button><a class="btn" href="${e ? "#/employee/" + e.id : "#/employees"}">إلغاء</a></div></form>`);
   }
 
@@ -899,7 +899,7 @@
           <td data-label="النتيجة">${r.action === "error" ? `<span class="badge err">⚠ ${h(r.errors.join("، "))}</span>` : r.action === "new" ? '<span class="badge ok">جديد</span>' : '<span class="badge">تحديث</span>'}${r.note ? `<div class="hint">${h(r.note)}</div>` : ""}</td></tr>`).join("")}
         </tbody></table></div></div>
         ${c("new") + c("update") ? `<form class="card" data-form="import-commit">
-          <label class="check"><input type="checkbox" name="create" value="1" checked> إنشاء حساب لكل موظف ليس له حساب (اسم المستخدم = الرقم الوظيفي، وكلمة مرور مؤقتة)</label>
+          <label class="check"><input type="checkbox" name="create" value="1" checked> إنشاء حساب لكل موظف ليس له حساب (اسم المستخدم = الرقم الوظيفي، وكلمة مرور أولية)</label>
           <label class="check"><input type="checkbox" name="roles" value="1" checked> تحديث منصب الحسابات الموجودة حسب الملف (لا يمس حسابات مدير النظام)</label>
           ${c("error") ? `<div class="alert warn">ستُتجاوز الصفوف التي فيها أخطاء (${c("error")}).</div>` : ""}
           <div class="actions"><button class="btn primary">استيراد ${c("new") + c("update")} موظف</button><button class="btn" type="button" data-act="import-back">رجوع</button></div></form>` : '<div class="actions"><button class="btn" type="button" data-act="import-back">رجوع وتصحيح البيانات</button></div>'}`);
@@ -920,7 +920,7 @@
         <p class="hint mt">إن تُرك الدور فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p></section>
       <button class="btn primary">معاينة قبل الحفظ</button></form>`);
   };
-  // بطاقات الدخول: تُحفظ لكل حساب جديد أو إعادة تعيين، وتُمسح كلمة المرور المؤقتة حين يغيّرها صاحبها
+  // بطاقات الدخول: تُحفظ لكل حساب جديد أو إعادة تعيين، وتُمسح كلمة المرور حين يغيّرها صاحبها
   function saveCards(made, reason) {
     const labels = { import: "استيراد", bulk: "إنشاء جماعي", single: "حساب جديد", reset: "إعادة تعيين" };
     const batch = labels[reason] + " — " + nowStr(); DB.cards = DB.cards || [];
@@ -937,15 +937,15 @@
     const un = String(e.no).toLowerCase();
     if (DB.users.some((x) => x.username.toLowerCase() === un)) throw new RuleError("اسم المستخدم " + un + " مستخدم لحساب آخر؛ أنشئ الحساب يدوياً من «المستخدمون والصلاحيات».");
     const pw = rand(), role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee";
-    const nu = { id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true, last: null };
+    const nu = { id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: false, last: null };
     DB.users.push(nu); saveCards([[e.name, un, pw, role]], "single"); audit("user_saved", "user", nu.id, { username: un, auto: true });
     return [un, pw];
   }
   function accountsPage(u, made) {
-    return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً، وتُمسح كلمة المرور المؤقتة من البطاقة حين يغيّرها صاحبها. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
+    return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً، وتبقى كلمة المرور فيها سارية حتى يغيّرها صاحبها إن شاء من «الملف الشخصي».</p></div>
       <div class="actions">${lastBatch ? `<a class="btn primary" href="#/print/cards?batch=${encodeURIComponent(lastBatch)}">طباعة بطاقات الدخول</a>` : ""}<button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
       ${made.length ? "" : '<div class="alert info">لم يُنشأ أي حساب جديد: إما أن لكل الموظفين حسابات مسبقاً، أو أُلغي خيار إنشاء الحسابات.</div>'}
-      <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th></tr></thead><tbody>
+      <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الدور</th></tr></thead><tbody>
       ${made.map(([nm, un, pw, r]) => `<tr><td>${h(nm)}</td><td class="num">${h(un)}</td><td class="num"><code>${h(pw)}</code></td><td>${ROLES[r]}</td></tr>`).join("")}</tbody></table></div>`);
   }
 
@@ -1028,17 +1028,17 @@
         <section class="card"><h2>${ico("archive", "sm-ico")} أخذ نسخة احتياطية</h2>
           <p>ملف واحد يضم كل البيانات (الموظفين، الحسابات، التوصيات، الطلبات، المراسلات، الإعدادات، سجل التدقيق). في النظام الفعلي يضم أيضاً ملفات PDF المرفقة.</p>
           <p class="hint">${last ? "آخر نسخة نُزّلت: " + h(last.at) + " بواسطة " + h(last.user) + "." : "لم تُنزَّل أي نسخة احتياطية بعد."} احفظ الملف في مكان آمن.</p>
-          <button class="btn primary" type="button" data-act="backup">${ico("download", "sm-ico")}تنزيل نسخة احتياطية الآن</button>
+          <p class="nightly ok"><b>النسخ الليلية على الخادم:</b> في النظام الفعلي تظهر هنا آخر نسخة ليلية وعدد النسخ المحفوظة.</p><button class="btn primary" type="button" data-act="backup">${ico("download", "sm-ico")}تنزيل نسخة احتياطية الآن</button>
           ${autoList().length ? `<details class="disclose mt"><summary>النسخ التلقائية (${autoList().length})</summary><p class="hint">تُؤخذ تلقائياً قبل كل حذف أو استعادة (آخر 3 نسخ في هذا المتصفح).</p><ul class="plain">${autoList().map((a, i) => `<li><button class="btn sm" type="button" data-act="auto-dl" data-i="${i}">${ico("download", "sm-ico")}تنزيل</button> ${h(a.at)} · ${h(a.reason)}</li>`).join("")}</ul></details>` : ""}</section>
         <section class="card"><h2>${ico("upload", "sm-ico")} استعادة نسخة احتياطية</h2>
           <p>تستبدل <b>كل</b> البيانات الحالية بمحتوى النسخة، ثم يُطلب تسجيل الدخول من جديد.</p>
           <form data-form="restore"><div class="field"><label for="bf">ملف النسخة</label><input id="bf" type="file" name="file" accept=".json,application/json" required></div>
-            <div class="field"><label for="rc">للتأكيد اكتب كلمة «${RESTORE_WORD}»</label><input id="rc" name="confirm" autocomplete="off" required></div>
+            <div class="field"><label for="rc">للتأكيد اكتب كلمة «${RESTORE_WORD}»</label><input id="rc" name="confirm" autocomplete="off" required></div><div class="field"><label for="rcp">كلمة مرور مدير النظام</label><input id="rcp" name="password" type="password" autocomplete="current-password" required></div>
             <button class="btn danger">استعادة</button></form></section></div>
       <section class="card danger-zone"><h2>⚠ حذف جميع البيانات</h2>
-        <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والأقسام، والعطل، وسجل التدقيق. تبقى السنوات وهوية الجهة وحسابك فقط. <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
+        <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والأقسام، والعطل. تبقى السنوات وهوية الجهة وحسابك و<b>سجل التدقيق</b> (لا يُحذف أبداً). <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
         <p class="hint">ننصح بتنزيل نسخة احتياطية أولاً. (في نسخة العرض يمكنك إرجاع البيانات التجريبية من «استعادة بيانات العرض».)</p>
-        <form class="filters" data-form="wipe"><div class="field grow"><label for="wc">للتأكيد اكتب كلمة «${WIPE_WORD}»</label><input id="wc" name="confirm" autocomplete="off" required placeholder="${WIPE_WORD}"></div>
+        <form class="filters" data-form="wipe"><div class="field grow"><label for="wc">للتأكيد اكتب كلمة «${WIPE_WORD}»</label><input id="wc" name="confirm" autocomplete="off" required placeholder="${WIPE_WORD}"></div><div class="field"><label for="wcp">كلمة مرور مدير النظام</label><input id="wcp" name="password" type="password" autocomplete="current-password" required></div>
           <button class="btn danger">حذف جميع البيانات</button></form></section>`);
   };
 
@@ -1046,24 +1046,42 @@
     const batch = q.get("batch") || "", st = q.get("state") || "", qs = norm(q.get("q") || "").toLowerCase(), all = DB.cards || [];
     const rows = all.filter((c) => (!batch || c.batch === batch) && (!st || (st === "pending" ? !!c.pw : !c.pw)) && (!qs || norm(c.name + " " + c.username + " " + c.no).toLowerCase().includes(qs))).sort((a, b) => b.at.localeCompare(a.at) || a.id - b.id);
     const batches = [...new Set(all.slice().sort((a, b) => b.at.localeCompare(a.at)).map((c) => c.batch))];
-    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("badge", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
-      <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "غير المفعّلة"}</a><button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل Excel</button></div></div>
+    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("badge", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة دائمة لكل حساب جديد أو كلمة مرور أُعيد تعيينها، ويمكن طباعتها والرجوع إليها في أي وقت. يستطيع الموظف تغيير كلمة المرور متى شاء من «الملف الشخصي»، وعندها تُعلَّم بطاقته بأنها غُيّرت (لا تُعرض كلمات المرور التي يختارها المستخدمون لأنها تُحفظ مشفّرة).</p></div>
+      <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "السارية"}</a><button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل Excel</button></div></div>
       <form class="card filters" data-form="filter" data-route="admin/cards"><div class="field grow"><label for="cq">بحث</label><input id="cq" type="search" name="q" value="${h(q.get("q") || "")}" placeholder="الاسم، اسم المستخدم، الرقم الوظيفي"></div>
         <div class="field"><label for="cb">الدفعة</label><select id="cb" name="batch"><option value="">كل الدفعات</option>${batches.map((b) => `<option value="${h(b)}" ${b === batch ? "selected" : ""}>${h(b)} (${all.filter((c) => c.batch === b).length})</option>`).join("")}</select></div>
-        <div class="field"><label for="cs">الحالة</label><select id="cs" name="state"><option value="">الكل</option><option value="pending" ${st === "pending" ? "selected" : ""}>بانتظار أول دخول</option><option value="active" ${st === "active" ? "selected" : ""}>فُعّل الحساب</option></select></div><button class="btn primary">عرض</button></form>
-      <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>الرقم الوظيفي</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th><th>الدفعة</th><th>الحالة</th><th></th></tr></thead><tbody>
+        <div class="field"><label for="cs">الحالة</label><select id="cs" name="state"><option value="">الكل</option><option value="pending" ${st === "pending" ? "selected" : ""}>سارية</option><option value="active" ${st === "active" ? "selected" : ""}>غيّرها صاحبها</option></select></div><button class="btn primary">عرض</button></form>
+      <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>الرقم الوظيفي</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الدور</th><th>الدفعة</th><th>الحالة</th><th>آخر دخول</th><th></th></tr></thead><tbody>
       ${rows.map((c) => `<tr><td data-label="الموظف">${h(c.name)}</td><td data-label="الرقم الوظيفي" class="num">${h(c.no)}</td><td data-label="اسم المستخدم" class="num"><b>${h(c.username)}</b></td>
-        <td data-label="كلمة المرور المؤقتة" class="num">${c.pw ? `<code>${h(c.pw)}</code>` : '<span class="muted">— غُيّرت —</span>'}</td><td data-label="الدور">${ROLES[c.role] || c.role}</td><td data-label="الدفعة"><small>${h(c.batch)}</small></td>
-        <td data-label="الحالة">${c.pw ? '<span class="badge warn">بانتظار أول دخول</span>' : `<span class="badge ok">فُعّل${c.activatedAt ? " " + h(c.activatedAt) : ""}</span>`}</td>
+        <td data-label="كلمة المرور" class="num">${c.pw ? `<code>${h(c.pw)}</code>` : '<span class="muted">— غُيّرت —</span>'}</td><td data-label="الدور">${ROLES[c.role] || c.role}</td><td data-label="الدفعة"><small>${h(c.batch)}</small></td>
+        <td data-label="الحالة">${c.pw ? '<span class="badge ok">البطاقة سارية</span>' : `<span class="badge muted">غيّرها صاحبها${c.activatedAt ? " " + h(c.activatedAt) : ""}</span>`}</td><td data-label="آخر دخول" class="num">${(() => { const cu = c.user && byId("users", c.user); return cu && cu.last ? h(cu.last) : "— لم يدخل بعد —"; })()}</td>
         <td class="actions-cell">${c.pw ? `<a class="btn sm" href="#/print/cards?ids=${c.id}">طباعة البطاقة</a>` : ""}</td></tr>`).join("") || '<tr><td colspan="8" class="empty">لا توجد بطاقات. تُنشأ تلقائياً عند استيراد الموظفين أو إنشاء الحسابات أو إعادة تعيين كلمة المرور.</td></tr>'}
       </tbody></table></div></div>`);
   };
 
-  A.audit = (u, q) => { const qs = (q.get("q") || "").trim(); const rows = DB.audit.filter((a) => !qs || [a.user, a.action, a.entity, a.details].join(" ").includes(qs)).slice(0, 300);
-    return layout(u, "سجل التدقيق", `<div class="page-head"><div><h1>${ico("audit", "h-ico")} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد.</p></div></div>
-      <form class="card filters" data-form="filter" data-route="admin/audit"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(qs)}"></div><button class="btn primary">بحث</button></form>
+  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق"};
+  const AUDIT_ENTITIES = {"user": "حساب", "employee": "موظف", "recommendation": "توصية", "leave_request": "طلب", "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة", "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول", "export": "تصدير"};
+  const AUDIT_FIELDS = {"employee": "الموظف", "employee_id": "رقم سجل الموظف", "kind": "النوع", "unit": "الوحدة", "days": "أيام", "hours": "ساعات", "amount": "المقدار", "note": "الملاحظة", "reason": "السبب", "username": "اسم المستخدم", "role": "الدور", "count": "العدد", "file": "الملف", "batch": "الدفعة", "prev": "الحالة السابقة", "previous": "الحالة السابقة", "on_behalf": "بالنيابة", "to": "إلى", "ok": "النتيجة", "error": "الخطأ", "fields": "الحقول", "active": "نشط", "assigned": "عدد المسندين", "unassigned": "أُلغي إسنادهم", "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف", "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي", "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية"};
+  const auditVal = (v) => Array.isArray(v) ? v.map(auditVal).join("، ") : v === true ? "نعم" : v === false ? "لا" : v && typeof v === "object" ? Object.entries(v).map(([k, x]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(x)).join("، ") : String(v);
+  const auditDetails = (d) => { if (!d) return ""; if (typeof d === "string") { try { d = JSON.parse(d); } catch (e) { return d; } } return typeof d === "object" ? Object.entries(d).filter(([, v]) => v != null && v !== "").map(([k, v]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(v)).join(" · ") : String(d); };
+  function auditRows(q) {
+    const qs = (q.get("q") || "").trim(), who = q.get("who") || "", act = q.get("action") || "", df = q.get("date_from") || "", dt = q.get("date_to") || "";
+    return DB.audit.filter((a) => (!qs || [a.user, a.action, AUDIT_ACTIONS[a.action] || "", a.entity, JSON.stringify(a.details || "")].join(" ").includes(qs)) && (!who || a.user === who) && (!act || a.action === act)
+      && (!df || a.at.slice(0, 10) >= df) && (!dt || a.at.slice(0, 10) <= dt));
+  }
+  A.audit = (u, q) => {
+    const rows = auditRows(q), who = q.get("who") || "", act = q.get("action") || "", users = [...new Set(DB.audit.map((a) => a.user).filter(Boolean))].sort();
+    const acts = [...new Set(DB.audit.map((a) => a.action))].map((k) => [k, AUDIT_ACTIONS[k] || k]).sort((a, b) => a[1].localeCompare(b[1], "ar"));
+    return layout(u, "سجل التدقيق", `<div class="page-head"><div><h1>${ico("audit", "h-ico")} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد وتصدير، بالمنفّذ والوقت. السجل للقراءة فقط ولا يُحذف.</p></div>
+      <div class="actions"><button class="btn" type="button" data-act="audit-dl">${ico("download", "sm-ico")}تصدير Excel</button></div></div>
+      <form class="card filters" data-form="filter" data-route="admin/audit"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(q.get("q") || "")}" placeholder="اسم المستخدم، العملية، التفاصيل"></div>
+        <div class="field"><label for="aw">المستخدم</label><select id="aw" name="who"><option value="">الكل</option>${users.map((x) => `<option value="${h(x)}" ${x === who ? "selected" : ""}>${h(x)}</option>`).join("")}</select></div>
+        <div class="field"><label for="aa">العملية</label><select id="aa" name="action"><option value="">الكل</option>${acts.map(([k, l]) => `<option value="${k}" ${k === act ? "selected" : ""}>${h(l)}</option>`).join("")}</select></div>
+        <div class="field"><label for="adf">من تاريخ</label><input id="adf" type="date" name="date_from" value="${h(q.get("date_from") || "")}"></div>
+        <div class="field"><label for="adt">إلى تاريخ</label><input id="adt" type="date" name="date_to" value="${h(q.get("date_to") || "")}"></div><button class="btn primary">عرض</button></form>
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th></tr></thead><tbody>
-      ${rows.map((a) => `<tr><td class="num nowrap" data-label="الوقت">${a.at}</td><td data-label="المستخدم">${h(a.user)}</td><td data-label="العملية"><code>${h(a.action)}</code></td><td data-label="الكيان">${h(a.entity)}${a.entityId ? " #" + a.entityId : ""}</td><td data-label="التفاصيل"><small>${h(a.details)}</small></td></tr>`).join("") || '<tr><td colspan="5" class="empty">لا توجد سجلات.</td></tr>'}
+      ${rows.slice(0, 300).map((a) => `<tr><td class="num nowrap" data-label="الوقت">${a.at}</td><td data-label="المستخدم">${h(a.user || "النظام")}</td><td data-label="العملية"><b>${h(AUDIT_ACTIONS[a.action] || a.action)}</b>${AUDIT_ACTIONS[a.action] ? `<br><small class="muted" dir="ltr">${h(a.action)}</small>` : ""}</td>
+        <td data-label="الكيان">${h(AUDIT_ENTITIES[a.entity] || a.entity || "")}${a.entityId ? ` <span class="num muted">#${a.entityId}</span>` : ""}</td><td data-label="التفاصيل"><small>${h(auditDetails(a.details))}</small></td></tr>`).join("") || '<tr><td colspan="5" class="empty">لا توجد سجلات مطابقة.</td></tr>'}
       </tbody></table></div></div>`); };
 
   // ============================================================ الاستيراد
@@ -1138,7 +1156,7 @@
       const un = String(e.no).toLowerCase();
       if (DB.users.some((x) => x.username.toLowerCase() === un)) continue;
       const pw = rand(), role = ASSIGNABLE.includes(r.role) ? r.role : "employee";
-      DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true, last: null });
+      DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: false, last: null });
       res.accounts.push([e.name, un, pw, role]);
     }
     return res;
@@ -1216,6 +1234,7 @@
     const email = cleanEmail(d.get("email")), phone = cleanPhone(d.get("phone")), ext = cleanExt(d.get("ext"));
     let e = id ? byId("emps", id) : null;
     const wasActive = e ? e.active : true, oldMgr = e ? e.mgr : null;
+    if (e && e.active && !d.get("active")) { const team = DB.emps.filter((x) => x.active && x.mgr === e.id).length; if (team) throw new RuleError("لا يمكن إيقاف «" + e.name + "»: يوجد " + team + " موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ انقل الفريق لمسؤول آخر أولاً من «المستخدمون والصلاحيات» أو من بطاقات الموظفين."); }
     if (!e) { e = { id: nid(), active: true }; DB.emps.push(e); } else e.active = !!d.get("active");
     Object.assign(e, { no, name, dept: Number(d.get("dept") || 0) || null, mgr, title: String(d.get("title") || ""), email, phone, ext });
     if (mgr && mgr !== oldMgr) notifyReassign(e, mgr, u);
@@ -1225,7 +1244,7 @@
       if (!e.active && pend) flash("تنبيه: للموظف " + pend + " طلب بانتظار الاعتماد — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn");
     }
     audit(id ? "employee_updated" : "employee_created", "employee", e.id, { no, name, officer: mgr }); flash("تم حفظ بيانات الموظف.");
-    if (!id && d.get("create_account")) { try { const [un, pw] = await createEmpAccount(e); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول). اطبع بطاقة دخوله من أعلى الصفحة."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash("حُفظ الموظف لكن لم يُنشأ حساب دخول: " + err.message, "warn"); } }
+    if (!id && d.get("create_account")) { try { const [un, pw] = await createEmpAccount(e); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور " + pw + " (يستطيع تغييرها متى شاء من «الملف الشخصي»). اطبع بطاقة دخوله من أعلى الصفحة."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash("حُفظ الموظف لكن لم يُنشأ حساب دخول: " + err.message, "warn"); } }
     save(); go("#/employee/" + e.id);
   };
   F.rec = async (form, u) => {
@@ -1322,10 +1341,10 @@
     if (!un || DB.users.some((x) => x.username.toLowerCase() === un)) throw new RuleError("اسم المستخدم فارغ أو مستخدم مسبقاً.");
     if (["employee", "officer"].includes(role) && !emp) throw new RuleError("يجب ربط حساب الموظف/مسؤول شؤون الموظفين بسجل موظف.");
     if (emp && DB.users.some((x) => x.emp === emp)) throw new RuleError("هذا الموظف مرتبط مسبقاً بحساب آخر.");
-    const pw = rand(); DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp, active: true, mustChange: true });
+    const pw = rand(); DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp, active: true, mustChange: false });
     saveCards([[emp ? byId("emps", emp).name : un, un, pw, role]], "single");
     const n_ = applyAssign(d, role, emp, null, null);
-    audit("user_saved", "user", null, { username: un, role, assigned: n_ }); save(); flash("تم إنشاء الحساب " + un + ". كلمة المرور المؤقتة: " + pw + (n_ != null ? " · الموظفون المسندون: " + n_ : "")); render();
+    audit("user_saved", "user", null, { username: un, role, assigned: n_ }); save(); flash("تم إنشاء الحساب " + un + ". كلمة المرور: " + pw + (n_ != null ? " · الموظفون المسندون: " + n_ : "")); render();
   };
   F["user-edit"] = (form, u) => {
     const d = fd(form), x = byId("users", form.dataset.id), role = d.get("role"), emp = Number(d.get("emp") || 0) || null, active = !!d.get("active");
@@ -1340,7 +1359,12 @@
   F["dept-new"] = (form) => { const nm = String(fd(form).get("name")).replace(/\s+/g, " ").trim(); if (!nm || DB.depts.some((d) => norm(d.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); DB.depts.push({ id: nid(), name: nm, active: true }); audit("department_saved", "department", null, { name: nm }); save(); flash("تم حفظ القسم."); render(); };
   F["dept-edit"] = (form) => { const d = fd(form), x = byId("depts", form.dataset.id), nm = String(d.get("name")).trim(); if (!nm || DB.depts.some((y) => y.id !== x.id && norm(y.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); x.name = nm; x.active = !!d.get("active"); save(); flash("تم حفظ القسم."); render(); };
   F["dept-merge"] = async (form) => { const d = fd(form), s = Number(d.get("src")), t = Number(d.get("dst")); if (s === t) throw new RuleError("اختر قسمين مختلفين."); if (!await confirmDlg("دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟")) return; let c = 0; DB.emps.forEach((e) => { if (e.dept === s) { e.dept = t; c++; } }); const src = byId("depts", s); DB.depts = DB.depts.filter((x) => x.id !== s); audit("department_merged", "department", t, { source: src.name, moved: c }); save(); flash("تم الدمج ونقل " + c + " موظف."); render(); };
-  F.holiday = (form) => { const d = fd(form), s = parseISO(d.get("start")), e = parseISO(d.get("end") || d.get("start")), nm = String(d.get("name")).trim(); if (!s || !e || e < s || (e - s) / 864e5 > 60 || !nm) throw new RuleError("بيانات العطلة غير صحيحة."); let c = 0; for (let x = new Date(s); x <= e; x.setDate(x.getDate() + 1)) { const k = iso(x); if (!DB.holidays.some((y) => y.day === k)) { DB.holidays.push({ id: nid(), day: k, name: nm }); c++; } } audit("holiday_added", "holiday", null, { name: nm }); save(); flash("تمت إضافة " + c + " يوم عطلة."); render(); };
+  F.holiday = (form) => { const d = fd(form), s = parseISO(d.get("start")), e = parseISO(d.get("end") || d.get("start")), nm = String(d.get("name")).trim(); if (!s || !e || e < s || (e - s) / 864e5 > 60 || !nm) throw new RuleError("بيانات العطلة غير صحيحة."); let c = 0; for (let x = new Date(s); x <= e; x.setDate(x.getDate() + 1)) { const k = iso(x); if (!DB.holidays.some((y) => y.day === k)) { DB.holidays.push({ id: nid(), day: k, name: nm }); c++; } } audit("holiday_added", "holiday", null, { name: nm }); save(); flash("تمت إضافة " + c + " يوم عطلة."); warnHolidayOverlap(iso(s), iso(e), true); render(); };
+  function warnHolidayOverlap(sd, ed, added) {
+    const rows = DB.leaves.filter((r) => ["approved", "pending"].includes(r.status) && r.start <= ed && (r.end || r.start) >= sd);
+    if (!rows.length) return; const names = [...new Set(rows.map((r) => byId("emps", r.emp).name))];
+    flash("تنبيه: " + rows.length + " طلب معتمد أو معلّق يتقاطع مع " + (added ? "العطلة المضافة" : "اليوم المحذوف") + " (" + names.slice(0, 5).join("، ") + (names.length > 5 ? "…" : "") + "). مدة هذه الطلبات حُسبت وقت تقديمها ولا تتغير تلقائياً؛ راجعها وألغِ ما يلزم تصحيحه ليُقدَّم من جديد.", "warn");
+  }
   const AUTO_KEY = "hr_demo_autobackups";
   const autoList = () => { try { return JSON.parse(localStorage.getItem(AUTO_KEY) || "[]"); } catch (e) { return []; } };
   function autoBackup(reason) {
@@ -1349,6 +1373,7 @@
   }
   F.restore = async (form, u) => {
     const d = fd(form), file = d.get("file");
+    if (u.pw !== (await sha(String(d.get("password") || "")))) { audit("restore_denied", "system"); save(); throw new RuleError("لم تتم الاستعادة: كلمة مرور مدير النظام غير صحيحة."); }
     if (String(d.get("confirm") || "").trim() !== RESTORE_WORD) throw new RuleError("للتأكيد اكتب كلمة «" + RESTORE_WORD + "» في الحقل المخصص.");
     if (!file || !file.name) throw new RuleError("اختر ملف النسخة الاحتياطية.");
     let data; try { data = JSON.parse(await file.text()); } catch (e) { throw new RuleError("الملف ليس نسخة احتياطية صالحة من النظام."); }
@@ -1362,12 +1387,13 @@
   };
   F.wipe = async (form, u) => {
     need(u, ["admin"]);
+    if (u.pw !== (await sha(String(fd(form).get("password") || "")))) { audit("wipe_denied", "system"); save(); throw new RuleError("لم يُحذف شيء: كلمة مرور مدير النظام غير صحيحة."); }
     if (String(fd(form).get("confirm") || "").trim() !== WIPE_WORD) throw new RuleError("لم يُحذف شيء: للتأكيد اكتب كلمة «" + WIPE_WORD + "» كما هي.");
     if (!await confirmDlg("تأكيد أخير: حذف جميع البيانات نهائياً؟")) return;
     autoBackup("قبل الحذف");
     u.emp = null;
-    Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [], cards: [] });
-    audit("all_data_wiped", "system"); save(); flash("تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط. حُفظت نسخة تلقائية قبل الحذف (انظر «النسخ التلقائية»)."); render();
+    Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], cards: [] });
+    audit("all_data_wiped", "system"); save(); flash("تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك وسجل التدقيق. حُفظت نسخة تلقائية قبل الحذف (انظر «النسخ التلقائية»)."); render();
   };
   F.settings = (form) => { const d = fd(form); ["university", "college", "system_title", "tagline", "credit"].forEach((k) => (DB.settings[k] = String(d.get(k) || "").trim())); audit("settings_saved", "settings"); save(); flash("تم حفظ الإعدادات."); render(); };
 
@@ -1435,7 +1461,7 @@
     <li><b>طلب معالجة غياب:</b> يقدّمه الموظف من رصيده ويعتمده مسؤول شؤون الموظفين إلكترونياً، ويجوز إلغاء الاعتماد لاحقاً عند الحاجة (كخطأ في التاريخ) مع ذكر السبب وإعادة الرصيد وإشعار الموظف.</li>
     <li><b>المراسلات:</b> مراسلات داخل المنصة مع إشعار بالبريد الإلكتروني.</li>
     <li><b>الخطابات والتقارير:</b> إشعارات المنح ونماذج الطلبات وتقارير الموظفين والمراسلات بصيغة رسمية قابلة للطباعة والحفظ بصيغة PDF، مع لوحات مؤشرات وتصدير إلى Excel.</li>
-    <li><b>الحسابات:</b> استيراد بيانات الموظفين، وإنشاء حساباتهم تلقائياً مع بطاقات دخول قابلة للطباعة، وملف شخصي لتحديث بيانات التواصل.</li>
+    <li><b>الحسابات:</b> استيراد بيانات الموظفين، وإنشاء حساباتهم تلقائياً مع بطاقات دخول محفوظة قابلة للطباعة في أي وقت، وملف شخصي لتحديث بيانات التواصل.</li>
     <li><b>الأرشيف والنسخ الاحتياطي:</b> أرشيف سنوي قابل للبحث والتصدير، ونسخ احتياطي يومي للبيانات.</li>
   </ul>
 
@@ -1450,7 +1476,7 @@
   <ul>
     <li>صلاحيات وصول مبنية على الدور الوظيفي، وفصل المهام: لا يبتّ أحد في طلب يخصّه ولا يرفع توصية لنفسه.</li>
     <li>سجل تدقيق يوثّق جميع العمليات ومنفّذيها وتوقيتها.</li>
-    <li>اتصال مشفّر (HTTPS)، وكلمات مرور مشفّرة، وتغيير إلزامي لكلمة المرور المؤقتة عند أول دخول، وقفل مؤقت عند تكرار المحاولات الخاطئة، وإنهاء الجلسة تلقائياً عند عدم النشاط.</li>
+    <li>اتصال مشفّر (HTTPS)، وكلمات مرور مشفّرة يستطيع صاحبها تغييرها متى شاء، وقفل مؤقت عند تكرار المحاولات الخاطئة، وإنهاء الجلسة تلقائياً عند عدم النشاط.</li>
   </ul>
 
   <h3>سادساً: الدعم الفني</h3>
@@ -1482,77 +1508,7 @@
 
   <h3>المادة (4): التزامات المستخدم</h3>
   <ul>
-    <li>الحفاظ على سرية اسم المستخدم وكلمة المرور، وتغيير كلمة المرور المؤقتة عند أول دخول، واختيار كلمة مرور قوية وتغييرها دورياً.</li>
-    <li>تسجيل الخروج بعد الانتهاء، وعدم ترك الجلسة مفتوحة على جهاز مشترك أو عام.</li>
-    <li>صحة البيانات المُدخلة ودقتها، وأن تكون المستندات المرفقة صحيحة وصادرة عن جهاتها المختصة.</li>
-    <li>تحديث بيانات التواصل (البريد الإلكتروني ورقم الجوال) لضمان وصول الإشعارات.</li>
-    <li>الإبلاغ فوراً لمدير النظام عن أي اشتباه في اختراق الحساب أو استخدامه من غير صاحبه، أو عن أي خلل أمني.</li>
-  </ul>
-
-  <h3>المادة (5): الاستخدامات المحظورة</h3>
-  <ul>
-    <li>استخدام حساب مستخدم آخر، أو تمكين الغير من استخدام الحساب.</li>
-    <li>محاولة الوصول إلى بيانات أو صلاحيات غير مصرّح بها، أو تجاوز ضوابط الأمان، أو تعطيل النظام.</li>
-    <li>إدخال بيانات غير صحيحة، أو رفع مستندات مزوّرة أو معدّلة، أو التلاعب بالأرصدة والطلبات.</li>
-    <li>نسخ البيانات أو نشرها أو مشاركتها خارج الجهة دون إذن رسمي.</li>
-    <li>رفع ملفات ضارة أو استخدام أدوات آلية لاستخراج البيانات من النظام.</li>
-  </ul>
-
-  <h3>المادة (6): سرية البيانات وحماية البيانات الشخصية</h3>
-  <ul>
-    <li>تُعامل جميع البيانات في النظام بسرية تامة، ولا تُستخدم إلا للأغراض الوظيفية التي جُمعت من أجلها.</li>
-    <li>تلتزم الجهة والمستخدمون في معالجة البيانات الشخصية بالأنظمة واللوائح المعمول بها في المملكة العربية السعودية، ومنها نظام حماية البيانات الشخصية، وبالسياسات الداخلية المعتمدة لدى الجهة.</li>
-    <li>لا يُفصح عن البيانات لأي طرف خارج الجهة إلا وفق ما تقتضيه الأنظمة أو بموافقة رسمية.</li>
-    <li>تُحفظ البيانات ونسخها الاحتياطية بوسائل آمنة، ويُحتفظ بها للمدة التي تحددها الجهة.</li>
-  </ul>
-
-  <h3>المادة (7): المراقبة وسجل التدقيق</h3>
-  <p>تُسجَّل جميع العمليات في النظام آلياً (المستخدم، والعملية، والوقت)، ويحق للجهة مراجعة هذه السجلات والاستناد إليها في أعمال التدقيق والتحقق، ولا يحق للمستخدم الاعتراض على ذلك.</p>
-
-  <h3>المادة (8): المستندات الصادرة عن النظام</h3>
-  <p>تحمل الخطابات والنماذج الصادرة عن النظام رقماً مرجعياً وتاريخ إصدار، ويُرجع في اعتمادها الرسمي إلى الإجراءات المعمول بها لدى الجهة.</p>
-
-  <h3>المادة (9): الإخلال بالسياسة</h3>
-  <p>يترتب على مخالفة أحكام هذه السياسة إيقاف الحساب أو تقييد صلاحياته، دون إخلال بحق الجهة في اتخاذ ما تقتضيه الأنظمة واللوائح المعمول بها.</p>
-
-  <h3>المادة (10): توفر الخدمة وإخلاء المسؤولية</h3>
-  <ul>
-    <li>تسعى الجهة إلى إتاحة النظام بصورة مستمرة، وقد يتوقف مؤقتاً لأعمال الصيانة أو التحديث.</li>
-    <li>لا تتحمل الجهة مسؤولية أي ضرر ناتج عن سوء استخدام المستخدم لحسابه أو إفشائه بيانات دخوله.</li>
-  </ul>
-
-  <h3>المادة (11): تعديل السياسة</h3>
-  <p>يحق للجهة تعديل هذه السياسة متى دعت الحاجة، ويُعمل بالتعديل من تاريخ نشره في النظام، ويُعدّ استمرار الاستخدام بعده قبولاً به.</p>
-
-  <h3>المادة (12): التواصل</h3>
-  <p>للاستفسار عن هذه السياسة أو الإبلاغ عن مخالفة، يُرجى التواصل مع مدير النظام في ${h(s.college)}.</p>
-</div>`; }
-  function policyHTML(s) { return `<div class="about-doc policy-doc">
-  <p class="doc-meta">الإصدار 1.0 — آخر تحديث: نوفمبر 2026</p>
-  <p class="about-lead">تُنظّم هذه السياسة استخدام نظام «${h(s.system_title)}» في ${h(s.college)} بـ${h(s.university)}، وتُعدّ ملزمة لجميع المستخدمين. ويُعدّ الدخول إلى النظام أو استخدامه إقراراً بالاطلاع على هذه السياسة والالتزام بأحكامها.</p>
-
-  <h3>المادة (1): التعريفات</h3>
-  <ul>
-    <li><b>النظام:</b> نظام «${h(s.system_title)}» الإلكتروني لإدارة أيام بدل الراحة، بجميع صفحاته وخدماته ومخرجاته.</li>
-    <li><b>الجهة:</b> ${h(s.college)} بـ${h(s.university)}.</li>
-    <li><b>المستخدم:</b> كل من مُنح حساب دخول إلى النظام، أياً كان دوره.</li>
-    <li><b>مدير النظام:</b> المكلّف من الجهة بإدارة النظام والمستخدمين والصلاحيات.</li>
-    <li><b>البيانات:</b> كل ما يُدخل في النظام أو يُحفظ فيه أو يصدر عنه من بيانات شخصية ووظيفية ومستندات وخطابات.</li>
-  </ul>
-
-  <h3>المادة (2): نطاق التطبيق</h3>
-  <p>تسري هذه السياسة على جميع مستخدمي النظام، وعلى جميع العمليات التي تتم من خلاله، أياً كان الجهاز أو الموقع الذي يُستخدم منه.</p>
-
-  <h3>المادة (3): الاستخدام المصرّح به</h3>
-  <ul>
-    <li>النظام مخصّص للاستخدام الرسمي في إجراءات بدل الراحة ومعالجة الغياب لمنسوبي الجهة، ولا يجوز استخدامه لأي غرض آخر.</li>
-    <li>يقتصر وصول كل مستخدم على البيانات والصلاحيات اللازمة لأداء مهامه وفق دوره المعتمد.</li>
-    <li>يُمنح الحساب لشخص المستخدم ولا يجوز التنازل عنه أو مشاركته.</li>
-  </ul>
-
-  <h3>المادة (4): التزامات المستخدم</h3>
-  <ul>
-    <li>الحفاظ على سرية اسم المستخدم وكلمة المرور، وتغيير كلمة المرور المؤقتة عند أول دخول، واختيار كلمة مرور قوية وتغييرها دورياً.</li>
+    <li>الحفاظ على سرية اسم المستخدم وكلمة المرور، ويُستحسن تغيير كلمة المرور الأولية الواردة في بطاقة الدخول، واختيار كلمة مرور قوية وتغييرها دورياً.</li>
     <li>تسجيل الخروج بعد الانتهاء، وعدم ترك الجلسة مفتوحة على جهاز مشترك أو عام.</li>
     <li>صحة البيانات المُدخلة ودقتها، وأن تكون المستندات المرفقة صحيحة وصادرة عن جهاتها المختصة.</li>
     <li>تحديث بيانات التواصل (البريد الإلكتروني ورقم الجوال) لضمان وصول الإشعارات.</li>
@@ -1603,7 +1559,7 @@
   ACT.showBanner = () => { try { localStorage.removeItem(BKEY); } catch (e) {} render(); };
   ACT.logout = () => { sessionStorage.removeItem("hr_uid"); go("#/login"); };
   ACT.reset = async () => { if (!await confirmDlg("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
-  ACT["emp-account"] = async (b, u) => { need(u, ["admin"]); const e = byId("emps", b.dataset.id); try { const [un, pw] = await createEmpAccount(e); save(); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول)."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash(err.message, "error"); } render(); };
+  ACT["emp-account"] = async (b, u) => { need(u, ["admin"]); const e = byId("emps", b.dataset.id); try { const [un, pw] = await createEmpAccount(e); save(); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور " + pw + " (يستطيع تغييرها متى شاء من «الملف الشخصي»)."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash(err.message, "error"); } render(); };
   ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!await confirmDlg("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." : "تم إلغاء الطلب."); render(); };
   ACT["cancel-rec"] = async (b, u) => { const r = byId("recs", b.dataset.id); const note = await askReason("cancel", "سبب إلغاء التوصية (ستُخصم من الرصيد)"); if (!note) return; cancelRec(u, r, note); save(); flash("تم إلغاء التوصية وتحديث الرصيد."); render(); };
   ACT.decide = async (b, u) => { const a = b.dataset.a; let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } decideLeave(u, byId("leaves", b.dataset.id), a, note); save(); flash(a === "approve" ? "تم الاعتماد وخصم الرصيد." : "تم الرفض."); render(); };
@@ -1612,7 +1568,8 @@
     let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } else if (!await confirmDlg("اعتماد كل الطلبات المحددة؟")) return;
     let ok = 0; const errs = []; rs.forEach((id) => { try { decideLeave(u, byId("leaves", id), a, note); ok++; } catch (e) { errs.push(byId("emps", byId("leaves", id).emp).name + ": " + e.message); } });
     save(); flash("تمت معالجة " + ok + " طلب." + (errs.length ? " تعذّر " + errs.length + "." : ""), errs.length ? "error" : "ok"); errs.slice(0, 5).forEach((m) => flash(m, "error")); render(); };
-  ACT.export = (b) => exportXlsx(b.dataset.kind, b.dataset.year);
+  ACT.export = (b) => { exportXlsx(b.dataset.kind, b.dataset.year); audit("data_exported", "export", null, { kind: b.dataset.kind }); save(); };
+  ACT["audit-dl"] = () => { const rows = auditRows(parts().q); download([["الوقت", "المستخدم", "العملية", "الكيان", "التفاصيل", "رمز العملية"], ...rows.map((a) => [a.at, a.user || "النظام", AUDIT_ACTIONS[a.action] || a.action, AUDIT_ENTITIES[a.entity] || a.entity || "", auditDetails(a.details), a.action])], "سجل التدقيق"); audit("audit_exported", "system", null, { rows: rows.length }); save(); };
   ACT.template = (b) => {
     const filled = b && b.dataset.filled === "1";
     const head = ["الاسم", "الرقم الوظيفي", "القسم", "الدور", "رقم مسؤول شؤون الموظفين", "المسمى الوظيفي", "البريد"];
@@ -1629,12 +1586,12 @@
   ACT["lock-year"] = async (b) => { const y = byId("years", b.dataset.id);
     if (!y.locked) { const p = DB.leaves.filter((r) => r.year === y.id && r.status === "pending").length; if (p) throw new RuleError("لا يمكن الإقفال: توجد " + p + " حركة بانتظار الاعتماد."); if (!await confirmDlg("إقفال السنة؟ لن تُقبل أي حركات جديدة عليها.")) return; }
     y.locked = !y.locked; audit(y.locked ? "year_locked" : "year_unlocked", "fiscal_year", y.id); save(); flash((y.locked ? "تم إقفال" : "تم فتح") + " السنة " + y.name + "."); render(); };
-  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!await confirmDlg("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = true; x.failed = 0; x.lockedUntil = null; saveCards([[displayName(x), x.username, pw, x.role]], "reset"); audit("password_reset", "user", x.id); save(); flash("كلمة المرور المؤقتة للحساب " + x.username + ": " + pw + " — حُفظت بطاقة دخول جديدة في «بطاقات الدخول»."); render(); };
+  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!await confirmDlg("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = false; x.failed = 0; x.lockedUntil = null; saveCards([[displayName(x), x.username, pw, x.role]], "reset"); audit("password_reset", "user", x.id); save(); flash("كلمة مرور الحساب " + x.username + ": " + pw + " — حُفظت بطاقة دخول جديدة في «بطاقات الدخول»."); render(); };
   ACT["bulk-users"] = async () => { if (!await confirmDlg("إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟")) return; const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); const made = [];
-    for (const e of DB.emps.filter((x) => x.active && !linked.has(x.id) && !isTmp(x))) { const un = String(e.no).toLowerCase(); if (DB.users.some((x) => x.username.toLowerCase() === un)) continue; const pw = rand(); const role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee"; DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true }); made.push([e.name, un, pw, role]); }
+    for (const e of DB.emps.filter((x) => x.active && !linked.has(x.id) && !isTmp(x))) { const un = String(e.no).toLowerCase(); if (DB.users.some((x) => x.username.toLowerCase() === un)) continue; const pw = rand(); const role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee"; DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: false }); made.push([e.name, un, pw, role]); }
     if (made.length) saveCards(made, "bulk"); else lastBatch = null;
     audit("users_bulk_created", "user", null, { count: made.length }); save(); createdAccounts = made; go("#/admin/import"); };
-  ACT["cards-dl"] = () => { const t = document.querySelector("main table"); if (!t) return; download([...t.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent.trim())), "بطاقات الدخول"); };
+  ACT["cards-dl"] = () => { audit("data_exported", "login_card", null, { kind: "login_cards" }); save(); const t = document.querySelector("main table"); if (!t) return; download([...t.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent.trim())), "بطاقات الدخول"); };
   ACT["auto-dl"] = (b, u) => {
     need(u, ["admin"]); const a = autoList()[Number(b.dataset.i)]; if (!a) return;
     const blob = new Blob([JSON.stringify({ format: "itmam-demo-backup", version: 1, created_at: a.at, db: a.db }, null, 1)], { type: "application/json" });
@@ -1663,7 +1620,7 @@
     ], "أرشيف بدل الراحة " + y.name);
     audit("archive_exported", "archive", null, { year: y.name }); save();
   };
-  ACT["del-holiday"] = async (b) => { if (!await confirmDlg("حذف هذا اليوم؟")) return; DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); save(); render(); };
+  ACT["del-holiday"] = async (b) => { if (!await confirmDlg("حذف هذا اليوم؟")) return; const hd = DB.holidays.find((x) => x.id === Number(b.dataset.id)); DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); audit("holiday_deleted", "holiday", hd && hd.id, { name: hd && hd.name }); save(); if (hd) warnHolidayOverlap(hd.day, hd.day, false); render(); };
 
   // ============================================================ الأحداث
   document.addEventListener("submit", async (ev) => {

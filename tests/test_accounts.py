@@ -13,7 +13,7 @@ def test_new_employee_gets_account_and_card(world):
     with SessionLocal() as db:
         e = db.query(Employee).filter_by(employee_no="5005").one()
         u = db.query(User).filter_by(employee_id=e.id).one()
-        assert u.username == "5005" and u.role == "employee" and u.must_change_password
+        assert u.username == "5005" and u.role == "employee" and not u.must_change_password  # التغيير اختياري
         card = db.query(LoginCard).filter_by(user_id=u.id).one()
         assert card.temp_password
         pw = card.temp_password
@@ -23,7 +23,9 @@ def test_new_employee_gets_account_and_card(world):
     r = c.post("/login", data={"username": "5005", "password": pw, "csrf_token": t}, follow_redirects=False)
     assert r.status_code in (302, 303)
     r2 = c.get("/", follow_redirects=False)
-    assert "change-password" in r2.headers.get("location", "")  # يُطلب تغيير كلمة المرور عند أول دخول
+    assert "change-password" not in r2.headers.get("location", "")  # لا إلزام بالتغيير؛ كلمة البطاقة سارية
+    with SessionLocal() as db:
+        assert db.query(LoginCard).filter_by(username="5005").one().temp_password == pw  # البطاقة تبقى للطباعة
 
 
 def test_create_account_for_existing_employee(world):

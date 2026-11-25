@@ -415,6 +415,9 @@ svg.i3d.theme-sun { display: none !important; }
 .empty-start { display: flex; gap: 1rem; align-items: flex-start; }
 .empty-start ol { margin: .4rem 0 1rem; padding-inline-start: 1.2rem; line-height: 2; }
 .age-col { white-space: nowrap; }
+.nightly { padding: .5rem .7rem; border-radius: 8px; font-size: .88rem; border: 1px solid var(--border); background: var(--surface-2); }
+.nightly.ok { border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
+.nightly.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
 /* ---------- الطباعة */
 .print-only { display: none; }
 @media print {

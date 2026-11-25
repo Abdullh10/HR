@@ -2,10 +2,10 @@
 {% block title %}الحسابات المنشأة{% endblock %}
 {% block heading %}الحسابات المنشأة{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>تم إنشاء {{ made|length }} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً. تُمسح كلمة المرور المؤقتة من البطاقة حين يغيّرها صاحبها عند أول دخول.</p></div>
+<div class="page-head"><div><h1>تم إنشاء {{ made|length }} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً. وتبقى كلمة المرور فيها سارية حتى يغيّرها صاحبها إن شاء من «الملف الشخصي».</p></div>
 <div class="actions">{% if batch %}<a class="btn primary" href="/admin/cards/print?batch={{ batch|urlencode }}" target="_blank" rel="noopener">طباعة بطاقات الدخول</a>{% endif %}<button class="btn" type="button" data-table-csv="#made-accounts" data-csv-name="بطاقات الدخول">تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="/admin/departments">مراجعة الأقسام</a><a class="btn primary" href="/admin/users">العودة</a></div></div>
 {% if not made %}<div class="alert info">لم يُنشأ أي حساب جديد: إما أن لكل الموظفين حسابات مسبقاً، أو أُلغي خيار إنشاء الحسابات. (الموظفون بأرقام مؤقتة TMP لا تُنشأ لهم حسابات حتى يُستكمل رقمهم.)</div>{% endif %}
-<div class="card flush"><table id="made-accounts"><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th></tr></thead><tbody>
+<div class="card flush"><table id="made-accounts"><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الدور</th></tr></thead><tbody>
 {% for n, u, p, r in made %}<tr><td>{{ n }}</td><td class="num">{{ u }}</td><td class="num"><code>{{ p }}</code></td><td>{{ ROLES[r] }}</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

@@ -10,6 +10,7 @@
     <h2>{{ ico('archive', 'sm-ico') }} أخذ نسخة احتياطية</h2>
     <p>ملف ZIP واحد يضم كل البيانات (الموظفين، الحسابات، التوصيات، الطلبات، المراسلات، الإعدادات، سجل التدقيق) وملفات PDF المرفقة.</p>
     <p class="hint">{% if last_backup %}آخر نسخة نُزّلت: {{ last_backup.created_at|d }} بواسطة {{ last_backup.username }}.{% else %}لم تُنزَّل أي نسخة احتياطية بعد.{% endif %} احفظ الملف في مكان آمن خارج الخادم.</p>
+    <p class="nightly {{ 'ok' if nightly and (now_dt - nightly.at).days < 2 else 'warn' }}">{% if nightly %}<b>النسخ الليلية على الخادم:</b> آخر نسخة {{ nightly.at|d }} ({{ (nightly.size / 1024)|round(1) }} ك.ب)، والمحفوظ {{ nightly.count }} نسخة.{% else %}<b>النسخ الليلية على الخادم:</b> لا تظهر هنا (قد لا يكون سكربت النسخ مثبّتاً، أو المجلد غير متاح لقراءة النظام).{% endif %}</p>
     <a class="btn primary" href="/admin/backup.zip">{{ ico('download', 'sm-ico') }}تنزيل نسخة احتياطية الآن</a>
     {% if autos %}<details class="disclose mt"><summary>النسخ التلقائية على الخادم ({{ autos|length }})</summary>
       <p class="hint">تُؤخذ تلقائياً قبل كل حذف أو استعادة، ويُحتفظ بآخر 10 نسخ.</p>
@@ -22,17 +23,19 @@
       <input type="hidden" name="csrf_token" value="{{ csrf }}">
       <div class="field"><label for="bf">ملف النسخة (ZIP)</label><input id="bf" type="file" name="file" accept=".zip,application/zip" required></div>
       <div class="field"><label for="rc">للتأكيد اكتب كلمة «{{ restore_word }}»</label><input id="rc" name="confirm" autocomplete="off" required pattern="{{ restore_word }}"></div>
+      <div class="field"><label for="rp">كلمة مرور مدير النظام</label><input id="rp" name="password" type="password" autocomplete="current-password" required></div>
       <button class="btn danger" data-confirm="استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟">استعادة</button>
     </form>
   </section>
 </div>
 <section class="card danger-zone">
   <h2>⚠ حذف جميع البيانات</h2>
-  <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والمرفقات، والأقسام، والعطل، وسجل التدقيق. تبقى السنوات وهوية الجهة وحسابك فقط. <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
+  <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والمرفقات، والأقسام، والعطل. تبقى السنوات وهوية الجهة وحسابك و<b>سجل التدقيق</b> (لا يُحذف أبداً). <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
   <p class="hint">تُحفظ نسخة تلقائية على الخادم قبل الحذف، وننصح أيضاً بتنزيل نسخة إلى جهازك.</p>
   <form method="post" action="/admin/wipe" class="filters">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     <div class="field grow"><label for="wc">للتأكيد اكتب كلمة «{{ wipe_word }}»</label><input id="wc" name="confirm" autocomplete="off" required pattern="{{ wipe_word }}" placeholder="{{ wipe_word }}"></div>
+    <div class="field"><label for="wp">كلمة مرور مدير النظام</label><input id="wp" name="password" type="password" autocomplete="current-password" required></div>
     <button class="btn danger" data-confirm="تأكيد أخير: حذف جميع البيانات نهائياً؟">حذف جميع البيانات</button>
   </form>
 </section>

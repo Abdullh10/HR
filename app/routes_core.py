@@ -186,10 +186,10 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
         no_email = sum(1 for e in emps if e.is_active and not (e.email or "").strip())
         if no_email:
             alerts.append(dict(level="info", icon="mail", text=f"{no_email} موظف بلا بريد إلكتروني، فتصلهم الإشعارات داخل النظام فقط.", href="/admin/import", cta="تحديث البريد دفعة واحدة"))
-        stale_cards = db.scalar(select(func.count(LoginCard.id)).where(LoginCard.temp_password.is_not(None),
-                                LoginCard.created_at < now - timedelta(days=7))) or 0
-        if stale_cards:
-            alerts.append(dict(level="info", icon="badge", text=f"{stale_cards} بطاقة دخول لم تُفعَّل منذ أكثر من أسبوع.", href="/admin/cards?state=pending", cta="عرض البطاقات"))
+        never = db.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.role != "admin",
+                          User.last_login.is_(None), User.created_at < now - timedelta(days=7))) or 0
+        if never:
+            alerts.append(dict(level="info", icon="badge", text=f"{never} حساب لم يسجّل صاحبه الدخول بعد رغم مرور أكثر من أسبوع على إنشائه؛ تأكد من تسليم بطاقات الدخول.", href="/admin/cards?state=pending", cta="عرض البطاقات"))
         today = date.today()
         if today.month >= 10 and year.start_date <= today <= year.end_date:
             lapse = [(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps) if b.bookable_days > 0]
@@ -201,8 +201,12 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
             if not db.scalar(select(FiscalYear.id).where(FiscalYear.start_date <= nxt, FiscalYear.end_date >= nxt)):
                 alerts.append(dict(level="err", icon="calendar-plus", text=f"لم تُنشأ سنة {today.year + 1} بعد؛ لن تُقبل توصيات أو طلبات بتواريخها حتى تُنشأ.", href="/admin/years", cta="إنشاء السنة"))
         last = db.scalar(select(AuditLog.created_at).where(AuditLog.action == "backup_downloaded").order_by(AuditLog.id.desc()))
+        from .backup import nightly_status
+        ns = nightly_status()
+        if ns and (now - ns["at"]).days >= 2:
+            alerts.append(dict(level="err", icon="backup", text=f"آخر نسخة احتياطية ليلية على الخادم قبل {days_ar((now - ns['at']).days)}؛ تحقق من عمل النسخ التلقائي.", href="/admin/data", cta="صفحة النسخ"))
         if not last or (now - last).days >= 7:
-            alerts.append(dict(level="info", icon="backup", text=("لم تُنزَّل أي نسخة احتياطية من الواجهة بعد." if not last else f"مضى {days_ar((now - last).days)} على آخر نسخة احتياطية منزّلة من الواجهة.") + " (النسخ الليلية على الخادم مستمرة.)", href="/admin/data", cta="تنزيل نسخة"))
+            alerts.append(dict(level="info", icon="backup", text=("لم تُنزَّل أي نسخة احتياطية من الواجهة بعد." if not last else f"مضى {days_ar((now - last).days)} على آخر نسخة احتياطية منزّلة من الواجهة.") + (" (النسخ الليلية على الخادم مستمرة.)" if ns and (now - ns["at"]).days < 2 else ""), href="/admin/data", cta="تنزيل نسخة"))
         pending_cards = db.scalar(select(func.count(LoginCard.id)).where(LoginCard.temp_password.is_not(None))) or 0
         quick = dict(no_account=len(no_account), pending_cards=pending_cards)
     order = {"err": 0, "warn": 1, "info": 2}
@@ -325,6 +329,11 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
             err = "يوجد موظف مسجل بنفس الاسم. أضف ما يميّزه (مثل الاسم الرباعي)."
         if not err and emp_id and manager_id == emp_id:
             err = "لا يمكن إسناد الموظف إلى نفسه."
+        if not err and emp_id and emp.is_active and not is_active:
+            team = db.scalar(select(func.count(Employee.id)).where(Employee.manager_id == emp_id, Employee.is_active.is_(True))) or 0
+            if team:
+                err = (f"لا يمكن إيقاف «{emp.full_name}»: يوجد {team} موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ "
+                       "انقل الفريق لمسؤول آخر أولاً من «المستخدمون والصلاحيات» أو من بطاقات الموظفين.")
         if not err:
             from .services import clean_email, clean_extension, clean_phone
             try:
@@ -368,8 +377,8 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
             uname, pw = create_employee_account(db, emp, user)
             audit(db, user, "user_saved", "user", None, ip=client_ip(request), username=uname, role="employee",
                   employee_id=emp.id, auto=True)
-            acct_msg = (f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور المؤقتة {pw} "
-                        f"(يُطلب تغييرها عند أول دخول). اطبع بطاقة دخوله من أعلى الصفحة.", "ok")
+            acct_msg = (f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور {pw} "
+                        f"(يستطيع تغييرها متى شاء من «الملف الشخصي»). اطبع بطاقة دخوله من أعلى الصفحة.", "ok")
         except RuleError as e:
             acct_msg = (f"حُفظ الموظف لكن لم يُنشأ حساب دخول: {e}", "warn")
     db.commit()
@@ -395,7 +404,7 @@ def employee_account_create(request: Request, emp_id: int, user: User = Depends(
     audit(db, user, "user_saved", "user", None, ip=client_ip(request), username=uname, role="employee",
           employee_id=emp.id, auto=True)
     db.commit()
-    flash(request, f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور المؤقتة {pw} (يُطلب تغييرها عند أول دخول).")
+    flash(request, f"تم إنشاء حساب الدخول: اسم المستخدم {uname} وكلمة المرور {pw} (يستطيع تغييرها متى شاء من «الملف الشخصي»).")
     return redirect(f"/employees/{emp.id}")
 
 
@@ -908,6 +917,8 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
         name = f"طلبات بدل الراحة {year.name}.xlsx"
     else:
         raise HTTPException(404, "نوع تصدير غير معروف.")
+    audit(db, user, "data_exported", "export", None, kind=kind, year=year.name)
+    db.commit()
     for ws in wb.worksheets:
         for row in ws.iter_rows(min_row=2):
             for c in row:

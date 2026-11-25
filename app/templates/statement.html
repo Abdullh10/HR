@@ -17,7 +17,7 @@
   {{ ico('idcard') }}
   {% if account %}
     <div><b>حساب الدخول:</b> <span class="num">{{ account.user.username }}</span> · {{ account.user.role_label }}
-      · {% if not account.user.is_active %}<span class="badge muted">معطّل</span>{% elif account.card %}<span class="badge warn">بانتظار أول دخول</span>{% else %}<span class="badge ok">مفعّل</span>{% endif %}</div>
+      · {% if not account.user.is_active %}<span class="badge muted">معطّل</span>{% elif account.card %}<span class="badge ok">البطاقة سارية</span>{% else %}<span class="badge ok">مفعّل</span>{% endif %}</div>
     <div class="actions">{% if account.card %}<a class="btn sm primary" href="/admin/cards/print?ids={{ account.card.id }}" target="_blank" rel="noopener">طباعة بطاقة الدخول</a>{% endif %}<a class="btn sm" href="/admin/users">إدارة الحساب</a></div>
   {% else %}
     <div><b>لا يوجد حساب دخول لهذا الموظف</b><br><small class="hint">لن يستطيع الدخول إلى النظام حتى يُنشأ له حساب (اسم المستخدم = الرقم الوظيفي).</small></div>

@@ -317,7 +317,7 @@ def apply(db: Session, rows: list[Row], create_accounts: bool, update_roles: boo
         assert role in ASSIGNABLE_ROLES
         pw = secrets.token_urlsafe(8)
         db.add(User(username=uname, password_hash=hash_password(pw), role=role, employee_id=e.id,
-                    must_change_password=True))
+                    must_change_password=False))
         res.accounts.append((e.full_name, uname, pw, role))
     db.flush()
     return res

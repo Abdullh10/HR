@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from sqlalchemy import func, select, update
@@ -21,7 +21,7 @@ from .models import (
     Recommendation,
     User,
 )
-from .security import hash_password, password_problem
+from .security import hash_password, password_problem, verify_password
 from .services import audit
 from .web import back, client_ip, flash, parse_date, parse_float, redirect, render, require
 
@@ -73,7 +73,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
             flash(request, p, "error")
             return redirect("/admin/users")
         generated = pw
-        u = User(username=username, password_hash=hash_password(pw), must_change_password=True)
+        u = User(username=username, password_hash=hash_password(pw), must_change_password=False)
         db.add(u)
     if u.id == user.id and (role != "admin" or not is_active):
         flash(request, "لا يمكنك إزالة صلاحية مدير النظام أو تعطيل حسابك بنفسك.", "error")
@@ -114,7 +114,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
         emp = db.get(Employee, employee_id) if employee_id else None
         batch = save_login_cards(db, [(emp.full_name if emp else username, username, generated, role)], "single", user)
         db.commit()
-        flash(request, f"تم إنشاء الحساب {username}. كلمة المرور المؤقتة: {generated} (سيُطلب تغييرها عند أول دخول). "
+        flash(request, f"تم إنشاء الحساب {username}. كلمة المرور: {generated} (يستطيع تغييرها متى شاء من «الملف الشخصي»). "
                        f"حُفظت بطاقة دخوله في «بطاقات الدخول».")
     else:
         flash(request, "تم حفظ الحساب.")
@@ -128,13 +128,13 @@ def user_reset(request: Request, uid: int, user: User = Depends(admin_only), db:
         raise HTTPException(404, "غير موجود")
     pw = secrets.token_urlsafe(8)
     u.password_hash = hash_password(pw)
-    u.must_change_password = True
+    u.must_change_password = False  # التغيير اختياري: كلمة البطاقة تبقى سارية
     u.failed_logins, u.locked_until = 0, None
     audit(db, user, "password_reset", "user", u.id, ip=client_ip(request))
     from .services import save_login_cards
     save_login_cards(db, [(u.display_name, u.username, pw, u.role)], "reset", user)
     db.commit()
-    flash(request, f"كلمة المرور المؤقتة للحساب {u.username}: {pw} — حُفظت بطاقة دخول جديدة في «بطاقات الدخول».")
+    flash(request, f"كلمة مرور الحساب {u.username}: {pw} — حُفظت بطاقة دخول جديدة في «بطاقات الدخول».")
     return redirect("/admin/users")
 
 
@@ -344,6 +344,7 @@ def holiday_add(request: Request, start: str = Form(...), end: str = Form(""), n
     audit(db, user, "holiday_added", "holiday", None, ip=client_ip(request), name=name, start=sd, end=ed)
     db.commit()
     flash(request, f"تمت إضافة {n} يوم عطلة.")
+    _warn_holiday_overlap(request, db, sd, ed, added=True)
     return redirect("/admin/holidays")
 
 
@@ -351,10 +352,22 @@ def holiday_add(request: Request, start: str = Form(...), end: str = Form(""), n
 def holiday_delete(request: Request, hid: int, user: User = Depends(admin_only), db: Session = Depends(get_db)):
     h = db.get(Holiday, hid)
     if h:
+        day = h.day
         audit(db, user, "holiday_deleted", "holiday", hid, ip=client_ip(request), day=h.day, name=h.name)
         db.delete(h)
         db.commit()
+        _warn_holiday_overlap(request, db, day, day, added=False)
     return back(request, "/admin/holidays")
+
+
+def _warn_holiday_overlap(request: Request, db: Session, sd, ed, added: bool) -> None:
+    """تنبيه عند تعديل العطل بعد وجود طلبات تتقاطع معها: عدد أيامها حُسب وقت تقديمها ولا يُعاد احتسابه تلقائياً."""
+    rows = list(db.scalars(select(LeaveRequest).where(LeaveRequest.status.in_(("approved", "pending")),
+                LeaveRequest.start_date <= ed, LeaveRequest.end_date >= sd)))
+    if rows:
+        names = "، ".join(sorted({r.employee.full_name for r in rows})[:5]) + ("…" if len({r.employee_id for r in rows}) > 5 else "")
+        flash(request, f"تنبيه: {len(rows)} طلب معتمد أو معلّق يتقاطع مع {'العطلة المضافة' if added else 'اليوم المحذوف'} ({names}). "
+                       "مدة هذه الطلبات حُسبت وقت تقديمها ولا تتغير تلقائياً؛ راجعها وألغِ ما يلزم تصحيحه ليُقدَّم من جديد.", "warn")
 
 
 # ================================================================ الهوية العامة
@@ -413,18 +426,63 @@ def mail_preview(request: Request, user: User = Depends(admin_only), db: Session
 
 
 # ================================================================ سجل التدقيق
-@router.get("/audit")
-def audit_page(request: Request, q: str = "", page: int = 1, user: User = Depends(admin_only),
-               db: Session = Depends(get_db)):
-    per = 100
+def _audit_stmt(q: str, who: str, action: str, date_from: str, date_to: str):
+    from .audit_labels import ACTIONS
     stmt = select(AuditLog).order_by(AuditLog.id.desc())
     if q.strip():
         like = f"%{q.strip()}%"
-        stmt = stmt.where((AuditLog.username.like(like)) | (AuditLog.action.like(like)) |
-                          (AuditLog.entity.like(like)) | (AuditLog.details.like(like)))
+        codes = [k for k, v in ACTIONS.items() if q.strip() in v]  # البحث بالوصف العربي أيضاً
+        cond = (AuditLog.username.like(like)) | (AuditLog.action.like(like)) | (AuditLog.entity.like(like)) | (AuditLog.details.like(like))
+        if codes:
+            cond = cond | AuditLog.action.in_(codes)
+        stmt = stmt.where(cond)
+    if who:
+        stmt = stmt.where(AuditLog.username == who)
+    if action:
+        stmt = stmt.where(AuditLog.action == action)
+    try:
+        if date_from:
+            stmt = stmt.where(AuditLog.created_at >= datetime.fromisoformat(date_from))
+        if date_to:
+            stmt = stmt.where(AuditLog.created_at < datetime.fromisoformat(date_to) + timedelta(days=1))
+    except ValueError:
+        pass
+    return stmt
+
+
+@router.get("/audit")
+def audit_page(request: Request, q: str = "", who: str = "", action: str = "", date_from: str = "", date_to: str = "",
+               page: int = 1, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from .audit_labels import ACTIONS, action_label, details_text, entity_label
+    per = 100
+    stmt = _audit_stmt(q, who, action, date_from, date_to)
     rows = list(db.scalars(stmt.offset((max(page, 1) - 1) * per).limit(per + 1)))
-    return render(request, db, "admin_audit.html", user=user, rows=rows[:per], q=q, page=page,
-                  has_next=len(rows) > per)
+    users = [u for u in db.scalars(select(AuditLog.username).distinct().order_by(AuditLog.username)) if u]
+    used = set(db.scalars(select(AuditLog.action).distinct()))
+    actions = sorted(((k, action_label(k)) for k in used), key=lambda kv: kv[1])
+    from urllib.parse import urlencode
+    qs = urlencode({k: v for k, v in dict(q=q, who=who, action=action, date_from=date_from, date_to=date_to).items() if v})
+    return render(request, db, "admin_audit.html", user=user, rows=rows[:per], q=q, who=who, action=action,
+                  date_from=date_from, date_to=date_to, users=users, actions=actions, page=page, qs=qs,
+                  has_next=len(rows) > per, action_label=action_label, entity_label=entity_label, details_text=details_text)
+
+
+@router.get("/audit.xlsx")
+def audit_export(request: Request, q: str = "", who: str = "", action: str = "", date_from: str = "", date_to: str = "",
+                 user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from openpyxl import Workbook
+
+    from .audit_labels import action_label, details_text, entity_label
+    from .routes_core import _sheet, _xlsx_response
+    rows = list(db.scalars(_audit_stmt(q, who, action, date_from, date_to).limit(50000)))
+    wb = Workbook(); wb.remove(wb.active)
+    _sheet(wb, "سجل التدقيق", ["الوقت", "المستخدم", "العملية", "الكيان", "رقم الكيان", "التفاصيل", "IP", "رمز العملية"],
+           [[a.created_at.strftime("%Y-%m-%d %H:%M:%S"), a.username or "النظام", action_label(a.action), entity_label(a.entity),
+             a.entity_id or "", details_text(a.details), a.ip, a.action] for a in rows])
+    audit(db, user, "audit_exported", "system", None, ip=client_ip(request), rows=len(rows),
+          filters={k: v for k, v in dict(q=q, who=who, action=action, date_from=date_from, date_to=date_to).items() if v} or None)
+    db.commit()
+    return _xlsx_response(wb, f"سجل التدقيق {datetime.now():%Y-%m-%d}.xlsx")
 
 
 
@@ -512,7 +570,7 @@ def data_page(request: Request, user: User = Depends(admin_only), db: Session = 
     last = db.scalar(select(AuditLog).where(AuditLog.action == "backup_downloaded").order_by(AuditLog.id.desc()))
     from . import backup
     return render(request, db, "admin_data.html", user=user, counts=counts, last_backup=last, autos=backup.list_auto(),
-                  wipe_word=WIPE_WORD, restore_word=RESTORE_WORD)
+                  nightly=backup.nightly_status(), now_dt=datetime.now(), wipe_word=WIPE_WORD, restore_word=RESTORE_WORD)
 
 
 @router.get("/backup.zip")
@@ -536,6 +594,11 @@ async def backup_restore(request: Request, user: User = Depends(admin_only), db:
     from . import backup
     form = await request.form()
     up = form.get("file")
+    if not verify_password(str(form.get("password") or ""), user.password_hash):
+        audit(db, user, "restore_denied", "system", None, ip=client_ip(request), reason="wrong_password")
+        db.commit()
+        flash(request, "لم تتم الاستعادة: كلمة مرور مدير النظام غير صحيحة.", "error")
+        return redirect("/admin/data")
     if str(form.get("confirm") or "").strip() != RESTORE_WORD:
         flash(request, f"للتأكيد اكتب كلمة «{RESTORE_WORD}» في الحقل المخصص.", "error")
         return redirect("/admin/data")
@@ -566,9 +629,14 @@ async def backup_restore(request: Request, user: User = Depends(admin_only), db:
 
 
 @router.post("/wipe")
-def data_wipe(request: Request, confirm: str = Form(""), user: User = Depends(admin_only),
+def data_wipe(request: Request, confirm: str = Form(""), password: str = Form(""), user: User = Depends(admin_only),
               db: Session = Depends(get_db)):
     from . import backup
+    if not verify_password(password, user.password_hash):
+        audit(db, user, "wipe_denied", "system", None, ip=client_ip(request), reason="wrong_password")
+        db.commit()
+        flash(request, "لم يُحذف شيء: كلمة مرور مدير النظام غير صحيحة.", "error")
+        return redirect("/admin/data")
     if confirm.strip() != WIPE_WORD:
         flash(request, f"لم يُحذف شيء: للتأكيد اكتب كلمة «{WIPE_WORD}» كما هي.", "error")
         return redirect("/admin/data")
@@ -576,7 +644,7 @@ def data_wipe(request: Request, confirm: str = Form(""), user: User = Depends(ad
     backup.wipe(db, user.id)
     audit(db, user, "all_data_wiped", "system", None, ip=client_ip(request), auto_backup=auto)
     db.commit()
-    flash(request, f"تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك فقط. حُفظت نسخة تلقائية قبل الحذف ({auto}).")
+    flash(request, f"تم حذف جميع البيانات. بقيت السنوات وهوية الجهة وحسابك وسجل التدقيق. حُفظت نسخة تلقائية قبل الحذف ({auto}).")
     return redirect("/admin/data")
 
 
@@ -620,7 +688,30 @@ def cards_page(request: Request, batch: str = "", q: str = "", state: str = "", 
         rows = [c for c in rows if k in norm_ar(f"{c.full_name} {c.username} {c.employee_no}").lower()]
     batches = list(db.execute(select(LoginCard.batch, func.count(LoginCard.id), func.max(LoginCard.created_at))
                               .group_by(LoginCard.batch).order_by(func.max(LoginCard.created_at).desc())))
-    return render(request, db, "admin_cards.html", user=user, rows=rows, batches=batches, batch=batch, q=q, state=state)
+    logins = dict(db.execute(select(User.id, User.last_login).where(User.id.in_([c.user_id for c in rows if c.user_id] or [0]))).all())
+    return render(request, db, "admin_cards.html", user=user, rows=rows, batches=batches, batch=batch, q=q, state=state,
+                  logins=logins)
+
+
+@router.get("/cards.xlsx")
+def cards_export(request: Request, batch: str = "", q: str = "", state: str = "", user: User = Depends(admin_only),
+                 db: Session = Depends(get_db)):
+    """تصدير بطاقات الدخول (تحتوي كلمات مرور) — يُسجَّل في سجل التدقيق."""
+    from openpyxl import Workbook
+
+    from .routes_core import _sheet, _xlsx_response
+    from .services import norm_ar
+    rows = list(db.scalars(_cards_query(batch, q, state)))
+    if q.strip():
+        k = norm_ar(q).lower()
+        rows = [c for c in rows if k in norm_ar(f"{c.full_name} {c.username} {c.employee_no}").lower()]
+    wb = Workbook(); wb.remove(wb.active)
+    _sheet(wb, "بطاقات الدخول", ["الموظف", "الرقم الوظيفي", "اسم المستخدم", "كلمة المرور", "الدور", "الدفعة", "الحالة"],
+           [[c.full_name, c.employee_no, c.username, c.temp_password or "غيّرها صاحبها", c.role_label, c.batch,
+             "سارية" if c.temp_password else "غُيّرت"] for c in rows])
+    audit(db, user, "data_exported", "login_card", None, ip=client_ip(request), kind="login_cards", rows=len(rows))
+    db.commit()
+    return _xlsx_response(wb, "بطاقات الدخول.xlsx")
 
 
 @router.get("/cards/print")

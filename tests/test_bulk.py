@@ -72,7 +72,7 @@ def test_admin_import_flow_creates_accounts_and_roles(world):
         tech = db.query(Employee).filter_by(employee_no="5001").one()
         assert tech.manager.employee_no == "5000" and tech.department.name == "وحدة المعامل"
         assert db.query(Employee).filter_by(full_name="منيرة سعد").one().employee_no == "5002"
-        assert db.query(User).filter_by(username="5001").one().must_change_password
+        assert not db.query(User).filter_by(username="5001").one().must_change_password  # التغيير اختياري
     # الصلاحيات للأدمن فقط
     assert post(login("mgr"), "/admin/import/preview", {"pasted": "x\t1"}).status_code == 403
 
