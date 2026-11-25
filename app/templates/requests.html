@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge, status_badge %}
+{% from "_macros.html" import kind_badge, status_badge, ico  %}
 {% block title %}الطلبات{% endblock %}
 {% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
+  <div><h1>{{ ico('inbox', 'h-ico') }} {{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} طلب</p></div>
   <div class="actions">
-    {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>{% endif %}
+    {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>{% endif %}
     {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new">+ طلب معالجة غياب</a>{% endif %}
   </div>
 </div>

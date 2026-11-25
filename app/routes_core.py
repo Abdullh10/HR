@@ -148,7 +148,7 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     g = round(t["granted_eq"], 2)
     used, pend = round(t["used_eq"], 2), round(t["pending_eq"], 2)
     avail = round(max(g - used - pend, 0), 2)
-    pie = [("used", "مستخدم", used), ("pending", "معلّق بانتظار القرار", pend), ("avail", "متاح", avail)]
+    pie = [("used", "مستخدم", used), ("pending", "معلّق بانتظار الاعتماد", pend), ("avail", "متاح", avail)]
     pie = [dict(key=k, label=l, value=v, pct=(round(v / g * 100) if g else 0)) for k, l, v in pie]
     monthly = [0.0] * 12
     for r in db.scalars(select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
@@ -320,7 +320,7 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
             acct.is_active = emp.is_active
             flash(request, f"{'عُطّل' if not emp.is_active else 'أُعيد تفعيل'} حساب الدخول ({acct.username}) تبعاً لحالة الموظف.", "info")
         if not emp.is_active and pend:
-            flash(request, f"تنبيه: للموظف {pend} طلب بانتظار القرار — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn")
+            flash(request, f"تنبيه: للموظف {pend} طلب بانتظار الاعتماد — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn")
     audit(db, user, "employee_updated" if emp_id else "employee_created", "employee", emp.id,
           ip=client_ip(request), before=before,
           after=dict(no=employee_no, name=full_name, dept=department_id, officer=manager_id, active=emp.is_active))
@@ -774,7 +774,7 @@ def reports(request: Request, year_id: int | None = None, user: User = Depends(r
         avg_lead=round(sum(lead) / len(lead), 1) if lead else 0,
         no_attachment=sum(1 for r in recs if not r.attachment_id),
     )
-    st_pie = [("approved", "معتمدة"), ("pending", "بانتظار القرار"), ("cancelled", "ملغاة"), ("rejected", "مرفوضة")]
+    st_pie = [("approved", "معتمدة"), ("pending", "بانتظار الاعتماد"), ("cancelled", "ملغاة"), ("rejected", "مرفوضة")]
     tot = len(reqs)
     st_pie = [dict(key=k, label=l, value=by[k], pct=(round(by[k] / tot * 100) if tot else 0)) for k, l in st_pie]
     return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), stats=stats,

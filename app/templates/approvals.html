@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge %}
+{% from "_macros.html" import kind_badge, ico  %}
 {% block title %}الاعتمادات{% endblock %}
 {% block heading %}الاعتمادات{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>الطلبات بانتظار قرارك</h1><p>{{ rows|length }} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+<div class="page-head"><div><h1>{{ ico('stamp', 'h-ico') }} الاعتمادات</h1><p>{{ rows|length }} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
 {% if rows %}
 <form method="post" action="/approvals/bulk" class="card flush">
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note">

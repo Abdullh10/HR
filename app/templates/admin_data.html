@@ -3,14 +3,14 @@
 {% block title %}النسخ الاحتياطي والبيانات{% endblock %}
 {% block heading %}النسخ الاحتياطي والبيانات{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('database', 'h-ico') }} النسخ الاحتياطي والبيانات</h1>
+<div class="page-head"><div><h1>{{ ico('backup', 'h-ico') }} النسخ الاحتياطي والبيانات</h1>
   <p>البيانات الحالية: {{ counts.employees }} موظف · {{ counts.users }} حساب · {{ counts.recs }} توصية · {{ counts.reqs }} طلب · {{ counts.msgs }} رسالة</p></div></div>
 <div class="grid two">
   <section class="card">
     <h2>{{ ico('archive', 'sm-ico') }} أخذ نسخة احتياطية</h2>
     <p>ملف ZIP واحد يضم كل البيانات (الموظفين، الحسابات، التوصيات، الطلبات، المراسلات، الإعدادات، سجل التدقيق) وملفات PDF المرفقة.</p>
     <p class="hint">{% if last_backup %}آخر نسخة نُزّلت: {{ last_backup.created_at|d }} بواسطة {{ last_backup.username }}.{% else %}لم تُنزَّل أي نسخة احتياطية بعد.{% endif %} احفظ الملف في مكان آمن خارج الخادم.</p>
-    <a class="btn primary" href="/admin/backup.zip">تنزيل نسخة احتياطية الآن</a>
+    <a class="btn primary" href="/admin/backup.zip">{{ ico('download', 'sm-ico') }}تنزيل نسخة احتياطية الآن</a>
     {% if autos %}<details class="disclose mt"><summary>النسخ التلقائية على الخادم ({{ autos|length }})</summary>
       <p class="hint">تُؤخذ تلقائياً قبل كل حذف أو استعادة، ويُحتفظ بآخر 10 نسخ.</p>
       <ul class="plain">{% for a in autos %}<li><a href="/admin/backups/{{ a.name }}">{{ a.at|d }}</a> · {{ 'قبل الحذف' if 'wipe' in a.name else 'قبل الاستعادة' }} · {{ (a.size / 1024)|round(1) }} ك.ب</li>{% endfor %}</ul></details>{% endif %}
@@ -22,7 +22,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf }}">
       <div class="field"><label for="bf">ملف النسخة (ZIP)</label><input id="bf" type="file" name="file" accept=".zip,application/zip" required></div>
       <div class="field"><label for="rc">للتأكيد اكتب كلمة «{{ restore_word }}»</label><input id="rc" name="confirm" autocomplete="off" required pattern="{{ restore_word }}"></div>
-      <button class="btn" data-confirm="استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟">استعادة</button>
+      <button class="btn danger" data-confirm="استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟">استعادة</button>
     </form>
   </section>
 </div>

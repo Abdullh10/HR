@@ -3,12 +3,12 @@
 {% block title %}التقارير{% endblock %}
 {% block heading %}التقارير{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>التقارير</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
+<div class="page-head"><div><h1>{{ ico('reports', 'h-ico') }} التقارير</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
 <div class="grid kpis">
   <div class="kpi brand">{{ ico('cal-check') }}<div class="l">التوصيات السارية</div><div class="v">{{ stats.recs }}</div><div class="s">{{ stats.rec_days|n }} يوم · {{ stats.rec_hours|n }} ساعة</div></div>
   <div class="kpi accent">{{ ico('calendar') }}<div class="l">الطلبات</div><div class="v">{{ stats.requests }}</div><div class="s">معتمدة ومعلّقة ومرفوضة</div></div>
   <div class="kpi ok">{{ ico('approvals') }}<div class="l">معتمدة</div><div class="v">{{ stats.approved }}</div><div class="s">مرفوضة {{ stats.rejected }} · ملغاة {{ stats.cancelled }}</div></div>
-  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بانتظار القرار</div><div class="v">{{ stats.pending }}</div><div class="s">متوسط مدة القرار {{ stats.avg_lead|n }} يوم</div></div>
+  <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بانتظار الاعتماد</div><div class="v">{{ stats.pending }}</div><div class="s">متوسط مدة القرار {{ stats.avg_lead|n }} يوم</div></div>
   <div class="kpi">{{ ico('audit') }}<div class="l">توصيات بلا PDF</div><div class="v">{{ stats.no_attachment }}</div></div>
 </div>
 <section class="card">
@@ -18,8 +18,8 @@
 </section>
 <section class="card"><h2>التصدير إلى Excel</h2>
   <div class="actions">
-    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">أرصدة الموظفين</a>
-    <a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">سجل التوصيات</a>
-    <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">سجل الطلبات</a>
+    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}أرصدة الموظفين</a>
+    <a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}سجل التوصيات</a>
+    <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}سجل الطلبات</a>
   </div></section>
 {% endblock %}

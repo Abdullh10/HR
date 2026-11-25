@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ico %}
 {% block title %}استيراد الموظفين{% endblock %}
 {% block heading %}استيراد الموظفين{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>استيراد الموظفين وإنشاء حساباتهم</h1>
-    <p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع المنصب المحدد.</p></div>
-  <a class="btn" href="/admin/import/template.xlsx">تنزيل نموذج Excel</a>
+  <div><h1>{{ ico('upload', 'h-ico') }} استيراد الموظفين وإنشاء حساباتهم</h1>
+    <p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع الدور المحدد.</p></div>
+  <a class="btn" href="/admin/import/template.xlsx">{{ ico('download', 'sm-ico') }}تنزيل نموذج Excel</a>
 </div>
 
 {% if not rows %}
@@ -16,28 +17,28 @@
       <h2>1) رفع ملف Excel أو CSV</h2>
       <ol class="steps">
         <li><b>نزّل النموذج</b> وعبّئه (فيه قوائم منسدلة للمنصب والأقسام وأرقام مسؤولي شؤون الموظفين، وورقة تعليمات):
-          <div class="actions mt-sm"><a class="btn primary sm" href="/admin/import/template.xlsx">نموذج فارغ للتعبئة</a><a class="btn sm" href="/admin/import/template.xlsx?filled=1">الموظفون الحاليون (للتعديل)</a></div></li>
+          <div class="actions mt-sm"><a class="btn primary sm" href="/admin/import/template.xlsx">{{ ico('download', 'sm-ico') }}نموذج فارغ للتعبئة</a><a class="btn sm" href="/admin/import/template.xlsx?filled=1">{{ ico('download', 'sm-ico') }}الموظفون الحاليون (للتعديل)</a></div></li>
         <li><b>احفظه</b> بصيغة ‎.xlsx دون تغيير صف العناوين.</li>
         <li><b>ارفعه هنا</b> ثم اضغط «معاينة قبل الحفظ».</li>
       </ol>
       <div class="field"><label for="f">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label>
         <input id="f" type="file" name="file" accept=".xlsx,.xlsm,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
-      <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، المنصب، رقم مسؤول شؤون الموظفين، المسمى الوظيفي، البريد.</p>
+      <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، الدور، رقم مسؤول شؤون الموظفين، المسمى الوظيفي، البريد.</p>
     </section>
     <section class="card">
       <h2>2) أو النسخ واللصق</h2>
       <div class="field"><label for="p">انسخ الأعمدة من Excel والصقها هنا <span class="hint">(سطر لكل موظف)</span></label>
         <textarea id="p" name="pasted" rows="8" placeholder="محمد أحمد العتيبي	100500	وحدة الشؤون الإدارية	موظف	100400	mohammed@ksu.edu.sa&#10;سارة علي القحطاني	100400	وحدة الشؤون الإدارية	شؤون الموظفين"></textarea></div>
-      <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، المنصب، رقم مسؤول شؤون الموظفين، المسمى، البريد. يكفي عمودا الاسم والرقم.</p>
+      <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، الدور، رقم مسؤول شؤون الموظفين، المسمى، البريد. يكفي عمودا الاسم والرقم.</p>
     </section>
   </div>
   <section class="card">
-    <h2>المناصب</h2>
-    <div class="grid kpis" style="margin:0">
-      <div class="kpi"><div class="l">موظف</div><div class="s">يتابع رصيده من الأيام والساعات ويرفع طلبات معالجة الغياب</div></div>
-      <div class="kpi"><div class="l">شؤون الموظفين</div><div class="s">يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</div></div>
-    </div>
-    <p class="hint mt">إن تُرك المنصب فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p>
+    <h2>الأدوار</h2>
+    <dl class="role-list">
+      <div><dt>موظف</dt><dd>يتابع رصيده من الأيام والساعات ويرفع طلبات معالجة الغياب</dd></div>
+      <div><dt>شؤون الموظفين</dt><dd>يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</dd></div>
+    </dl>
+    <p class="hint mt">إن تُرك الدور فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p>
   </section>
   <button class="btn primary" type="submit">معاينة قبل الحفظ</button>
 </form>
@@ -50,12 +51,12 @@
 </div>
 <p class="muted">الأعمدة المكتشفة: {{ detected|join('، ') }}</p>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>السطر</th><th>الاسم</th><th>الرقم الوظيفي</th><th>القسم</th><th>المنصب</th><th>رقم مسؤول شؤون الموظفين</th><th>النتيجة</th></tr></thead>
+  <thead><tr><th>السطر</th><th>الاسم</th><th>الرقم الوظيفي</th><th>القسم</th><th>الدور</th><th>رقم مسؤول شؤون الموظفين</th><th>النتيجة</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr class="{{ 'has-err' if r.action == 'error' }}"><td data-label="السطر">{{ r.line }}</td><td data-label="الاسم">{{ r.name }}</td>
     <td data-label="الرقم" class="num">{{ r.no }}</td><td data-label="القسم">{{ r.dept }}</td>
-    <td data-label="المنصب">{{ ROLES[r.role] if r.role else 'موظف (افتراضي)' }}</td><td data-label="رقم مسؤول شؤون الموظفين" class="num">{{ r.manager }}</td>
+    <td data-label="الدور">{{ ROLES[r.role] if r.role else 'موظف (افتراضي)' }}</td><td data-label="رقم مسؤول شؤون الموظفين" class="num">{{ r.manager }}</td>
     <td data-label="النتيجة">{% if r.action == 'error' %}<span class="badge err">⚠ {{ r.errors|join('، ') }}</span>
       {% elif r.action == 'new' %}<span class="badge ok">جديد</span>{% else %}<span class="badge">تحديث</span>{% endif %}
       {% if r.note %}<div class="hint">{{ r.note }}</div>{% endif %}</td></tr>

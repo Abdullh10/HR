@@ -4,7 +4,7 @@
 {% block heading %}الأرشيف{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ ico('archive', 'h-ico') }} الأرشيف</h1><p>سجل موثّق لكل التوصيات والطلبات والمراسلات{{ ' للموظفين المسندين إليك' if user.role == 'officer' else '' }} — السنة {{ sel_year.name }}</p></div>
-  <div class="actions"><a class="btn primary" href="/archive/export.zip?year_id={{ sel_year.id }}">تنزيل أرشيف السنة (ZIP)</a></div></div>
+  <div class="actions"><a class="btn primary" href="/archive/export.zip?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تنزيل أرشيف السنة (ZIP)</a></div></div>
 <form method="get" class="card filters" data-autofilter>
   <div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="اسم، رقم وظيفي، رقم صادر، موضوع، سبب"></div>
   <div class="field"><label for="st">الحالة</label><select id="st" name="status"><option value="">الكل</option>{% for k, v in [('active','توصية سارية'),('cancelled','ملغى'),('pending','بانتظار الاعتماد'),('approved','معتمد'),('rejected','مرفوض')] %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>

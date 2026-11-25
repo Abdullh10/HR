@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ico %}
 {% block title %}الموظفون{% endblock %}
 {% block heading %}{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'قائمة الموظفين' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
+  <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
   <div class="actions">
-    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">تصدير Excel</a>
+    <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>
     {% if user.role == 'admin' %}<a class="btn primary" href="/employees/new/form">+ إضافة موظف</a>{% endif %}
   </div>
 </div>

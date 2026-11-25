@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import settings_tabs %}
+{% from "_macros.html" import settings_tabs, ico  %}
 {% block title %}هوية الجهة{% endblock %}
 {% block heading %}الإعدادات{% endblock %}
 {% block content %}
 {{ settings_tabs('identity') }}
-<div class="page-head"><div><h1>هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
+<div class="page-head"><div><h1>{{ ico('palette', 'h-ico') }} هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
 <form method="post" class="card" style="max-width:720px"><input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="field"><label for="u">الجامعة</label><input id="u" name="university" value="{{ org.university }}"></div>
   <div class="field"><label for="c">الكلية / الجهة</label><input id="c" name="college" value="{{ org.college }}"></div>

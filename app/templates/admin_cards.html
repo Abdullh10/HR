@@ -3,7 +3,7 @@
 {% block title %}بطاقات الدخول{% endblock %}
 {% block heading %}بطاقات الدخول{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('idcard', 'h-ico') }} بطاقات الدخول</h1>
+<div class="page-head"><div><h1>{{ ico('badge', 'h-ico') }} بطاقات الدخول</h1>
   <p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
   <div class="actions"><a class="btn primary" href="/admin/cards/print?{{ 'batch=' ~ batch|urlencode ~ '&' if batch }}state=pending" target="_blank" rel="noopener">طباعة البطاقات {{ 'لهذه الدفعة' if batch else 'غير المفعّلة' }}</a>
     <button class="btn" type="button" data-table-csv="#cards-table" data-csv-name="بطاقات الدخول">تنزيل Excel</button></div></div>

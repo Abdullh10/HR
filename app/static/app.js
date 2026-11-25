@@ -113,21 +113,54 @@
     if (f.matches("[data-leave-form]")) syncUnit(f);
   });
 
+  // نافذة تأكيد رسمية داخل النظام (بدل نافذة المتصفح): «تراجع» هو الزر الافتراضي، وEsc يغلق، ويعود التركيز للزر
+  var DANGER = /حذف|إلغاء|استبدال|تعطيل|إعادة تعيين|نهائي/;
+  function confirmDlg(msg, done, trigger) {
+    var d = document.getElementById("confirm-dlg");
+    if (!d) {
+      d = document.createElement("dialog");
+      d.id = "confirm-dlg"; d.className = "about-dlg confirm-dlg";
+      d.setAttribute("aria-labelledby", "confirm-title"); d.setAttribute("aria-describedby", "confirm-msg");
+      d.innerHTML = '<div class="about-head"><h2 id="confirm-title">تأكيد الإجراء</h2></div>' +
+        '<div class="about-doc"><p id="confirm-msg"></p><div class="actions"><button type="button" class="btn primary" data-confirm-ok>تأكيد</button><button type="button" class="btn" data-confirm-no>تراجع</button></div></div>';
+      document.body.appendChild(d);
+      d.addEventListener("click", function (ev) {
+        if (ev.target.closest("[data-confirm-ok]")) { d._ok = true; d.close(); }
+        else if (ev.target.closest("[data-confirm-no]") || ev.target === d) d.close();
+      });
+      d.addEventListener("close", function () { var ok = d._ok, cb = d._done, t = d._trigger; d._done = null; if (t && t.focus) t.focus(); if (cb) cb(!!ok); });
+    }
+    var danger = DANGER.test(msg);
+    d.querySelector("#confirm-msg").textContent = msg;
+    var okb = d.querySelector("[data-confirm-ok]");
+    okb.className = "btn " + (danger ? "danger" : "primary");
+    okb.textContent = danger ? "نعم، متابعة" : "تأكيد";
+    d._ok = false; d._done = done; d._trigger = trigger || document.activeElement;
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    d.querySelector("[data-confirm-no]").focus();
+  }
+  window.confirmDlg = confirmDlg;
+
   // تأكيد قبل الإجراءات الحساسة + إلزام السبب
   document.addEventListener("submit", function (ev) {
     var f = ev.target;
     var msg = f.getAttribute("data-confirm");
     var sub = ev.submitter;
     if (sub && sub.getAttribute("data-confirm")) msg = sub.getAttribute("data-confirm");
+    if (f._confirmed) { f._confirmed = false; return; }
+    function resubmit() { f._confirmed = true; if (f.requestSubmit) f.requestSubmit(sub || undefined); else f.submit(); }
     if (sub && sub.hasAttribute("data-need-note")) {
       var note = f.querySelector('[name="note"]');
       if (note && !note.value.trim()) {
         ev.preventDefault();
-        askReason(sub, function (v) { note.value = v; msg = null; if (f.requestSubmit) f.requestSubmit(sub); else f.submit(); });
+        askReason(sub, function (v) {
+          note.value = v;
+          if (msg) confirmDlg(msg, function (ok) { if (ok) resubmit(); else note.value = ""; }, sub); else resubmit();
+        });
         return;
       }
     }
-    if (msg && !window.confirm(msg)) ev.preventDefault();
+    if (msg) { ev.preventDefault(); confirmDlg(msg, function (ok) { if (ok) resubmit(); }, sub); }
   });
 
   // إضافة صف في شبكة إدخال الساعات
@@ -279,7 +312,25 @@
       sel.addEventListener("change", function () { sel.dataset.auto = ""; });
     });
   }
-  document.addEventListener("DOMContentLoaded", function () { enhanceSelects(document); });
+
+  // منتقي الملفات بالعربية بدل «Choose File / No file chosen»: الحقل الأصلي يبقى (للنماذج والقارئ الشاشي) ويُخفى بصرياً
+  function enhanceFiles(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('input[type="file"]:not([data-fp])'), function (inp) {
+      inp.setAttribute("data-fp", "1");
+      var wrap = document.createElement("span"); wrap.className = "file-pick";
+      inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+      inp.classList.add("file-input");
+      var btn = document.createElement("span"); btn.className = "btn sm file-btn"; btn.setAttribute("aria-hidden", "true");
+      btn.textContent = inp.multiple ? "اختر ملفات" : "اختر ملفاً";
+      var name = document.createElement("span"); name.className = "file-name"; name.setAttribute("aria-live", "polite"); name.textContent = "لم يُختر ملف";
+      wrap.appendChild(btn); wrap.appendChild(name);
+      inp.addEventListener("change", function () {
+        var n = inp.files && inp.files.length ? Array.prototype.map.call(inp.files, function (f) { return f.name; }).join("، ") : "لم يُختر ملف";
+        name.textContent = n; wrap.classList.toggle("has-file", !!(inp.files && inp.files.length));
+      });
+    });
+  }
+  document.addEventListener("DOMContentLoaded", function () { enhanceSelects(document); enhanceFiles(document); });
 
   // ---------------------------------------------------------- طيّ مجموعات القائمة الجانبية
   var NAVKEY = "nav_groups";

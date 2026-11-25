@@ -4,7 +4,7 @@
 {% block heading %}لوحة المؤشرات{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
+  <div><h1>{{ ico('dashboard', 'h-ico') }} لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
   {{ year_select(years, sel_year) }}
 </div>
 {% if backup_due is not none %}<div class="alert warn" role="status">⚠ {% if backup_due < 0 %}لم تُنزَّل أي نسخة احتياطية بعد.{% else %}مضى {{ days_ar(backup_due) }} على آخر نسخة احتياطية.{% endif %} <a href="/admin/data">تنزيل نسخة الآن</a></div>{% endif %}
@@ -37,7 +37,7 @@
 </div>
 <div class="grid two">
   <section class="card flush">
-    <h2>طلبات بانتظار القرار</h2>
+    <h2>طلبات بانتظار الاعتماد</h2>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
       {% for r in pending %}<tr><td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="المدة">{{ r.amount_label }}</td><td data-label="التاريخ" class="num">{{ r.start_date|d }}</td></tr>

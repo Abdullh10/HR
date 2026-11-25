@@ -4,7 +4,7 @@
 {% block heading %}الملف الشخصي{% endblock %}
 {% set is_admin = user.role == 'admin' %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('idcard', 'h-ico') }} الملف الشخصي</h1>
+<div class="page-head"><div><h1>{{ ico('user', 'h-ico') }} الملف الشخصي</h1>
   <p>{{ 'حدّث بياناتك ووحدتك وبيانات التواصل.' if is_admin else 'حدّث بيانات التواصل الخاصة بك. لتعديل الاسم أو القسم أو المسمى الوظيفي تواصل مع مدير النظام.' }}</p></div></div>
 
 <div class="grid two profile-grid">

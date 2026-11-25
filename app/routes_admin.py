@@ -76,7 +76,7 @@ def user_save(request: Request, user_id: int | None = Form(None), username: str 
         u = User(username=username, password_hash=hash_password(pw), must_change_password=True)
         db.add(u)
     if u.id == user.id and (role != "admin" or not is_active):
-        flash(request, "لا يمكنك إزالة صلاحية الأدمن أو تعطيل حسابك بنفسك.", "error")
+        flash(request, "لا يمكنك إزالة صلاحية مدير النظام أو تعطيل حسابك بنفسك.", "error")
         return redirect("/admin/users")
     prev_role, prev_emp = (u.role, u.employee_id) if user_id else (None, None)
     u.username, u.role, u.employee_id = username, role, employee_id or None

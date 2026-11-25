@@ -283,7 +283,7 @@
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
   // الأيقونات تُضمَّن في الصفحة (inline sprite): مراجع <use> لملف خارجي لا تحلّ التدرجات في Safari/iOS فتختفي الرموز.
-  const ASSET_V = "6";
+  const ASSET_V = "7";
   let SPRITE_INLINE = false, HERO_INLINE = false;
   const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="${SPRITE_INLINE ? "" : "assets/icons.svg?v=" + ASSET_V}#i-${n}"/></svg>`;
   async function inlineSprite(file) {
@@ -308,18 +308,18 @@
     // مدير النظام: قائمة مختصرة دون تكرار؛ أزرار الإضافة داخل كل صفحة
     // مدير النظام: «المتابعة» ثابتة، و«السجلات» و«الإدارة» قابلتان للطيّ (تُحفظ الحالة، وتُفتح مجموعة الصفحة الحالية)
     const inRecords = ["recs", "requests", "messages"].includes(sg[0]), inAdmin = sg[0] === "admin";
-    const inSettings = inAdmin && ["years", "depts", "holidays", "settings"].includes(sg[1] || "years");
+    const inSettings = inAdmin && ["years", "depts", "holidays", "settings", "mail"].includes(sg[1] || "years");
     const group = (key, label, def, active, inner, badge) => `<li class="nav-group" data-group="${key}" data-default="${def}" ${active ? 'data-active="1"' : ""}><button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-${key}">${label}${badge ? ` <span class="badge count">${badge}</span>` : ""}<span class="chev" aria-hidden="true"></span></button><ul class="nav-sub" id="g-${key}">${inner}</ul></li>`;
-    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}
-      ${group("records", "السجلات", "open", inRecords, item("#/recs", "التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات الموظفين", "calendar", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
-      ${group("admin", "الإدارة", "closed", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "shield") + item("#/admin/cards", "بطاقات الدخول", "idcard")
-        + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "database") + item("#/admin/audit", "سجل التدقيق", "audit"))}
+    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}
+      ${group("records", "السجلات", "open", inRecords, item("#/recs", "سجل التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات معالجة الغياب", "inbox", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
+      ${group("admin", "الإدارة", "open", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "userkey") + item("#/admin/cards", "بطاقات الدخول", "badge")
+        + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "backup") + item("#/admin/audit", "سجل التدقيق", "audit"))}
       <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}
-      <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "idcard")}`;
+      <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "user")}`;
     const nav = u.role === "admin" ? adminNav : [
-      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "approvals", pend)}
-        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "calendar")}` : "",
-      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
+      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}
+        <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "inbox")}` : "",
+      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "user")}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
       u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}` : "",
     ].join("");
@@ -337,16 +337,18 @@
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <a class="t-logo" href="#/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></a>
-      <span class="title">${h(title)}</span><span class="spacer"></span>
+      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", employee: "المتابعة", approvals: "المتابعة" }[sg[0]] || "";
+        return `<nav class="title crumbs" aria-label="مسار التنقل">${sec ? `<span class="crumb">${sec}</span><span class="crumb-sep" aria-hidden="true">‹</span>` : ""}<span aria-current="page">${h(title)}</span></nav>`; })()}<span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
-      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
+      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}<span class="sr-only">الوضع</span></button>
       <details class="acct">
         <summary class="btn ghost" aria-label="حساب ${h(displayName(u))}"><span class="avatar" aria-hidden="true">${h(displayName(u).slice(0, 1))}</span><span class="acct-name">${h(displayName(u))}</span></summary>
         <div class="acct-menu">
           <div class="who-full"><b>${h(displayName(u))}</b><small>${ROLES[u.role]}</small></div>
-          <button class="btn" type="button" data-theme-toggle>${ico("moon")}الوضع الداكن/الفاتح</button>
-          <a class="btn" href="#/profile">${ico("idcard")}الملف الشخصي</a>
-          <a class="btn" href="#/password">${ico("shield")}كلمة المرور</a>
+          <button class="btn" type="button" data-theme-toggle>${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="#/profile">${ico("user")}الملف الشخصي</a>
+          ${u.role === "admin" ? `<a class="btn" href="#/admin/years">${ico("gear")}الإعدادات</a>` : ""}
+          <a class="btn" href="#/password">${ico("key")}كلمة المرور</a>
           ${bannerHidden() ? `<button class="btn" type="button" data-act="showBanner">${ico("palette")}إظهار شريط نسخة العرض</button>` : ""}
           <button class="btn" type="button" data-act="reset">${ico("adjust")}استعادة بيانات العرض</button>
           <button class="btn logout" type="button" data-act="logout">${ico("logout")}خروج</button>
@@ -400,7 +402,7 @@
   <div class="gate-strip" aria-hidden="true"></div>
   <main class="gate-main"><div class="gate-grid">
     <section class="gate-card" aria-labelledby="login-title">
-      <button class="btn ghost icon-btn card-theme" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon")}<span class="sr-only">الوضع</span></button>
+      <button class="btn ghost icon-btn card-theme" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}<span class="sr-only">الوضع</span></button>
       <span class="demo-tag" role="note">نسخة عرض — ليست النظام الفعلي</span>
       <div class="card-brand"><img class="logo-img" src="assets/logo.svg?v=${ASSET_V}" alt="" width="64" height="64"><div><b class="wordmark">${h(s.system_title)}</b><small>${h(s.tagline)}</small></div></div>
       <h1 id="login-title" class="login-h">تسجيل الدخول</h1>
@@ -455,7 +457,7 @@
 
   V.profile = (u) => {
     const e = empOf(u), adm = u.role === "admin", ro = (v) => `value="${h(v || "—")}" readonly`, cur = e ? e.dept : u.dept;
-    return layout(u, "الملف الشخصي", `<div class="page-head"><div><h1>${ico("idcard", "h-ico")} الملف الشخصي</h1>
+    return layout(u, "الملف الشخصي", `<div class="page-head"><div><h1>${ico("user", "h-ico")} الملف الشخصي</h1>
       <p>${adm ? "حدّث بياناتك ووحدتك وبيانات التواصل." : "حدّث بيانات التواصل الخاصة بك. لتعديل الاسم أو القسم أو المسمى الوظيفي تواصل مع مدير النظام."}</p></div></div>
       <div class="grid two profile-grid"><form class="card" data-form="profile"><h2>البيانات الشخصية</h2><div class="form-grid">
         <div class="field"><label for="pn">الاسم</label>${adm ? `<input id="pn" name="name" value="${h(e ? e.name : u.name || "")}" placeholder="الاسم الذي يظهر في النظام والخطابات">` : `<input id="pn" ${ro(displayName(u))}>`}</div>
@@ -480,7 +482,7 @@
       if (b.capLeftHours <= 0) t.cap++; else if (b.capPct >= 80) near.push([e, b]); if (!b.gDays && !b.gHours) t.none++;
       const k = mgrName(e) || "— غير مُسند —"; const o = byOff[k] || (byOff[k] = { c: 0, g: 0, u: 0, l: 0 }); o.c++; o.g += b.grantedEq; o.u += b.usedEq; o.l += b.totalHours / y.hpd; });
     const [ld, lr] = earned(Math.max(t.lh, 0), y.hpd);
-    const G = round2(t.geq), pie = [["used", "مستخدم", round2(t.ueq)], ["pending", "معلّق بانتظار القرار", round2(t.peq)], ["avail", "متاح", round2(Math.max(t.geq - t.ueq - t.peq, 0))]].map(([key, label, value]) => ({ key, label, value, pct: G ? Math.round((value / G) * 100) : 0 }));
+    const G = round2(t.geq), pie = [["used", "مستخدم", round2(t.ueq)], ["pending", "معلّق بانتظار الاعتماد", round2(t.peq)], ["avail", "متاح", round2(Math.max(t.geq - t.ueq - t.peq, 0))]].map(([key, label, value]) => ({ key, label, value, pct: G ? Math.round((value / G) * 100) : 0 }));
     const monthly = Array(12).fill(0);
     DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)).forEach((r) => (monthly[Number(r.date.slice(5, 7)) - 1] += r.kind === "days" ? r.amount : r.amount / y.hpd));
     const mx = Math.max(...monthly) || 1;
@@ -489,7 +491,7 @@
     const unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
     const lastB = DB.audit.find((a) => a.action === "backup_downloaded"), dueDays = lastB ? Math.floor((Date.now() - new Date(lastB.at.replace(" ", "T")).getTime()) / 864e5) : -1;
     const backupNote = u.role === "admin" && (dueDays < 0 || dueDays >= 7) ? `<div class="alert warn" role="status">⚠ ${dueDays < 0 ? "لم تُنزَّل أي نسخة احتياطية بعد." : "مضى " + daysAr(dueDays) + " على آخر نسخة احتياطية."} <a href="#/admin/data">تنزيل نسخة الآن</a></div>` : "";
-    return layout(u, "لوحة المؤشرات", `${backupNote}<div class="page-head"><div><h1>لوحة المؤشرات</h1><p>${u.role === "admin" ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
+    return layout(u, "لوحة المؤشرات", `${backupNote}<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${u.role === "admin" ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
       ${u.role === "admin" ? "" : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
         ["appr", "#/approvals", "approvals", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]])}
       <div class="grid kpis">
@@ -502,7 +504,7 @@
         <section class="card"><h2>توزيع الرصيد الممنوح</h2><p class="hint chart-sub">بالأيام المعادلة (كل ${n(y.hpd)} ساعات = يوم) — السنة ${h(y.name)}</p>${G ? donut(pie, G, "يوم", "توزيع الرصيد الممنوح") : '<p class="empty">لم تُرفع توصيات في هذه السنة بعد.</p>'}</section>
         <section class="card"><h2>الممنوح شهرياً (بالأيام المعادلة)</h2><div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">${monthly.map((v, i) => `<div class="bar"><b>${v ? n(v) : ""}</b><span style="height:${Math.round((v / mx) * 100)}%"></span><small>${months[i]}</small></div>`).join("")}</div></section></div>
       <div class="grid two">
-        <section class="card flush"><h2>طلبات بانتظار القرار</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
+        <section class="card flush"><h2>طلبات بانتظار الاعتماد</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
           ${pending.slice(0, 8).map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة">${leaveAmount(r)}</td><td data-label="التاريخ" class="num">${r.start}</td></tr>`; }).join("") || '<tr><td colspan="4" class="empty">لا توجد طلبات معلّقة.</td></tr>'}
         </tbody></table></div></section></div>
       <div class="grid two">
@@ -649,8 +651,8 @@
     let rows = list.map((e) => [e, balance(e.id, y)]);
     if (st === "cap") rows = rows.filter(([, b]) => b.capLeftHours <= 0); if (st === "none") rows = rows.filter(([, b]) => !b.gDays && !b.gHours);
     const admin = u.role === "admin";
-    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `<div class="page-head"><div><h1>${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
-      <div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">تصدير Excel</button>${admin ? '<a class="btn primary" href="#/employee/new">+ إضافة موظف</a>' : ""}</div></div>
+    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `<div class="page-head"><div><h1>${ico("users", "h-ico")} ${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
+      <div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button>${admin ? '<a class="btn primary" href="#/employee/new">+ إضافة موظف</a>' : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="employees" role="search">
         <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="${h(qs)}"></div>
         <div class="field"><label for="dept">القسم${u.role === "admin" ? ' <a class="hint" href="#/admin/depts">إدارة الأقسام</a>' : ""}</label><select id="dept" name="dept"><option value="">الكل</option>${DB.depts.map((d) => `<option value="${d.id}" ${dept === d.id ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select></div>
@@ -686,8 +688,8 @@
     if (seg[1] === "new") return recForm(u, q);
     const y = pickYear(q), kind = q.get("kind") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id));
     const rows = DB.recs.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!emp || r.emp === emp)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-    return layout(u, "سجل التوصيات", `<div class="page-head"><div><h1>سجل التوصيات</h1><p>السنة ${h(y.name)} · ${rows.length} توصية</p></div>
-      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">تصدير Excel</button><a class="btn primary" href="#/recs/new?kind=days">+ توصية بالأيام</a><a class="btn primary" href="#/recs/new?kind=hours">+ توصية بالساعات</a>` : ""}</div></div>
+    return layout(u, "سجل التوصيات", `<div class="page-head"><div><h1>${ico("cal-check", "h-ico")} سجل التوصيات</h1><p>السنة ${h(y.name)} · ${rows.length} توصية</p></div>
+      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button><a class="btn primary" href="#/recs/new?kind=days">+ توصية بالأيام</a><a class="btn primary" href="#/recs/new?kind=hours">+ توصية بالساعات</a>` : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="recs"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="days" ${kind === "days" ? "selected" : ""}>بالأيام</option><option value="hours" ${kind === "hours" ? "selected" : ""}>بالساعات</option></select></div>
         <div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(managedEmps(u, true), emp, "الكل")}</select></div>${yearSelect(y)}<button class="btn primary">عرض</button></form>
       <div class="card flush"><div class="table-wrap"><table class="responsive">${recHead(true)}<tbody>${recRows(u, rows, true, true) || '<tr><td colspan="8" class="empty">لا توجد توصيات.</td></tr>'}</tbody></table></div></div>`);
@@ -714,8 +716,8 @@
     if (seg[1] === "new") return reqForm(u, q);
     const y = pickYear(q), kind = q.get("kind") || "", st = q.get("status") || "", emp = Number(q.get("emp") || 0), ids = new Set(visibleEmps(u, true).map((e) => e.id)), isE = u.role === "employee";
     const rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!kind || r.kind === kind) && (!st || r.status === st) && (!emp || r.emp === emp)).sort((a, b) => b.created.localeCompare(a.created));
-    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${isE ? "طلباتي" : "طلبات معالجة الغياب"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
-      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new">+ طلب معالجة غياب</a></div></div>
+    return layout(u, isE ? "طلباتي" : "طلبات الموظفين", `<div class="page-head"><div><h1>${ico("inbox", "h-ico")} ${isE ? "طلباتي" : "طلبات معالجة الغياب"}</h1><p>السنة ${h(y.name)} · ${rows.length} طلب</p></div>
+      <div class="actions">${STAFF.includes(u.role) ? `<button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button>` : ""}<a class="btn primary" href="#/requests/new">+ طلب معالجة غياب</a></div></div>
       <form class="card filters" data-form="filter" data-route="requests"><div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="use" ${kind === "use" ? "selected" : ""}>معالجة غياب</option><option value="compensation" ${kind === "compensation" ? "selected" : ""}>تعويض غياب</option></select></div>
         <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>${Object.entries(REQ_ST).map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
         ${isE ? "" : `<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp">${empOptions(visibleEmps(u, true), emp, "الكل")}</select></div>`}${yearSelect(y)}<button class="btn primary">عرض</button></form>
@@ -745,7 +747,7 @@
   V.approvals = (u) => {
     need(u, STAFF);
     const rows = DB.leaves.filter((r) => r.status === "pending" && canManage(u, byId("emps", r.emp))).sort((a, b) => a.created.localeCompare(b.created));
-    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>الطلبات بانتظار قرارك</h1><p>${rows.length} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>${ico("stamp", "h-ico")} الاعتمادات</h1><p>${rows.length} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
       ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></th><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>المتاح</th><th></th></tr></thead><tbody>
       ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)); return `<tr><td><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></td><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة"><b>${leaveAmount(r)}</b></td>
         <td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="السبب">${h(r.reason)} ${pdfChip(r.att)}</td><td data-label="المتاح">${r.unit === "days" ? n(b.daysLeft) + " يوم" : n(b.hoursLeft) + " ساعة"}</td>
@@ -759,7 +761,7 @@
     const box = q.get("box") === "sent" ? "sent" : "in";
     const rows = DB.msgs.filter((m) => (box === "sent" ? m.from === u.id : m.to === u.id)).sort((a, b) => b.at.localeCompare(a.at));
     const unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
-    return layout(u, "المراسلات", `<div class="page-head"><div><h1>المراسلات</h1><p>رسائل داخل المنصة${box === "in" ? " · " + unread + " غير مقروءة" : ""}. في النظام الفعلي تصل نسخة بالبريد الإلكتروني لمن لديه بريد مسجّل.</p></div><div class="actions"><a class="btn primary" href="#/messages/new">+ رسالة جديدة</a></div></div>
+    return layout(u, "المراسلات", `<div class="page-head"><div><h1>${ico("mail", "h-ico")} المراسلات</h1><p>رسائل داخل المنصة${box === "in" ? " · " + unread + " غير مقروءة" : ""}. في النظام الفعلي تصل نسخة بالبريد الإلكتروني لمن لديه بريد مسجّل.</p></div><div class="actions"><a class="btn primary" href="#/messages/new">+ رسالة جديدة</a></div></div>
       <div class="seg mb" role="tablist" aria-label="صندوق الرسائل"><a href="#/messages" class="${box === "in" ? "on" : ""}">الوارد</a><a href="#/messages?box=sent" class="${box === "sent" ? "on" : ""}">المرسل</a></div>
       <div class="card flush"><ul class="msg-list">${rows.map((m) => `<li class="${box === "in" && !m.read ? "unread" : ""}"><a href="#/messages/${m.id}"><span class="who">${box === "in" ? h(displayName(m.from ? byId("users", m.from) : null)) : "إلى: " + h(displayName(byId("users", m.to)))}</span><b class="subj">${h(m.subject)}</b><span class="snip">${h(m.body.slice(0, 110))}</span><time class="num">${m.at}</time></a></li>`).join("") || '<li class="empty">لا توجد رسائل.</li>'}</ul></div>`);
   };
@@ -792,7 +794,7 @@
     const reqs = kind === "recs" ? [] : DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp) && (!emp || r.emp === emp)).filter((r) => (!st || (["pending", "approved", "rejected", "cancelled"].includes(st) ? r.status === st : false))).filter((r) => { const e = byId("emps", r.emp); return match(r, [e.name, e.no, r.reason, r.ref, r.note, r.cancelNote].join(" ")); }).sort((a, b) => b.start.localeCompare(a.start));
     const msgs = kind ? [] : DB.msgs.filter((m) => (m.from === u.id || m.to === u.id) && m.at.slice(0, 10) >= y.start && m.at.slice(0, 10) <= y.end).sort((a, b) => b.at.localeCompare(a.at));
     return layout(u, "الأرشيف", `<div class="page-head"><div><h1>${ico("archive", "h-ico")} الأرشيف</h1><p>سجل موثّق لكل التوصيات والطلبات والمراسلات${u.role === "officer" ? " للموظفين المسندين إليك" : ""} — السنة ${h(y.name)}</p></div>
-      <div class="actions"><button class="btn primary" type="button" data-act="archive-export" data-year="${y.id}">تنزيل أرشيف السنة (Excel)</button></div></div>
+      <div class="actions"><button class="btn primary" type="button" data-act="archive-export" data-year="${y.id}">${ico("download", "sm-ico")}تنزيل أرشيف السنة (Excel)</button></div></div>
       <form class="card filters" data-form="filter" data-route="archive"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(qs)}" placeholder="اسم، رقم وظيفي، موضوع، رقم توصية"></div>
         <div class="field"><label for="ast">الحالة</label><select id="ast" name="status"><option value="">الكل</option>${[["active", "توصية سارية"], ["cancelled", "ملغى"], ["pending", "بانتظار الاعتماد"], ["approved", "معتمد"], ["rejected", "مرفوض"]].map(([k, v]) => `<option value="${k}" ${st === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
         <div class="field"><label for="k">النوع</label><select id="k" name="kind"><option value="">الكل</option><option value="recs" ${kind === "recs" ? "selected" : ""}>التوصيات</option><option value="reqs" ${kind === "reqs" ? "selected" : ""}>الطلبات</option></select></div>
@@ -810,16 +812,16 @@
     const y = pickYear(q), ids = new Set(managedEmps(u, true).map((e) => e.id));
     const recs = DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)), reqs = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp));
     const c = (f) => reqs.filter(f).length;
-    return layout(u, "التقارير", `<div class="page-head"><div><h1>التقارير</h1><p>السنة ${h(y.name)}</p></div>${yearSelect(y)}</div>
+    return layout(u, "التقارير", `<div class="page-head"><div><h1>${ico("reports", "h-ico")} التقارير</h1><p>السنة ${h(y.name)}</p></div>${yearSelect(y)}</div>
       <div class="grid kpis">
         <div class="kpi brand">${ico("cal-check")}<div class="l">التوصيات السارية</div><div class="v">${recs.length}</div><div class="s">${n(recs.filter((r) => r.kind === "days").reduce((s, r) => s + r.amount, 0))} يوم · ${n(recs.filter((r) => r.kind === "hours").reduce((s, r) => s + r.amount, 0))} ساعة</div></div>
         <div class="kpi accent">${ico("calendar")}<div class="l">الطلبات</div><div class="v">${reqs.length}</div><div class="s">معتمدة ومعلّقة ومرفوضة</div></div>
         <div class="kpi ok">${ico("approvals")}<div class="l">معتمدة</div><div class="v">${c((r) => r.status === "approved")}</div><div class="s">مرفوضة ${c((r) => r.status === "rejected")} · ملغاة ${c((r) => r.status === "cancelled")}</div></div>
-        <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار القرار</div><div class="v">${c((r) => r.status === "pending")}</div></div>
+        <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار الاعتماد</div><div class="v">${c((r) => r.status === "pending")}</div></div>
         <div class="kpi">${ico("audit")}<div class="l">توصيات بلا PDF</div><div class="v">${recs.filter((r) => !r.att).length}</div></div></div>
-      ${(() => { const tot = reqs.length, parts = [["approved", "معتمدة"], ["pending", "بانتظار القرار"], ["cancelled", "ملغاة"], ["rejected", "مرفوضة"]].map(([key, label]) => { const v = c((r) => r.status === key); return { key, label, value: v, pct: tot ? Math.round((v / tot) * 100) : 0 }; });
+      ${(() => { const tot = reqs.length, parts = [["approved", "معتمدة"], ["pending", "بانتظار الاعتماد"], ["cancelled", "ملغاة"], ["rejected", "مرفوضة"]].map(([key, label]) => { const v = c((r) => r.status === key); return { key, label, value: v, pct: tot ? Math.round((v / tot) * 100) : 0 }; });
         return `<section class="card"><h2>الطلبات حسب الحالة</h2><p class="hint chart-sub">عدد طلبات معالجة الغياب في السنة ${h(y.name)} موزّعة على حالاتها</p>${tot ? donut(parts, tot, "طلب", "الطلبات حسب الحالة", "إجمالي الطلبات") : '<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>'}</section>`; })()}
-      <section class="card"><h2>التصدير إلى Excel</h2><div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">أرصدة الموظفين</button><button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">سجل التوصيات</button><button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">سجل الطلبات</button></div></section>`);
+      <section class="card"><h2>التصدير إلى Excel</h2><div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}أرصدة الموظفين</button><button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">${ico("download", "sm-ico")}سجل التوصيات</button><button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">${ico("download", "sm-ico")}سجل الطلبات</button></div></section>`);
   };
 
 
@@ -843,7 +845,7 @@
           <div class="actions" style="margin:-.2rem 1.6rem .6rem 0">${[1, 2, 3, 4, 5, 6, 0].map((i) => `<label class="check" style="margin:0"><input type="checkbox" name="weekend" value="${i}" ${(y ? y.weekend : [5, 6]).includes(i) ? "checked" : ""}> ${WD[i]}</label>`).join("")}</div></fieldset>
         ${y && (DB.recs.some((x) => x.year === y.id) || DB.leaves.some((x) => x.year === y.id)) ? `<label class="check confirm-impact"><input type="checkbox" name="confirmImpact" value="1"> أؤكد تطبيق التغيير بأثر رجعي على أرصدة السنة — مطلوب فقط عند تغيير ساعات اليوم أو الحد السنوي</label>` : ""}
         ${y && y.locked ? "" : `<button class="btn primary">${y ? "حفظ الإعدادات" : "إنشاء السنة"}</button>`}</form>`; };
-    return layout(u, "الإعدادات", `${settingsTabs("years")}<div class="page-head"><div><h1>السنة وقواعد الرصيد</h1><p>الرصيد سنوي (سنة ميلادية): يُمنح بالتوصيات التي يرفعها مسؤول شؤون الموظفين، ولا يُرحَّل إلى السنة التالية.</p></div></div>
+    return layout(u, "الإعدادات", `${settingsTabs("years")}<div class="page-head"><div><h1>${ico("calendar", "h-ico")} السنة وقواعد الرصيد</h1><p>الرصيد سنوي (سنة ميلادية): يُمنح بالتوصيات التي يرفعها مسؤول شؤون الموظفين، ولا يُرحَّل إلى السنة التالية.</p></div></div>
       <div class="alert info">تغيير عدد الساعات المعادلة لليوم يعيد حساب أرصدة السنة فوراً (الرصيد يُحسب من التوصيات والطلبات). يُسجَّل كل تغيير في سجل التدقيق.</div>
       ${DB.years.slice().sort((a, b) => b.start.localeCompare(a.start)).map((y) => `<section class="card"><div class="page-head" style="margin-bottom:.5rem"><h2>السنة ${h(y.name)} ${y.active ? '<span class="badge ok">النشطة</span>' : ""}${y.locked ? ' <span class="badge muted">مقفلة</span>' : ""}</h2>
         <div class="actions">${y.active ? "" : `<button class="btn sm" type="button" data-act="activate-year" data-id="${y.id}">تعيينها السنة النشطة</button>`}<button class="btn sm ${y.locked ? "" : "danger"}" type="button" data-act="lock-year" data-id="${y.id}">${y.locked ? "فتح القفل" : "إقفال السنة"}</button></div></div>${form(y)}</section>`).join("")}
@@ -857,9 +859,9 @@
       const rows = importPreview, c = (k) => rows.filter((r) => r.action === k).length;
       return layout(u, "استيراد الموظفين", `<div class="page-head"><div><h1>معاينة الاستيراد</h1></div></div>
         <div class="grid kpis"><div class="kpi ok"><div class="l">جديد</div><div class="v">${c("new")}</div></div><div class="kpi brand"><div class="l">تحديث موظف موجود</div><div class="v">${c("update")}</div></div><div class="kpi err"><div class="l">أخطاء (لن تُستورد)</div><div class="v">${c("error")}</div></div></div>
-        <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>السطر</th><th>الاسم</th><th>الرقم الوظيفي</th><th>القسم</th><th>المنصب</th><th>رقم مسؤول شؤون الموظفين</th><th>النتيجة</th></tr></thead><tbody>
+        <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>السطر</th><th>الاسم</th><th>الرقم الوظيفي</th><th>القسم</th><th>الدور</th><th>رقم مسؤول شؤون الموظفين</th><th>النتيجة</th></tr></thead><tbody>
         ${rows.map((r) => `<tr class="${r.action === "error" ? "has-err" : ""}"><td data-label="السطر">${r.line}</td><td data-label="الاسم">${h(r.name)}</td><td data-label="الرقم" class="num">${h(r.no)}</td><td data-label="القسم">${h(r.dept)}</td>
-          <td data-label="المنصب">${r.role ? ROLES[r.role] : "موظف (افتراضي)"}</td><td data-label="رقم مسؤول شؤون الموظفين" class="num">${h(r.manager)}</td>
+          <td data-label="الدور">${r.role ? ROLES[r.role] : "موظف (افتراضي)"}</td><td data-label="رقم مسؤول شؤون الموظفين" class="num">${h(r.manager)}</td>
           <td data-label="النتيجة">${r.action === "error" ? `<span class="badge err">⚠ ${h(r.errors.join("، "))}</span>` : r.action === "new" ? '<span class="badge ok">جديد</span>' : '<span class="badge">تحديث</span>'}${r.note ? `<div class="hint">${h(r.note)}</div>` : ""}</td></tr>`).join("")}
         </tbody></table></div></div>
         ${c("new") + c("update") ? `<form class="card" data-form="import-commit">
@@ -868,20 +870,20 @@
           ${c("error") ? `<div class="alert warn">ستُتجاوز الصفوف التي فيها أخطاء (${c("error")}).</div>` : ""}
           <div class="actions"><button class="btn primary">استيراد ${c("new") + c("update")} موظف</button><button class="btn" type="button" data-act="import-back">رجوع</button></div></form>` : '<div class="actions"><button class="btn" type="button" data-act="import-back">رجوع وتصحيح البيانات</button></div>'}`);
     }
-    return layout(u, "استيراد الموظفين", `<div class="page-head"><div><h1>استيراد الموظفين وإنشاء حساباتهم</h1><p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع المنصب المحدد.</p></div>
-      <button class="btn" type="button" data-act="template">تنزيل نموذج Excel</button></div>
+    return layout(u, "استيراد الموظفين", `<div class="page-head"><div><h1>${ico("upload", "h-ico")} استيراد الموظفين وإنشاء حساباتهم</h1><p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع الدور المحدد.</p></div>
+      <button class="btn" type="button" data-act="template">${ico("download", "sm-ico")}تنزيل نموذج Excel</button></div>
       <form data-form="import"><div class="grid two">
         <section class="card"><h2>1) رفع ملف Excel أو CSV</h2>
           <ol class="steps"><li><b>نزّل النموذج</b> وعبّئه (فيه ورقة «القوائم» بالأقسام وأرقام مسؤولي شؤون الموظفين، وورقة تعليمات):
-            <div class="actions mt-sm"><button class="btn primary sm" type="button" data-act="template">نموذج فارغ للتعبئة</button><button class="btn sm" type="button" data-act="template" data-filled="1">الموظفون الحاليون (للتعديل)</button></div></li>
+            <div class="actions mt-sm"><button class="btn primary sm" type="button" data-act="template">${ico("download", "sm-ico")}نموذج فارغ للتعبئة</button><button class="btn sm" type="button" data-act="template" data-filled="1">${ico("download", "sm-ico")}الموظفون الحاليون (للتعديل)</button></div></li>
             <li><b>احفظه</b> بصيغة ‎.xlsx دون تغيير صف العناوين.</li><li><b>ارفعه هنا</b> ثم اضغط «معاينة قبل الحفظ».</li></ol><div class="field"><label for="if">الملف <span class="hint">(‎.xlsx أو ‎.csv، أول ورقة فقط)</span></label><input id="if" type="file" name="file" accept=".xlsx,.xlsm,.csv"></div>
-          <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، المنصب، رقم مسؤول شؤون الموظفين، المسمى الوظيفي، البريد.</p></section>
+          <p class="hint">يتعرّف النظام على الأعمدة من عناوينها: الاسم، الرقم الوظيفي، القسم، الدور، رقم مسؤول شؤون الموظفين، المسمى الوظيفي، البريد.</p></section>
         <section class="card"><h2>2) أو النسخ واللصق</h2><div class="field"><label for="ip">انسخ الأعمدة من Excel والصقها هنا <span class="hint">(سطر لكل موظف)</span></label>
           <textarea id="ip" name="pasted" rows="8" placeholder="محمد أحمد العتيبي	100500	وحدة الشؤون الإدارية	موظف	100100"></textarea></div>
-          <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، المنصب، رقم مسؤول شؤون الموظفين، المسمى، البريد.</p></section></div>
-      <section class="card"><h2>المناصب</h2><div class="grid kpis" style="margin:0">
-        <div class="kpi"><div class="l">موظف</div><div class="s">يتابع رصيده من الأيام والساعات ويرفع طلبات معالجة الغياب</div></div><div class="kpi"><div class="l">شؤون الموظفين</div><div class="s">يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</div></div></div>
-        <p class="hint mt">إن تُرك المنصب فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p></section>
+          <p class="hint">بدون صف عناوين يُفترض الترتيب: الاسم، الرقم الوظيفي، القسم، الدور، رقم مسؤول شؤون الموظفين، المسمى، البريد.</p></section></div>
+      <section class="card"><h2>الأدوار</h2><dl class="role-list">
+        <div><dt>موظف</dt><dd>يتابع رصيده من الأيام والساعات ويرفع طلبات معالجة الغياب</dd></div><div><dt>شؤون الموظفين</dt><dd>يُسند له موظفون؛ يرفع توصياتهم ويعتمد طلباتهم ويراسلهم</dd></div></dl>
+        <p class="hint mt">إن تُرك الدور فارغاً يكون «موظف». الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل التكرار.</p></section>
       <button class="btn primary">معاينة قبل الحفظ</button></form>`);
   };
   // بطاقات الدخول: تُحفظ لكل حساب جديد أو إعادة تعيين، وتُمسح كلمة المرور المؤقتة حين يغيّرها صاحبها
@@ -907,9 +909,9 @@
   }
   function accountsPage(u, made) {
     return layout(u, "الحسابات المنشأة", `<div class="page-head"><div><h1>تم إنشاء ${made.length} حساب</h1><p>حُفظت بطاقات الدخول في «بطاقات الدخول» ويمكن طباعتها لاحقاً، وتُمسح كلمة المرور المؤقتة من البطاقة حين يغيّرها صاحبها. يُطلب من كل مستخدم تغييرها عند أول دخول.</p></div>
-      <div class="actions">${lastBatch ? `<a class="btn primary" href="#/print/cards?batch=${encodeURIComponent(lastBatch)}">طباعة بطاقات الدخول</a>` : ""}<button class="btn" type="button" data-act="cards-dl">تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
+      <div class="actions">${lastBatch ? `<a class="btn primary" href="#/print/cards?batch=${encodeURIComponent(lastBatch)}">طباعة بطاقات الدخول</a>` : ""}<button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل بطاقات الدخول (Excel)</button><button class="btn" data-print type="button">طباعة</button><a class="btn" href="#/admin/depts">مراجعة الأقسام</a><a class="btn primary" href="#/admin/users">المستخدمون</a></div></div>
       ${made.length ? "" : '<div class="alert info">لم يُنشأ أي حساب جديد: إما أن لكل الموظفين حسابات مسبقاً، أو أُلغي خيار إنشاء الحسابات.</div>'}
-      <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>المنصب</th></tr></thead><tbody>
+      <div class="card flush"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>كلمة المرور المؤقتة</th><th>الدور</th></tr></thead><tbody>
       ${made.map(([nm, un, pw, r]) => `<tr><td>${h(nm)}</td><td class="num">${h(un)}</td><td class="num"><code>${h(pw)}</code></td><td>${ROLES[r]}</td></tr>`).join("")}</tbody></table></div>`);
   }
 
@@ -925,12 +927,12 @@
       <div class="check-list">${emps.filter((e) => e.id !== offEmp).map((e) => `<label class="check" data-text="${h(e.name + " " + e.no + " " + deptName(e))}"><input type="checkbox" name="assign" value="${e.id}" ${offEmp && e.mgr === offEmp ? "checked" : ""}>
         <span>${h(e.name)} <small class="muted">(${h(e.no)})${deptName(e) ? " · " + h(deptName(e)) : ""}${e.mgr && e.mgr !== offEmp ? " · حالياً لدى: " + h(mgrName(e)) : ""}</small></span></label>`).join("") || '<p class="hint">لا يوجد موظفون. أضفهم من «استيراد الموظفين».</p>'}</div>
       <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول.</span></div>`;
-    return layout(u, "المستخدمون والصلاحيات", `<div class="page-head"><div><h1>المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
+    return layout(u, "المستخدمون والصلاحيات", `<div class="page-head"><div><h1>${ico("userkey", "h-ico")} المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
       <button class="btn" type="button" data-act="bulk-users">إنشاء حسابات الموظفين دفعة واحدة</button></div>
       ${(() => { const na = emps.filter((e) => !linked.has(e.id) && !isTmp(e)); return na.length ? `<div class="alert warn" role="status">${na.length} موظف نشط بلا حساب دخول (${na.slice(0, 5).map((e) => h(e.name)).join("، ")}${na.length > 5 ? "…" : ""})، فلا يستطيعون الدخول إلى النظام. اضغط «إنشاء حسابات الموظفين دفعة واحدة» أعلاه لإنشاء حساباتهم وطباعة بطاقاتهم.</div>` : ""; })()}
       <div class="grid two"><section class="card"><h2>الأدوار</h2><ul>
         <li><b>مدير النظام:</b> إدارة المنصة: المستخدمون والصلاحيات، إسناد الموظفين لمسؤولي شؤون الموظفين، السنة وقواعد الرصيد، المؤشرات والاعتمادات، الإعدادات وسجل التدقيق.</li>
-        <li><b>شؤون الموظفين:</b> يُسند له موظفون؛ يرفع التوصيات (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات معالجة الغياب، ويراسل موظفيه والأدمن.</li>
+        <li><b>شؤون الموظفين:</b> يُسند له موظفون؛ يرفع التوصيات (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات معالجة الغياب، ويراسل موظفيه ومدير النظام.</li>
         <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات معالجة الغياب، ويراسل مسؤول شؤون الموظفين.</li></ul>
         <p class="hint">عند اختيار دور «شؤون الموظفين» تظهر قائمة لاختيار الموظفين المسندين إليه (أكثر من موظف)، ويمكن أيضاً الإسناد من بطاقة الموظف أو ملف الاستيراد.</p></section>
       <section class="card"><h2>إضافة حساب</h2><form data-form="user-new"><div class="form-grid">
@@ -952,7 +954,7 @@
   A.depts = (u) => {
     const cnt = (id) => DB.emps.filter((e) => e.dept === id).length;
     const opts = DB.depts.map((d) => `<option value="${d.id}">${h(d.name)} (${cnt(d.id)})</option>`).join("");
-    return layout(u, "الإعدادات", `${settingsTabs("depts")}<div class="page-head"><div><h1>الأقسام والوحدات</h1><p>وحّد الأسماء المتشابهة بالدمج.</p></div></div>
+    return layout(u, "الإعدادات", `${settingsTabs("depts")}<div class="page-head"><div><h1>${ico("building", "h-ico")} الأقسام والوحدات</h1><p>وحّد الأسماء المتشابهة بالدمج.</p></div></div>
       <div class="grid two"><section class="card"><h2>إضافة قسم</h2><form class="filters" data-form="dept-new"><div class="field grow"><label for="dn">اسم القسم</label><input id="dn" name="name" required></div><button class="btn primary">إضافة</button></form></section>
       <section class="card"><h2>دمج قسمين</h2><form class="filters" data-form="dept-merge"><div class="field"><label for="ds">القسم المكرر</label><select id="ds" name="src">${opts}</select></div><div class="field"><label for="dt">يُدمج في</label><select id="dt" name="dst">${opts}</select></div><button class="btn">دمج</button></form></section></div>
       <div class="card flush"><table class="responsive"><thead><tr><th>القسم</th><th class="n">الموظفون</th><th>تعديل</th></tr></thead><tbody>
@@ -961,7 +963,7 @@
       </tbody></table></div>`);
   };
 
-  A.holidays = (u) => layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
+  A.holidays = (u) => layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>${ico("holiday", "h-ico")} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
     <section class="card"><form class="filters" data-form="holiday"><div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required></div>
       <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div><div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div><button class="btn primary">إضافة</button></form></section>
     <div class="card flush"><table class="responsive"><thead><tr><th>التاريخ</th><th>اليوم</th><th>العطلة</th><th></th></tr></thead><tbody>
@@ -974,7 +976,7 @@
       <div class="grid two"><section class="card"><h2>الحالة</h2><p><span class="badge muted">غير متاح في نسخة العرض</span></p>
         <dl class="kv"><div><dt>خادم البريد</dt><dd>—</dd></div><div><dt>المرسِل</dt><dd dir="ltr">no-reply@example.com</dd></div><div><dt>آخر إرسال ناجح</dt><dd>—</dd></div></dl></section>
         <section class="card"><h2>إرسال بريد تجريبي</h2><p class="hint">متاح في النظام الفعلي بعد ضبط خادم البريد.</p><div class="field"><label for="mt">إلى</label><input id="mt" type="email" dir="ltr" disabled placeholder="name@example.com"></div><button class="btn primary" type="button" disabled>إرسال رسالة تجريبية</button></section></div>`);
-  A.settings = (u) => { const s = DB.settings; return layout(u, "الإعدادات", `${settingsTabs("settings")}<div class="page-head"><div><h1>هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
+  A.settings = (u) => { const s = DB.settings; return layout(u, "الإعدادات", `${settingsTabs("settings")}<div class="page-head"><div><h1>${ico("palette", "h-ico")} هوية الجهة</h1><p>تظهر في الترويسة والكشوف الرسمية.</p></div></div>
     <form class="card" style="max-width:720px" data-form="settings">
       <div class="field"><label for="s1">الجامعة</label><input id="s1" name="university" value="${h(s.university)}"></div>
       <div class="field"><label for="s2">الكلية / الجهة</label><input id="s2" name="college" value="${h(s.college)}"></div>
@@ -986,19 +988,19 @@
   const WIPE_WORD = "حذف", RESTORE_WORD = "استعادة";
   A.data = (u) => {
     const last = DB.audit.find((a) => a.action === "backup_downloaded");
-    return layout(u, "النسخ الاحتياطي والبيانات", `<div class="page-head"><div><h1>${ico("database", "h-ico")} النسخ الاحتياطي والبيانات</h1>
+    return layout(u, "النسخ الاحتياطي والبيانات", `<div class="page-head"><div><h1>${ico("backup", "h-ico")} النسخ الاحتياطي والبيانات</h1>
       <p>البيانات الحالية: ${DB.emps.length} موظف · ${DB.users.length} حساب · ${DB.recs.length} توصية · ${DB.leaves.length} طلب · ${DB.msgs.length} رسالة</p></div></div>
       <div class="grid two">
         <section class="card"><h2>${ico("archive", "sm-ico")} أخذ نسخة احتياطية</h2>
           <p>ملف واحد يضم كل البيانات (الموظفين، الحسابات، التوصيات، الطلبات، المراسلات، الإعدادات، سجل التدقيق). في النظام الفعلي يضم أيضاً ملفات PDF المرفقة.</p>
           <p class="hint">${last ? "آخر نسخة نُزّلت: " + h(last.at) + " بواسطة " + h(last.user) + "." : "لم تُنزَّل أي نسخة احتياطية بعد."} احفظ الملف في مكان آمن.</p>
-          <button class="btn primary" type="button" data-act="backup">تنزيل نسخة احتياطية الآن</button>
-          ${autoList().length ? `<details class="disclose mt"><summary>النسخ التلقائية (${autoList().length})</summary><p class="hint">تُؤخذ تلقائياً قبل كل حذف أو استعادة (آخر 3 نسخ في هذا المتصفح).</p><ul class="plain">${autoList().map((a, i) => `<li><button class="btn sm" type="button" data-act="auto-dl" data-i="${i}">تنزيل</button> ${h(a.at)} · ${h(a.reason)}</li>`).join("")}</ul></details>` : ""}</section>
+          <button class="btn primary" type="button" data-act="backup">${ico("download", "sm-ico")}تنزيل نسخة احتياطية الآن</button>
+          ${autoList().length ? `<details class="disclose mt"><summary>النسخ التلقائية (${autoList().length})</summary><p class="hint">تُؤخذ تلقائياً قبل كل حذف أو استعادة (آخر 3 نسخ في هذا المتصفح).</p><ul class="plain">${autoList().map((a, i) => `<li><button class="btn sm" type="button" data-act="auto-dl" data-i="${i}">${ico("download", "sm-ico")}تنزيل</button> ${h(a.at)} · ${h(a.reason)}</li>`).join("")}</ul></details>` : ""}</section>
         <section class="card"><h2>${ico("upload", "sm-ico")} استعادة نسخة احتياطية</h2>
           <p>تستبدل <b>كل</b> البيانات الحالية بمحتوى النسخة، ثم يُطلب تسجيل الدخول من جديد.</p>
           <form data-form="restore"><div class="field"><label for="bf">ملف النسخة</label><input id="bf" type="file" name="file" accept=".json,application/json" required></div>
             <div class="field"><label for="rc">للتأكيد اكتب كلمة «${RESTORE_WORD}»</label><input id="rc" name="confirm" autocomplete="off" required></div>
-            <button class="btn">استعادة</button></form></section></div>
+            <button class="btn danger">استعادة</button></form></section></div>
       <section class="card danger-zone"><h2>⚠ حذف جميع البيانات</h2>
         <p>يحذف نهائياً: الموظفين، وجميع الحسابات عدا حسابك، والتوصيات، والطلبات، والمراسلات، والأقسام، والعطل، وسجل التدقيق. تبقى السنوات وهوية الجهة وحسابك فقط. <b>لا يمكن التراجع</b> إلا باستعادة نسخة احتياطية.</p>
         <p class="hint">ننصح بتنزيل نسخة احتياطية أولاً. (في نسخة العرض يمكنك إرجاع البيانات التجريبية من «استعادة بيانات العرض».)</p>
@@ -1010,8 +1012,8 @@
     const batch = q.get("batch") || "", st = q.get("state") || "", qs = norm(q.get("q") || "").toLowerCase(), all = DB.cards || [];
     const rows = all.filter((c) => (!batch || c.batch === batch) && (!st || (st === "pending" ? !!c.pw : !c.pw)) && (!qs || norm(c.name + " " + c.username + " " + c.no).toLowerCase().includes(qs))).sort((a, b) => b.at.localeCompare(a.at) || a.id - b.id);
     const batches = [...new Set(all.slice().sort((a, b) => b.at.localeCompare(a.at)).map((c) => c.batch))];
-    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("idcard", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
-      <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "غير المفعّلة"}</a><button class="btn" type="button" data-act="cards-dl">تنزيل Excel</button></div></div>
+    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("badge", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة لكل حساب جديد أو كلمة مرور أُعيد تعيينها. تُمسح كلمة المرور المؤقتة من البطاقة تلقائياً حين يغيّرها صاحبها عند أول دخول.</p></div>
+      <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "غير المفعّلة"}</a><button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل Excel</button></div></div>
       <form class="card filters" data-form="filter" data-route="admin/cards"><div class="field grow"><label for="cq">بحث</label><input id="cq" type="search" name="q" value="${h(q.get("q") || "")}" placeholder="الاسم، اسم المستخدم، الرقم الوظيفي"></div>
         <div class="field"><label for="cb">الدفعة</label><select id="cb" name="batch"><option value="">كل الدفعات</option>${batches.map((b) => `<option value="${h(b)}" ${b === batch ? "selected" : ""}>${h(b)} (${all.filter((c) => c.batch === b).length})</option>`).join("")}</select></div>
         <div class="field"><label for="cs">الحالة</label><select id="cs" name="state"><option value="">الكل</option><option value="pending" ${st === "pending" ? "selected" : ""}>بانتظار أول دخول</option><option value="active" ${st === "active" ? "selected" : ""}>فُعّل الحساب</option></select></div><button class="btn primary">عرض</button></form>
@@ -1024,7 +1026,7 @@
   };
 
   A.audit = (u, q) => { const qs = (q.get("q") || "").trim(); const rows = DB.audit.filter((a) => !qs || [a.user, a.action, a.entity, a.details].join(" ").includes(qs)).slice(0, 300);
-    return layout(u, "سجل التدقيق", `<div class="page-head"><div><h1>سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد.</p></div></div>
+    return layout(u, "سجل التدقيق", `<div class="page-head"><div><h1>${ico("audit", "h-ico")} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد.</p></div></div>
       <form class="card filters" data-form="filter" data-route="admin/audit"><div class="field grow"><label for="aq">بحث</label><input id="aq" type="search" name="q" value="${h(qs)}"></div><button class="btn primary">بحث</button></form>
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th></tr></thead><tbody>
       ${rows.map((a) => `<tr><td class="num nowrap" data-label="الوقت">${a.at}</td><td data-label="المستخدم">${h(a.user)}</td><td data-label="العملية"><code>${h(a.action)}</code></td><td data-label="الكيان">${h(a.entity)}${a.entityId ? " #" + a.entityId : ""}</td><td data-label="التفاصيل"><small>${h(a.details)}</small></td></tr>`).join("") || '<tr><td colspan="5" class="empty">لا توجد سجلات.</td></tr>'}
@@ -1055,7 +1057,7 @@
     else { const [a, b] = table[0]; const num = (x) => /^\d[\d-]*$/.test(x || "");
       Object.assign(map, num(a) && b && !num(b) ? { no: 0, name: 1, dept: 2, role: 3, manager: 4, title: 5, email: 6 } : { name: 0, no: 1, dept: 2, role: 3, manager: 4, title: 5, email: 6 }); }
     return body.map((r, i) => { const g = (k) => (map[k] != null ? cell(r[map[k]]) : ""); const row = { line: i + start, name: g("name"), no: g("no"), dept: g("dept"), manager: g("manager"), title: g("title"), email: g("email"), role: null, errors: [] };
-      const rt = norm(g("role")).toLowerCase(); if (rt) { if (ROLE_WORDS[rt]) row.role = ROLE_WORDS[rt]; else row.errors.push("منصب غير معروف «" + g("role") + "» (المسموح: موظف، شؤون الموظفين)"); }
+      const rt = norm(g("role")).toLowerCase(); if (rt) { if (ROLE_WORDS[rt]) row.role = ROLE_WORDS[rt]; else row.errors.push("دور غير معروف «" + g("role") + "» (المسموح: موظف، شؤون الموظفين)"); }
       return row; });
   }
   const DEPT_WORDS = ["قسم", "وحده", "اداره", "مكتب", "شعبه"];
@@ -1186,7 +1188,7 @@
     if (id && wasActive !== e.active) {
       const acct = DB.users.find((x) => x.emp === e.id); const pend = DB.leaves.filter((x) => x.emp === e.id && x.status === "pending").length;
       if (acct && acct.role !== "admin") { acct.active = e.active; flash((e.active ? "أُعيد تفعيل" : "عُطّل") + " حساب الدخول (" + acct.username + ") تبعاً لحالة الموظف.", "info"); }
-      if (!e.active && pend) flash("تنبيه: للموظف " + pend + " طلب بانتظار القرار — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn");
+      if (!e.active && pend) flash("تنبيه: للموظف " + pend + " طلب بانتظار الاعتماد — راجعها من «الاعتمادات» (تُبتّ أو تُلغى).", "warn");
     }
     audit(id ? "employee_updated" : "employee_created", "employee", e.id, { no, name, officer: mgr }); flash("تم حفظ بيانات الموظف.");
     if (!id && d.get("create_account")) { try { const [un, pw] = await createEmpAccount(e); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول). اطبع بطاقة دخوله من أعلى الصفحة."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash("حُفظ الموظف لكن لم يُنشأ حساب دخول: " + err.message, "warn"); } }
@@ -1294,7 +1296,7 @@
   F["user-edit"] = (form, u) => {
     const d = fd(form), x = byId("users", form.dataset.id), role = d.get("role"), emp = Number(d.get("emp") || 0) || null, active = !!d.get("active");
     if (["employee", "officer"].includes(role) && !emp) throw new RuleError("يجب ربط حساب الموظف/مسؤول شؤون الموظفين بسجل موظف.");
-    if (x.id === u.id && (role !== "admin" || !active)) throw new RuleError("لا يمكنك إزالة صلاحية الأدمن أو تعطيل حسابك بنفسك.");
+    if (x.id === u.id && (role !== "admin" || !active)) throw new RuleError("لا يمكنك إزالة صلاحية مدير النظام أو تعطيل حسابك بنفسك.");
     const prevRole = x.role, prevEmp = x.emp;
     Object.assign(x, { role, emp, active });
     const n_ = applyAssign(d, role, emp, prevRole, prevEmp);
@@ -1303,7 +1305,7 @@
   };
   F["dept-new"] = (form) => { const nm = String(fd(form).get("name")).replace(/\s+/g, " ").trim(); if (!nm || DB.depts.some((d) => norm(d.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); DB.depts.push({ id: nid(), name: nm, active: true }); audit("department_saved", "department", null, { name: nm }); save(); flash("تم حفظ القسم."); render(); };
   F["dept-edit"] = (form) => { const d = fd(form), x = byId("depts", form.dataset.id), nm = String(d.get("name")).trim(); if (!nm || DB.depts.some((y) => y.id !== x.id && norm(y.name) === norm(nm))) throw new RuleError("اسم القسم فارغ أو مكرر."); x.name = nm; x.active = !!d.get("active"); save(); flash("تم حفظ القسم."); render(); };
-  F["dept-merge"] = (form) => { const d = fd(form), s = Number(d.get("src")), t = Number(d.get("dst")); if (s === t) throw new RuleError("اختر قسمين مختلفين."); if (!confirm("دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟")) return; let c = 0; DB.emps.forEach((e) => { if (e.dept === s) { e.dept = t; c++; } }); const src = byId("depts", s); DB.depts = DB.depts.filter((x) => x.id !== s); audit("department_merged", "department", t, { source: src.name, moved: c }); save(); flash("تم الدمج ونقل " + c + " موظف."); render(); };
+  F["dept-merge"] = async (form) => { const d = fd(form), s = Number(d.get("src")), t = Number(d.get("dst")); if (s === t) throw new RuleError("اختر قسمين مختلفين."); if (!await confirmDlg("دمج القسمين ونقل موظفي الأول إلى الثاني وحذف الأول؟")) return; let c = 0; DB.emps.forEach((e) => { if (e.dept === s) { e.dept = t; c++; } }); const src = byId("depts", s); DB.depts = DB.depts.filter((x) => x.id !== s); audit("department_merged", "department", t, { source: src.name, moved: c }); save(); flash("تم الدمج ونقل " + c + " موظف."); render(); };
   F.holiday = (form) => { const d = fd(form), s = parseISO(d.get("start")), e = parseISO(d.get("end") || d.get("start")), nm = String(d.get("name")).trim(); if (!s || !e || e < s || (e - s) / 864e5 > 60 || !nm) throw new RuleError("بيانات العطلة غير صحيحة."); let c = 0; for (let x = new Date(s); x <= e; x.setDate(x.getDate() + 1)) { const k = iso(x); if (!DB.holidays.some((y) => y.day === k)) { DB.holidays.push({ id: nid(), day: k, name: nm }); c++; } } audit("holiday_added", "holiday", null, { name: nm }); save(); flash("تمت إضافة " + c + " يوم عطلة."); render(); };
   const AUTO_KEY = "hr_demo_autobackups";
   const autoList = () => { try { return JSON.parse(localStorage.getItem(AUTO_KEY) || "[]"); } catch (e) { return []; } };
@@ -1317,17 +1319,17 @@
     if (!file || !file.name) throw new RuleError("اختر ملف النسخة الاحتياطية.");
     let data; try { data = JSON.parse(await file.text()); } catch (e) { throw new RuleError("الملف ليس نسخة احتياطية صالحة من النظام."); }
     if (!data || data.format !== "itmam-demo-backup" || !data.db || !Array.isArray(data.db.users) || !data.db.users.length) throw new RuleError("الملف ليس نسخة احتياطية صالحة من النظام.");
-    if (!confirm("استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟")) return;
+    if (!await confirmDlg("استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية؟")) return;
     autoBackup("قبل الاستعادة");
     const keepAudit = DB.audit.slice(), keepCounters = DB.counters;
     DB = data.db; DB.audit = (DB.audit || []).concat(keepAudit); DB.counters = Object.assign({}, data.db.counters || {}, keepCounters || {});
     DB.audit.unshift({ id: nid(), at: nowStr(), user: u.username, action: "backup_restored", entity: "system", entityId: null, details: "" });
     save(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة النسخة الاحتياطية (" + DB.emps.length + " موظف، " + DB.users.length + " حساب). سجّل الدخول من جديد."); go("#/login");
   };
-  F.wipe = (form, u) => {
+  F.wipe = async (form, u) => {
     need(u, ["admin"]);
     if (String(fd(form).get("confirm") || "").trim() !== WIPE_WORD) throw new RuleError("لم يُحذف شيء: للتأكيد اكتب كلمة «" + WIPE_WORD + "» كما هي.");
-    if (!confirm("تأكيد أخير: حذف جميع البيانات نهائياً؟")) return;
+    if (!await confirmDlg("تأكيد أخير: حذف جميع البيانات نهائياً؟")) return;
     autoBackup("قبل الحذف");
     u.emp = null;
     Object.assign(DB, { users: [u], emps: [], depts: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [], cards: [] });
@@ -1339,6 +1341,21 @@
   const ACT = {};
   // نافذة إدخال السبب (بدل prompt): نص متعدد الأسطر وأسباب جاهزة
   const REASONS = { reject: ["ضغط عمل في الوحدة", "تعارض مع جدول المناوبات أو التكليفات", "الرصيد غير كافٍ", "المستندات المؤيدة ناقصة"], cancel: ["تاريخ خاطئ في الطلب", "خطأ في الإدخال", "بناءً على طلب الموظف", "تغيّر موعد الإجازة"] };
+  // نافذة تأكيد رسمية داخل النظام (بدل نافذة المتصفح)
+  function confirmDlg(msg) {
+    return new Promise((resolve) => {
+      let d = document.getElementById("confirm-dlg");
+      if (!d) { d = document.createElement("dialog"); d.id = "confirm-dlg"; d.className = "about-dlg confirm-dlg"; d.setAttribute("aria-labelledby", "confirm-title"); d.setAttribute("aria-describedby", "confirm-msg"); document.body.appendChild(d); }
+      const danger = /حذف|إلغاء|استبدال|تعطيل|إعادة تعيين|نهائي/.test(msg), trigger = document.activeElement;
+      d.innerHTML = `<div class="about-head"><h2 id="confirm-title">تأكيد الإجراء</h2></div><div class="about-doc"><p id="confirm-msg">${h(msg)}</p>
+        <div class="actions"><button type="button" class="btn ${danger ? "danger" : "primary"}" data-ok>${danger ? "نعم، متابعة" : "تأكيد"}</button><button type="button" class="btn" data-no>تراجع</button></div></div>`;
+      let ok = false;
+      d.onclick = (ev) => { if (ev.target.closest("[data-ok]")) { ok = true; d.close(); } else if (ev.target.closest("[data-no]") || ev.target === d) d.close(); };
+      d.onclose = () => { if (trigger && trigger.focus) trigger.focus(); resolve(ok); };
+      if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+      d.querySelector("[data-no]").focus();
+    });
+  }
   function askReason(kind, title) {
     return new Promise((resolve) => {
       let d = document.getElementById("reason-dlg");
@@ -1551,35 +1568,35 @@
   ACT.hideBanner = () => { try { localStorage.setItem(BKEY, "1"); } catch (e) {} render(); };
   ACT.showBanner = () => { try { localStorage.removeItem(BKEY); } catch (e) {} render(); };
   ACT.logout = () => { sessionStorage.removeItem("hr_uid"); go("#/login"); };
-  ACT.reset = async () => { if (!confirm("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
+  ACT.reset = async () => { if (!await confirmDlg("استعادة بيانات العرض الأصلية؟ ستُحذف كل التغييرات في هذا المتصفح.")) return; await seed(); sessionStorage.removeItem("hr_uid"); flash("تمت استعادة بيانات العرض."); go("#/login"); };
   ACT["emp-account"] = async (b, u) => { need(u, ["admin"]); const e = byId("emps", b.dataset.id); try { const [un, pw] = await createEmpAccount(e); save(); flash("تم إنشاء حساب الدخول: اسم المستخدم " + un + " وكلمة المرور المؤقتة " + pw + " (يُطلب تغييرها عند أول دخول)."); } catch (err) { if (!(err instanceof RuleError)) throw err; flash(err.message, "error"); } render(); };
-  ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!confirm("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." : "تم إلغاء الطلب."); render(); };
+  ACT["cancel-leave"] = async (b, u) => { const r = byId("leaves", b.dataset.id); let note = ""; if (b.dataset.needNote) { note = await askReason("cancel"); if (!note) return; } else if (!await confirmDlg("تأكيد إلغاء الطلب؟")) return; const prev = cancelLeave(u, r, note); save(); flash(prev === "approved" ? "تم إلغاء اعتماد الطلب وإعادة الرصيد وإشعار الموظف." : "تم إلغاء الطلب."); render(); };
   ACT["cancel-rec"] = async (b, u) => { const r = byId("recs", b.dataset.id); const note = await askReason("cancel", "سبب إلغاء التوصية (ستُخصم من الرصيد)"); if (!note) return; cancelRec(u, r, note); save(); flash("تم إلغاء التوصية وتحديث الرصيد."); render(); };
   ACT.decide = async (b, u) => { const a = b.dataset.a; let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } decideLeave(u, byId("leaves", b.dataset.id), a, note); save(); flash(a === "approve" ? "تم الاعتماد وخصم الرصيد." : "تم الرفض."); render(); };
   ACT.bulk = async (b, u) => { const a = b.dataset.a; const rs = [...document.querySelectorAll('input[name="req"]:checked')].map((c) => Number(c.value));
     if (!rs.length) return toast("حدّد طلباً واحداً على الأقل.", "error");
-    let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } else if (!confirm("اعتماد كل الطلبات المحددة؟")) return;
+    let note = ""; if (a === "reject") { note = await askReason("reject"); if (!note) return; } else if (!await confirmDlg("اعتماد كل الطلبات المحددة؟")) return;
     let ok = 0; const errs = []; rs.forEach((id) => { try { decideLeave(u, byId("leaves", id), a, note); ok++; } catch (e) { errs.push(byId("emps", byId("leaves", id).emp).name + ": " + e.message); } });
     save(); flash("تمت معالجة " + ok + " طلب." + (errs.length ? " تعذّر " + errs.length + "." : ""), errs.length ? "error" : "ok"); errs.slice(0, 5).forEach((m) => flash(m, "error")); render(); };
   ACT.export = (b) => exportXlsx(b.dataset.kind, b.dataset.year);
   ACT.template = (b) => {
     const filled = b && b.dataset.filled === "1";
-    const head = ["الاسم", "الرقم الوظيفي", "القسم", "المنصب", "رقم مسؤول شؤون الموظفين", "المسمى الوظيفي", "البريد"];
+    const head = ["الاسم", "الرقم الوظيفي", "القسم", "الدور", "رقم مسؤول شؤون الموظفين", "المسمى الوظيفي", "البريد"];
     const rows = filled ? DB.emps.filter((e) => e.active && !isTmp(e)).sort((x, y) => x.name.localeCompare(y.name, "ar")).map((e) => { const usr = DB.users.find((x) => x.emp === e.id); const m = e.mgr ? byId("emps", e.mgr) : null; return [e.name, e.no, deptName(e), usr && usr.role === "officer" ? "شؤون الموظفين" : "موظف", m ? m.no : "", e.title || "", e.email || ""]; }) : [];
     const depts = DB.depts.filter((d) => d.active).map((d) => d.name), offs = officers();
     const lists = [["الأقسام الحالية", "", "رقم مسؤول شؤون الموظفين", "اسم مسؤول شؤون الموظفين"]];
     for (let i = 0; i < Math.max(depts.length, offs.length); i++) lists.push([depts[i] || "", "", offs[i] ? offs[i].no : "", offs[i] ? offs[i].name : ""]);
     const help = [["طريقة الاستخدام"], ["1) عبّئ ورقة «الموظفون» بدءاً من السطر الثاني، ولا تغيّر صف العناوين."], ["2) احفظ الملف بصيغة Excel ‏(‎.xlsx) ثم ارفعه من صفحة «استيراد الموظفين» واضغط «معاينة قبل الحفظ»."], ["3) راجع المعاينة: الصفوف السليمة تُستورد، والصفوف التي فيها أخطاء تظهر لتصحيحها وإعادة الرفع."], [""],
-      ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."], ["المنصب: موظف أو شؤون الموظفين (الافتراضي: موظف)."], ["القسم: اكتب اسم القسم كما في ورقة «القوائم» أو اسم قسم جديد فيُنشأ تلقائياً."], ["رقم مسؤول شؤون الموظفين: الرقم الوظيفي لمسؤول شؤون الموظفين (انظر ورقة «القوائم»)، ويمكن أن يكون مسؤولاً جديداً في الملف نفسه."], ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."], ["الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل تكراره."]];
+      ["الاسم والرقم الوظيفي إلزاميان، وبقية الأعمدة اختيارية."], ["الدور: موظف أو شؤون الموظفين (الافتراضي: موظف)."], ["القسم: اكتب اسم القسم كما في ورقة «القوائم» أو اسم قسم جديد فيُنشأ تلقائياً."], ["رقم مسؤول شؤون الموظفين: الرقم الوظيفي لمسؤول شؤون الموظفين (انظر ورقة «القوائم»)، ويمكن أن يكون مسؤولاً جديداً في الملف نفسه."], ["البريد: يُستخدم لإرسال إشعارات المراسلات والقرارات."], ["الرقم الوظيفي مفتاح المطابقة: إن كان الموظف موجوداً تُحدَّث بياناته بدل تكراره."]];
     downloadBook([["الموظفون", [head, ...rows]], ["القوائم", lists], ["تعليمات", help]], filled ? "الموظفون الحاليون للتعديل" : "نموذج استيراد الموظفين");
   };
   ACT["import-back"] = () => { importPreview = null; render(); };
   ACT["activate-year"] = (b) => { DB.years.forEach((y) => (y.active = y.id === Number(b.dataset.id))); audit("year_activated", "fiscal_year", Number(b.dataset.id)); save(); flash("تم تغيير السنة النشطة."); render(); };
-  ACT["lock-year"] = (b) => { const y = byId("years", b.dataset.id);
-    if (!y.locked) { const p = DB.leaves.filter((r) => r.year === y.id && r.status === "pending").length; if (p) throw new RuleError("لا يمكن الإقفال: توجد " + p + " حركة بانتظار الاعتماد."); if (!confirm("إقفال السنة؟ لن تُقبل أي حركات جديدة عليها.")) return; }
+  ACT["lock-year"] = async (b) => { const y = byId("years", b.dataset.id);
+    if (!y.locked) { const p = DB.leaves.filter((r) => r.year === y.id && r.status === "pending").length; if (p) throw new RuleError("لا يمكن الإقفال: توجد " + p + " حركة بانتظار الاعتماد."); if (!await confirmDlg("إقفال السنة؟ لن تُقبل أي حركات جديدة عليها.")) return; }
     y.locked = !y.locked; audit(y.locked ? "year_locked" : "year_unlocked", "fiscal_year", y.id); save(); flash((y.locked ? "تم إقفال" : "تم فتح") + " السنة " + y.name + "."); render(); };
-  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!confirm("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = true; x.failed = 0; x.lockedUntil = null; saveCards([[displayName(x), x.username, pw, x.role]], "reset"); audit("password_reset", "user", x.id); save(); flash("كلمة المرور المؤقتة للحساب " + x.username + ": " + pw + " — حُفظت بطاقة دخول جديدة في «بطاقات الدخول»."); render(); };
-  ACT["bulk-users"] = async () => { if (!confirm("إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟")) return; const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); const made = [];
+  ACT["reset-pw"] = async (b) => { const x = byId("users", b.dataset.id); if (!await confirmDlg("إعادة تعيين كلمة مرور " + x.username + "؟")) return; const pw = rand(); x.pw = await sha(pw); x.mustChange = true; x.failed = 0; x.lockedUntil = null; saveCards([[displayName(x), x.username, pw, x.role]], "reset"); audit("password_reset", "user", x.id); save(); flash("كلمة المرور المؤقتة للحساب " + x.username + ": " + pw + " — حُفظت بطاقة دخول جديدة في «بطاقات الدخول»."); render(); };
+  ACT["bulk-users"] = async () => { if (!await confirmDlg("إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟")) return; const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); const made = [];
     for (const e of DB.emps.filter((x) => x.active && !linked.has(x.id) && !isTmp(x))) { const un = String(e.no).toLowerCase(); if (DB.users.some((x) => x.username.toLowerCase() === un)) continue; const pw = rand(); const role = DB.emps.some((x) => x.mgr === e.id) ? "officer" : "employee"; DB.users.push({ id: nid(), username: un, pw: await sha(pw), role, emp: e.id, active: true, mustChange: true }); made.push([e.name, un, pw, role]); }
     if (made.length) saveCards(made, "bulk"); else lastBatch = null;
     audit("users_bulk_created", "user", null, { count: made.length }); save(); createdAccounts = made; go("#/admin/import"); };
@@ -1612,7 +1629,7 @@
     ], "أرشيف بدل الراحة " + y.name);
     audit("archive_exported", "archive", null, { year: y.name }); save();
   };
-  ACT["del-holiday"] = (b) => { if (!confirm("حذف هذا اليوم؟")) return; DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); save(); render(); };
+  ACT["del-holiday"] = async (b) => { if (!await confirmDlg("حذف هذا اليوم؟")) return; DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); save(); render(); };
 
   // ============================================================ الأحداث
   document.addEventListener("submit", async (ev) => {
@@ -1643,6 +1660,15 @@
   function normAr(s) {
     return String(s || "").replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
       .replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }).replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  function enhanceFiles(root) {
+    root.querySelectorAll('input[type="file"]:not([data-fp])').forEach((inp) => {
+      inp.dataset.fp = "1"; const wrap = document.createElement("span"); wrap.className = "file-pick"; inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp); inp.classList.add("file-input");
+      const btn = document.createElement("span"); btn.className = "btn sm file-btn"; btn.setAttribute("aria-hidden", "true"); btn.textContent = inp.multiple ? "اختر ملفات" : "اختر ملفاً";
+      const name = document.createElement("span"); name.className = "file-name"; name.setAttribute("aria-live", "polite"); name.textContent = "لم يُختر ملف";
+      wrap.append(btn, name);
+      inp.addEventListener("change", () => { const has = !!(inp.files && inp.files.length); name.textContent = has ? [...inp.files].map((f) => f.name).join("، ") : "لم يُختر ملف"; wrap.classList.toggle("has-file", has); });
+    });
   }
   function enhanceSelects(root) {
     (root || document).querySelectorAll(EMP_SELECTS).forEach(function (sel) {
@@ -1739,7 +1765,7 @@
     if (html === "" || html == null) return;
     $app.innerHTML = html;
     document.querySelectorAll("[data-leave-form]").forEach(syncUnit);
-    enhanceSelects($app);
+    enhanceSelects($app); enhanceFiles($app);
     document.querySelectorAll("form").forEach((f) => { if (f.querySelector("[data-role-select]")) assignSync(f); });
     document.body.classList.remove("nav-open");
     initNavGroups();

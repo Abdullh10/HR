@@ -32,45 +32,45 @@
       {% if user.role == 'admin' %}
         {# مدير النظام: «المتابعة» ثابتة، و«السجلات» و«الإدارة» قابلتان للطيّ (تُحفظ الحالة، وتُفتح مجموعة الصفحة الحالية) #}
         {% set in_records = path.startswith('/recommendations') or path.startswith('/requests') or path.startswith('/messages') %}
-        {% set in_settings = path in ('/admin/years', '/admin/departments', '/admin/holidays', '/admin/settings') %}
+        {% set in_settings = path in ('/admin/years', '/admin/departments', '/admin/holidays', '/admin/settings', '/admin/mail') %}
         {% set in_admin = path.startswith('/admin') %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
         {{ item('/employees', 'الموظفون والأرصدة', 'users') }}
-        {{ item('/approvals', 'الاعتمادات', 'approvals', pending_approvals) }}
+        {{ item('/approvals', 'الاعتمادات', 'stamp', pending_approvals) }}
         <li class="nav-group" data-group="records" data-default="open"{% if in_records %} data-active="1"{% endif %}>
           <button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-records">السجلات{% if unread %} <span class="badge count">{{ unread }}</span>{% endif %}<span class="chev" aria-hidden="true"></span></button>
           <ul class="nav-sub" id="g-records">
-            {{ item('/recommendations', 'التوصيات', 'cal-check', prefix='/recommendations') }}
-            {{ item('/requests', 'طلبات الموظفين', 'calendar', prefix='/requests') }}
+            {{ item('/recommendations', 'سجل التوصيات', 'cal-check', prefix='/recommendations') }}
+            {{ item('/requests', 'طلبات معالجة الغياب', 'inbox', prefix='/requests') }}
             {{ item('/messages', 'المراسلات', 'mail', unread, prefix='/messages') }}
           </ul></li>
-        <li class="nav-group" data-group="admin" data-default="closed"{% if in_admin %} data-active="1"{% endif %}>
-          <button type="button" class="nav-toggle" aria-expanded="{{ 'true' if in_admin else 'false' }}" aria-controls="g-admin">الإدارة<span class="chev" aria-hidden="true"></span></button>
-          <ul class="nav-sub" id="g-admin"{% if not in_admin %} hidden{% endif %}>
+        <li class="nav-group" data-group="admin" data-default="open"{% if in_admin %} data-active="1"{% endif %}>
+          <button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-admin">الإدارة<span class="chev" aria-hidden="true"></span></button>
+          <ul class="nav-sub" id="g-admin">
             {{ item('/admin/import', 'استيراد الموظفين', 'upload') }}
-            {{ item('/admin/users', 'المستخدمون والصلاحيات', 'shield') }}
-            {{ item('/admin/cards', 'بطاقات الدخول', 'idcard', prefix='/admin/cards') }}
+            {{ item('/admin/users', 'المستخدمون والصلاحيات', 'userkey') }}
+            {{ item('/admin/cards', 'بطاقات الدخول', 'badge', prefix='/admin/cards') }}
             <li><a href="/admin/years" title="الإعدادات" {% if in_settings %}aria-current="page"{% endif %}>{{ ico('gear') }}<span class="lbl">الإعدادات</span></a></li>
-            {{ item('/admin/data', 'النسخ الاحتياطي والبيانات', 'database') }}
+            {{ item('/admin/data', 'النسخ الاحتياطي والبيانات', 'backup') }}
             {{ item('/admin/audit', 'سجل التدقيق', 'audit') }}
           </ul></li>
         <li class="sep">التقارير والأرشيف</li>
         {{ item('/reports', 'التقارير', 'reports') }}
         {{ item('/archive', 'الأرشيف', 'archive') }}
         <li class="sep">حسابي</li>
-        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
+        {{ item('/profile', 'الملف الشخصي', 'user') }}
       {% else %}
       {% if user.role == 'officer' %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
         {{ item('/employees', 'قائمة الموظفين', 'users') }}
-        {{ item('/approvals', 'الاعتمادات', 'approvals', pending_approvals) }}
+        {{ item('/approvals', 'الاعتمادات', 'stamp', pending_approvals) }}
         <li class="sep">التوصيات</li>
         {{ item('/recommendations/new?kind=days', 'توصية بالأيام', 'calendar-plus') }}
         {{ item('/recommendations/new?kind=hours', 'توصية بالساعات', 'clock-plus') }}
         {{ item('/recommendations', 'سجل التوصيات', 'cal-check') }}
-        {{ item('/requests', 'طلبات الموظفين', 'calendar') }}
+        {{ item('/requests', 'طلبات الموظفين', 'inbox') }}
       {% endif %}
       {% if user.employee_id %}
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
@@ -79,7 +79,7 @@
         {% if year and year.employee_can_request %}
           {{ item('/requests/new', 'طلب معالجة غياب', 'calendar-plus', prefix='/requests/new') }}
         {% endif %}
-        {{ item('/profile', 'الملف الشخصي', 'idcard') }}
+        {{ item('/profile', 'الملف الشخصي', 'user') }}
       {% endif %}
       <li class="sep">التواصل</li>
       {{ item('/messages', 'المراسلات', 'mail', unread) }}
@@ -96,17 +96,22 @@
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <a class="t-logo" href="/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="/static/logo.svg?v={{ ASSET_V }}" alt="" width="30" height="30"><b>{{ org.system_title or "إتمام" }}</b></a>
-      <span class="title">{% block heading %}{% endblock %}</span>
+      {% set p0 = path.split('/')[1] if path.count('/') else '' %}
+      {% set section = {'admin': 'الإدارة', 'recommendations': 'السجلات' if user.role == 'admin' else 'التوصيات', 'requests': 'السجلات' if user.role == 'admin' else 'الطلبات',
+                        'messages': 'التواصل', 'reports': 'التقارير والأرشيف', 'archive': 'التقارير والأرشيف', 'profile': 'حسابي', 'me': 'حسابي',
+                        'dashboard': 'المتابعة', 'employees': 'المتابعة', 'approvals': 'المتابعة', 'change-password': 'حسابي'}.get(p0, '') %}
+      <nav class="title crumbs" aria-label="مسار التنقل">{% if section %}<span class="crumb">{{ section }}</span><span class="crumb-sep" aria-hidden="true">‹</span>{% endif %}<span aria-current="page">{% block heading %}{% endblock %}</span></nav>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}
-      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon') }}<span class="sr-only">الوضع</span></button>
+      <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">{{ ico('moon', 'theme-moon') }}{{ ico('sun', 'theme-sun') }}<span class="sr-only">الوضع</span></button>
       <details class="acct">
         <summary class="btn ghost" aria-label="حساب {{ user.display_name }}"><span class="avatar" aria-hidden="true">{{ user.display_name[:1] }}</span><span class="acct-name">{{ user.display_name }}</span></summary>
         <div class="acct-menu">
           <div class="who-full"><b>{{ user.display_name }}</b><small>{{ user.role_label }}</small></div>
-          <button class="btn" type="button" data-theme-toggle>{{ ico('moon') }}الوضع الداكن/الفاتح</button>
-          <a class="btn" href="/profile">{{ ico('idcard') }}الملف الشخصي</a>
-          <a class="btn" href="/change-password">{{ ico('shield') }}كلمة المرور</a>
+          <button class="btn" type="button" data-theme-toggle>{{ ico('moon', 'theme-moon') }}{{ ico('sun', 'theme-sun') }}الوضع الداكن/الفاتح</button>
+          <a class="btn" href="/profile">{{ ico('user') }}الملف الشخصي</a>
+          {% if user.role == 'admin' %}<a class="btn" href="/admin/years">{{ ico('gear') }}الإعدادات</a>{% endif %}
+          <a class="btn" href="/change-password">{{ ico('key') }}كلمة المرور</a>
           <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn logout" type="submit">{{ ico('logout') }}خروج</button></form>
         </div>
       </details>

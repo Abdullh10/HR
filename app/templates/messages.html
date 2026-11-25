@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ico %}
 {% block title %}المراسلات{% endblock %}
 {% block heading %}المراسلات{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>المراسلات</h1><p>رسائل داخل المنصة{% if box == 'in' %} · {{ unread }} غير مقروءة{% endif %}. تصل نسخة بالبريد الإلكتروني لمن لديه بريد مسجّل عند تفعيل خادم البريد.</p></div>
+<div class="page-head"><div><h1>{{ ico('mail', 'h-ico') }} المراسلات</h1><p>رسائل داخل المنصة{% if box == 'in' %} · {{ unread }} غير مقروءة{% endif %}. تصل نسخة بالبريد الإلكتروني لمن لديه بريد مسجّل عند تفعيل خادم البريد.</p></div>
   <div class="actions"><a class="btn primary" href="/messages/new">+ رسالة جديدة</a></div></div>
 <div class="seg mb" role="tablist" aria-label="صندوق الرسائل"><a href="/messages" class="{{ 'on' if box == 'in' }}">الوارد</a><a href="/messages?box=sent" class="{{ 'on' if box == 'sent' }}">المرسل</a></div>
 <div class="card flush"><ul class="msg-list">

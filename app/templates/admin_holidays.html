@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import settings_tabs %}
+{% from "_macros.html" import settings_tabs, ico  %}
 {% block title %}العطل الرسمية{% endblock %}
 {% block heading %}الإعدادات{% endblock %}
 {% block content %}
 {{ settings_tabs('holidays') }}
-<div class="page-head"><div><h1>العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
+<div class="page-head"><div><h1>{{ ico('holiday', 'h-ico') }} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
 <section class="card"><form method="post" action="/admin/holidays/add" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة عيد الفطر"></div>
   <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div>
