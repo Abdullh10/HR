@@ -22,7 +22,7 @@
   <button class="btn primary btn-apply" type="submit">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th>من الحد الأقصى</th><th></th></tr></thead>
+  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th class="n">معلّقة</th><th>من الحد الأقصى</th><th></th></tr></thead>
   <tbody>
   {% for e, b in rows %}
   <tr><td data-label="م">{{ loop.index }}</td>
@@ -31,8 +31,9 @@
     {% if user.role == 'admin' %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
     <td class="n" data-label="رصيد الأيام">{{ b.days_left|n }}</td><td class="n" data-label="رصيد الساعات">{{ b.hours_left|n }}</td>
     <td class="n" data-label="المتاح للطلب"><b>{{ days_ar(b.bookable_days) }}</b>{% if b.hours_avail_rem %}<small class="muted d-block">و{{ hours_ar(b.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}</td>
+    <td class="n" data-label="طلبات معلّقة">{% if pend.get(e.id) %}<a class="badge warn" href="/requests?emp={{ e.id }}&status=pending">{{ pend[e.id] }}</a>{% else %}—{% endif %}</td>
     <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width: {{ b.cap_pct }}%"></span></div><span class="num">{{ b.granted_equiv_days|n }}/{{ b.cap_days|n }}</span></div></td>
     <td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام" aria-label="توصية بالأيام لـ{{ e.full_name }}">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات" aria-label="توصية بالساعات لـ{{ e.full_name }}">+ ساعات</a></td></tr>
-  {% else %}<tr><td colspan="9" class="empty">لا توجد نتيجة.{% if user.role == 'officer' %} لم يُسند إليك موظفون بعد — تواصل مع مدير النظام.{% endif %}</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="10" class="empty">لا توجد نتيجة.{% if user.role == 'officer' %} لم يُسند إليك موظفون بعد — تواصل مع مدير النظام.{% endif %}</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

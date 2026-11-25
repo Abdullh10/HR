@@ -92,7 +92,7 @@ def nav_counts(db: Session, user: User | None) -> dict:
     pending = 0
     if user.role == "admin":
         pending = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.status == "pending")) or 0
-    delegation_badge = None
+    delegation_badge, delegated_teams = None, []
     if user.role == "officer" and user.employee_id:
         from .services import delegated_from
         owners = [user.employee_id, *delegated_from(db, user)]
@@ -100,7 +100,14 @@ def nav_counts(db: Session, user: User | None) -> dict:
                             .where(LeaveRequest.status == "pending", Employee.manager_id.in_(owners),
                                    Employee.id != user.employee_id)) or 0
         delegation_badge = "مفوَّض" if len(owners) > 1 else None
-    return dict(unread=unread, pending_approvals=pending, delegation_badge=delegation_badge)
+        if len(owners) > 1:
+            from datetime import date as _d
+            from .models import Delegation
+            t = _d.today()
+            delegated_teams = [(d.from_emp.full_name, d.end_date) for d in db.scalars(select(Delegation).where(
+                Delegation.to_emp_id == user.employee_id, Delegation.cancelled_at.is_(None),
+                Delegation.start_date <= t, Delegation.end_date >= t))]
+    return dict(unread=unread, pending_approvals=pending, delegation_badge=delegation_badge, delegated_teams=delegated_teams)
 
 
 def render(request: Request, db: Session, name: str, user: User | None = None, status_code: int = 200, **ctx):

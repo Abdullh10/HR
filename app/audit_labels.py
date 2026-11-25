@@ -42,6 +42,8 @@ ACTIONS = {
     "archive_exported": "تصدير أرشيف السنة",
     "data_exported": "تصدير بيانات إلى Excel",
     "audit_exported": "تصدير سجل التدقيق",
+    "leave_escalated": "تصعيد طلب متأخر لمدير النظام",
+    "reminder_sent": "إرسال تذكير بالرصيد",
     "audit_cleared": "حذف من سجل التدقيق",
     "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)",
     "team_transferred": "نقل فريق بين المسؤولين",

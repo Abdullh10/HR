@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge, ico, age_badge, drange %}
+{% from "_macros.html" import kind_badge, ico, age_badge, drange, request_tabs %}
 {% block title %}الاعتمادات{% endblock %}
-{% block heading %}الاعتمادات{% endblock %}
+{% block heading %}{{ 'الاعتمادات' if user.role == 'admin' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('stamp', 'h-ico') }} الاعتمادات</h1>
+{{ request_tabs('pending', rows|length, user.role == 'admin') }}
+<div class="page-head"><div><h1>{{ ico('stamp', 'h-ico') }} {{ 'الاعتمادات' if user.role == 'admin' else 'بانتظار قراري' }}</h1>
   <p>{{ count_ar(rows|length, 'req') }} بانتظار الاعتماد{% if rows %} · أقدمها منذ {{ days_ar(oldest) if oldest else 'اليوم' }}{% endif %}{% if late %} · <b>المتأخرة (تجاوزت {{ days_ar(LATE_DAYS) }}): {{ count_ar(late, 'req') }}</b>{% endif %}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
 {% if user.role == 'admin' and rows|selectattr('0.on_behalf')|list %}
 <div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>

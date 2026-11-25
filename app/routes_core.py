@@ -42,6 +42,7 @@ from .services import (
     notify,
     officer_users_for,
     LATE_DAYS,
+    escalate_overdue,
     count_ar,
     is_delegated,
     alert_keys,
@@ -117,6 +118,11 @@ def ref_no(prefix: str, obj_id: int, d: date | datetime) -> str:
 @router.get("/dashboard")
 def dashboard(request: Request, year_id: int | None = None, user: User = Depends(current_user),
               db: Session = Depends(get_db)):
+    try:
+        if escalate_overdue(db):
+            db.commit()
+    except Exception:  # noqa: BLE001 - التصعيد لا يعطّل الصفحة
+        db.rollback()
     if user.role == "employee":
         return redirect("/me")
     year = pick_year(db, year_id)
@@ -173,11 +179,13 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     if late:
         alerts.append(dict(level="err", icon="hourglass", text=f"طلبات تجاوزت مدة القرار المعتمدة ({days_ar(LATE_DAYS)}): {count_ar(late, 'req')}، أقدمها منذ {days_ar(oldest)}.", href="/approvals", cta="مراجعة الاعتمادات"))
     today = date.today()
+    lapse = []
     if user.role == "officer" and today.month >= 10 and year.start_date <= today <= year.end_date:
-        lapse = [(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps if e.is_active) if b.bookable_days > 0]
+        lapse = sorted([(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps if e.is_active) if b.bookable_days > 0],
+                       key=lambda x: -x[1].bookable_days)
         if lapse:
             total = sum(b.bookable_days for _, b in lapse)
-            alerts.append(dict(level="warn", icon="calendar", text=f"{count_ar(len(lapse), 'emp')} في فريقك لديهم رصيد متاح ({days_ar(total)} إجمالاً) يسقط في {year.end_date:%Y-%m-%d} لأن الرصيد لا يُرحَّل؛ ذكّرهم باستخدامه.", href="/reports", cta="عرض الأرصدة"))
+            alerts.append(dict(level="warn", icon="calendar", text=f"{count_ar(len(lapse), 'emp')} في فريقك لديهم رصيد متاح ({days_ar(total)} إجمالاً) يسقط في {year.end_date:%Y-%m-%d} لأن الرصيد لا يُرحَّل؛ ذكّرهم باستخدامه.", href="#lapse", cta="عرض وتذكير"))
     quick = {}
     if user.role == "admin":
         from .models import AuditLog, LoginCard
@@ -221,7 +229,33 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie,
                   pie_total=g, alerts=alerts, quick=quick, oldest=oldest,
                   by_officer=sorted(by_officer.items(), key=lambda kv: -kv[1]["count"]),
-                  pending=pending[:8], pending_count=len(pending), near_cap=near_cap[:8])
+                  pending=pending[:8], pending_count=len(pending), near_cap=near_cap[:8], lapse=lapse)
+
+
+@router.post("/reminders/year-end")
+def remind_year_end(request: Request, year_id: int | None = Form(None), user: User = Depends(require(*STAFF)),
+                    db: Session = Depends(get_db)):
+    """تذكير موظفي الفريق الذين لديهم رصيد متاح يسقط بنهاية السنة (لا يتكرر للموظف نفسه خلال 7 أيام)."""
+    year = pick_year(db, year_id)
+    subject = f"تذكير من شؤون الموظفين: رصيدك يسقط بنهاية السنة {year.name}"
+    since = datetime.now() - timedelta(days=7)
+    sent = skipped = 0
+    for e in db.scalars(scoped_employees(db, user, managed_only=True)):
+        b = compute_balance(db, e.id, year)
+        u = employee_user(db, e)
+        if b.bookable_days <= 0 or not u:
+            continue
+        if db.scalar(select(Message.id).where(Message.recipient_id == u.id, Message.subject == subject, Message.created_at >= since)):
+            skipped += 1
+            continue
+        notify(db, u, subject, f"لديك {days_ar(b.bookable_days)} متاحة للطلب من رصيد بدل الراحة، وتسقط في {year.end_date:%Y-%m-%d} "
+               "لأن الرصيد لا يُرحَّل. قدّم طلب معالجة غياب قبل نهاية السنة إن رغبت في استخدامها.", "/requests/new", sender=user)
+        sent += 1
+    audit(db, user, "reminder_sent", "employee", None, ip=client_ip(request), count=sent, year=year.name)
+    db.commit()
+    flash(request, (f"أُرسل التذكير إلى {count_ar(sent, 'emp')}." if sent else "لم يُرسل تذكير جديد.")
+          + (f" ({count_ar(skipped, 'emp')} ذُكّروا خلال الأيام السبعة الماضية.)" if skipped else ""))
+    return redirect("/dashboard")
 
 
 # ================================================================ رصيدي وكشف الموظف
@@ -290,7 +324,10 @@ def employees(request: Request, q: str = "", dept: int | None = None, officer: i
             continue
         rows.append((e, b))
     depts = list(db.scalars(select(Department).order_by(Department.name)))
-    return render(request, db, "employees.html", user=user, rows=rows, depts=depts, q=q, dept=dept,
+    pend = dict(db.execute(select(LeaveRequest.employee_id, func.count(LeaveRequest.id)).where(
+        LeaveRequest.status == "pending", LeaveRequest.employee_id.in_([e.id for e, _ in rows] or [0]))
+        .group_by(LeaveRequest.employee_id)).all())
+    return render(request, db, "employees.html", user=user, rows=rows, depts=depts, q=q, dept=dept, pend=pend,
                   officer=officer, officers=officers(db), state=state, sel_year=year, years=years(db))
 
 
@@ -563,6 +600,8 @@ def requests_list(request: Request, status: str = "", kind: str = "", emp: int |
     ids = visible_employee_ids(db, user)
     if ids is not None:
         stmt = stmt.where(LeaveRequest.employee_id.in_(ids))
+    if user.role == "officer" and user.employee_id:  # طلبات الفريق فقط؛ طلباته الشخصية في «رصيدي»
+        stmt = stmt.where(LeaveRequest.employee_id != user.employee_id)
     if status:
         stmt = stmt.where(LeaveRequest.status == status)
     if kind in LEAVE_KINDS:
@@ -571,7 +610,8 @@ def requests_list(request: Request, status: str = "", kind: str = "", emp: int |
         stmt = stmt.where(LeaveRequest.employee_id == emp)
     rows = list(db.scalars(stmt.limit(1000)))
     return render(request, db, "requests.html", user=user, rows=rows, status=status, kind=kind, emp=emp,
-                  sel_year=year, years=years(db), employees=list(db.scalars(scoped_employees(db, user))),
+                  sel_year=year, years=years(db),
+                  employees=list(db.scalars(scoped_employees(db, user, managed_only=user.role == "officer"))),
                   can_manage=lambda e: can_manage(user, e))
 
 
@@ -806,6 +846,11 @@ def request_print(request: Request, req_id: int, user: User = Depends(current_us
 # ================================================================ الاعتمادات
 @router.get("/approvals")
 def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    try:
+        if escalate_overdue(db):
+            db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
     ids = visible_employee_ids(db, user)
     stmt = select(LeaveRequest).where(LeaveRequest.status == "pending").order_by(LeaveRequest.created_at)
     if ids is not None:
@@ -1087,9 +1132,10 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
         if ids is not None:
             q = q.where(Recommendation.employee_id.in_(ids))
         rows = [[i, r.employee.full_name, r.employee.employee_no, r.rec_date, r.kind_label, r.amount, r.ref_no,
-                 r.subject, r.status_label, "نعم" if r.attachment_id else ""] for i, r in enumerate(db.scalars(q), 1)]
+                 r.subject, r.assigned_by, r.task_from, r.task_to, r.status_label, "نعم" if r.attachment_id else ""]
+                for i, r in enumerate(db.scalars(q), 1)]
         _sheet(wb, "التوصيات", ["م", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة",
-               "رقم التوصية", "الموضوع", "الحالة", "ملف PDF"], rows)
+               "رقم التوصية", "الموضوع", "جهة التكليف", "التكليف من", "التكليف إلى", "الحالة", "ملف PDF"], rows)
         name = f"توصيات بدل الراحة {year.name}.xlsx"
     elif kind == "requests":
         q = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id).order_by(LeaveRequest.start_date)

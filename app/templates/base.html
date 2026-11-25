@@ -71,13 +71,12 @@
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
         {{ item('/employees', 'قائمة الموظفين', 'users') }}
-        {{ item('/approvals', 'الاعتمادات', 'stamp', pending_approvals) }}
+        {% set in_team_reqs = path.startswith('/approvals') or (path.startswith('/requests') and not path.startswith('/requests/new')) %}
+        <li><a href="/approvals" title="طلبات الموظفين" {% if in_team_reqs %}aria-current="page"{% endif %}>{{ ico('stamp') }}<span class="lbl">طلبات الموظفين</span>{% if pending_approvals %}<span class="badge count">{{ pending_approvals }}</span>{% endif %}</a></li>
         {{ item('/delegation', 'التفويض', 'swap', delegation_badge) }}
         <li class="sep">التوصيات</li>
-        {{ item('/recommendations/new?kind=days', 'توصية بالأيام', 'calendar-plus') }}
-        {{ item('/recommendations/new?kind=hours', 'توصية بالساعات', 'clock-plus') }}
-        {{ item('/recommendations', 'سجل التوصيات', 'cal-check') }}
-        {{ item('/requests', 'طلبات الموظفين', 'inbox') }}
+        {{ item('/recommendations/new', 'توصية جديدة', 'calendar-plus', prefix='/recommendations/new') }}
+        <li><a href="/recommendations" title="سجل التوصيات" {% if path.startswith('/recommendations') and not path.startswith('/recommendations/new') %}aria-current="page"{% endif %}>{{ ico('cal-check') }}<span class="lbl">سجل التوصيات</span></a></li>
       {% endif %}
       {% if user.employee_id %}
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
@@ -126,6 +125,9 @@
       </details>
     </header>
     <main id="main" class="content" tabindex="-1">
+      {% if delegated_teams and (path.startswith('/dashboard') or path.startswith('/approvals') or path.startswith('/requests') or path.startswith('/employees')) %}
+      <div class="alert info deleg-banner" role="note">{{ ico('swap', 'sm-ico') }} تعمل بالتفويض عن {% for name, end in delegated_teams %}فريق <b>{{ name }}</b> حتى <bdi class="d">{{ end|d }}</bdi>{{ '، ' if not loop.last }}{% endfor %}؛ تظهر طلباتهم وموظفوهم معك مع علامة «بالتفويض». <a href="/delegation">التفاصيل</a></div>
+      {% endif %}
       {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
       {% block content %}{% endblock %}
     </main>

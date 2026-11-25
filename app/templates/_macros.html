@@ -106,6 +106,7 @@
   {% for href, key, text in items %}<a href="{{ href }}" {% if active == key %}aria-current="page" class="on"{% endif %}>{{ text }}</a>{% endfor %}
 </nav>
 {%- endmacro %}
+{% macro request_tabs(active, pending, admin=False) -%}{{ page_tabs('أقسام الطلبات', [('/approvals','pending',('بانتظار الاعتماد' if admin else 'بانتظار قراري') ~ (' (' ~ pending ~ ')' if pending else '')),('/requests','all','كل الطلبات')], active) }}{%- endmacro %}
 {% macro people_tabs(active) -%}{{ page_tabs('أقسام الموظفين', [('/employees','list','قائمة الموظفين'),('/admin/import','import','استيراد من Excel')], active) }}{%- endmacro %}
 {% macro account_tabs(active) -%}{{ page_tabs('أقسام الحسابات', [('/admin/users','users','الحسابات والصلاحيات'),('/admin/cards','cards','بطاقات الدخول'),('/admin/teams','teams','الفرق والتفويض')], active) }}{%- endmacro %}
 

@@ -671,3 +671,29 @@ def year_end_reminder(db: Session, user: User) -> bool:
            f"لديك {days_ar(b.bookable_days)} متاحة للطلب من رصيد بدل الراحة، وتسقط في {year.end_date:%Y-%m-%d} "
            "لأن الرصيد لا يُرحَّل إلى السنة التالية. قدّم طلب معالجة غياب قبل نهاية السنة إن رغبت في استخدامها.", "/requests/new")
     return True
+
+
+def escalate_overdue(db: Session) -> int:
+    """تصعيد الطلبات المتأخرة: كل طلب تجاوز معيار الخدمة دون قرار يُبلَّغ عنه مدير النظام مرة واحدة فقط
+    (يُسجَّل «leave_escalated» في سجل التدقيق حتى لا يتكرر). يعيد عدد الطلبات المصعَّدة الآن."""
+    from .models import AuditLog
+    cutoff = datetime.now() - timedelta(days=LATE_DAYS)
+    late = list(db.scalars(select(LeaveRequest).where(LeaveRequest.status == "pending", LeaveRequest.created_at < cutoff)))
+    if not late:
+        return 0
+    done = set(db.scalars(select(AuditLog.entity_id).where(AuditLog.action == "leave_escalated",
+                                                          AuditLog.entity_id.in_([r.id for r in late]))))
+    fresh = [r for r in late if r.id not in done]
+    if not fresh:
+        return 0
+    admins = list(db.scalars(select(User).where(User.role == "admin", User.is_active.is_(True))))
+    lines = [f"• {r.employee.full_name} ({r.amount_label} بتاريخ {r.start_date:%Y-%m-%d}) — مسؤوله: "
+             f"{r.employee.manager.full_name if r.employee.manager else 'غير مُسند'}، منذ {days_ar((datetime.now() - r.created_at).days)}"
+             for r in fresh[:15]]
+    for a in admins:
+        notify(db, a, f"تصعيد: {count_ar(len(fresh), 'req')} تجاوزت مدة القرار المعتمدة",
+               f"الطلبات الآتية تجاوزت مدة القرار المعتمدة ({days_ar(LATE_DAYS)}) دون قرار:\n" + "\n".join(lines)
+               + ("\n…" if len(fresh) > 15 else "") + "\nيمكنك البت فيها بالنيابة أو متابعة المسؤول.", "/approvals")
+    for r in fresh:
+        audit(db, None, "leave_escalated", "leave_request", r.id, employee=r.employee.full_name)
+    return len(fresh)

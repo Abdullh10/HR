@@ -51,6 +51,19 @@
 </section>
 {% endif %}
 
+{% if lapse %}
+<section class="card flush" id="lapse">
+  <h2>{{ ico('calendar', 'sm-ico') }} رصيد يسقط بنهاية السنة <span class="badge warn">{{ count_ar(lapse|length, 'emp') }}</span></h2>
+  <p class="hint pad">أرصدة متاحة لم تُستخدم وتسقط في <bdi class="d">{{ sel_year.end_date|d }}</bdi>. أرسل تذكيراً لأصحابها ليقدّموا طلباتهم في الوقت المناسب للعمل.</p>
+  <div class="table-wrap"><table class="responsive"><caption class="sr-only">الموظفون الذين لديهم رصيد يسقط بنهاية السنة</caption>
+    <thead><tr><th>الموظف</th><th class="n">المتاح للطلب</th></tr></thead><tbody>
+    {% for e, b in lapse[:10] %}<tr><td data-label="الموظف"><a href="/employees/{{ e.id }}">{{ e.full_name }}</a></td><td class="n" data-label="المتاح للطلب">{{ days_ar(b.bookable_days) }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  <form method="post" action="/reminders/year-end" class="pad"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="year_id" value="{{ sel_year.id }}">
+    <button class="btn primary" data-confirm="إرسال تذكير لكل من لديه رصيد متاح يسقط بنهاية السنة؟">{{ ico('send', 'sm-ico') }}تذكير الجميع ({{ count_ar(lapse|length, 'emp') }})</button>{% if lapse|length > 10 %} <a class="hint" href="/reports">عرض الكل في التقارير</a>{% endif %}</form>
+</section>
+{% endif %}
+
 <div class="grid kpis">
   <div class="kpi brand">{{ ico('users') }}<div class="l">الموظفون</div><div class="v">{{ t.employees }}</div>{% if t.no_rec %}<div class="s">{{ t.no_rec }} بلا توصيات بعد</div>{% endif %}</div>
   <div class="kpi accent">{{ ico('cal-check') }}<div class="l">الممنوح بالتوصيات (معادل)</div><div class="v">{{ t.granted_eq|round(1)|n }}</div><div class="s">يوماً · أيام {{ t.granted_days|n }} · ساعات {{ t.granted_hours|n }}</div></div>

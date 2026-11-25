@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import kind_badge, status_badge, ico, drange  %}
+{% from "_macros.html" import kind_badge, status_badge, ico, drange, request_tabs  %}
 {% block title %}الطلبات{% endblock %}
 {% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
+{% if user.role != 'employee' %}{{ request_tabs('all', pending_approvals, user.role == 'admin') }}{% endif %}
 <div class="page-head">
   <div><h1>{{ ico('inbox', 'h-ico') }} {{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'req') }}</p></div>
   <div class="actions">
