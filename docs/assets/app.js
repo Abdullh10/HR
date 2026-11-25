@@ -429,7 +429,7 @@
         <p class="hint">البيانات وهمية ومحفوظة في هذا المتصفح فقط.</p>
       </div>
       <div class="card-foot">
-        <div class="foot-links"><button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog">${SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>')}عن النظام</button><button class="about-link" type="button" data-open-dialog="policy-dlg" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>سياسة الاستخدام</button></div>
+        <div class="foot-links"><button class="about-link" type="button" data-open-dialog="about-dlg" aria-haspopup="dialog">${SV('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>')}عن النظام</button><button class="about-link" type="button" data-open-dialog="faq-dlg" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/></svg>الأسئلة الشائعة</button></div>
         <p class="card-credit"><span>جميع الحقوق محفوظة © ${new Date().getFullYear()}</span>${s.credit ? `<span>${h(s.credit)}</span>` : ""}</p>
       </div>
     </section>
@@ -453,6 +453,10 @@
 <dialog id="policy-dlg" class="about-dlg" aria-labelledby="policy-title">
   <form method="dialog" class="about-head"><h2 id="policy-title">سياسة استخدام نظام «${h(s.system_title)}»</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
   ${policyHTML(s)}
+</dialog>
+<dialog id="faq-dlg" class="about-dlg" aria-labelledby="faq-title">
+  <form method="dialog" class="about-head"><h2 id="faq-title">الأسئلة الشائعة</h2><button class="btn ghost icon-btn" value="close" aria-label="إغلاق">×</button></form>
+  ${faqHTML(s)}
 </dialog>`;
   };
 
@@ -1574,6 +1578,35 @@
 
   <h3>المادة (12): التواصل</h3>
   <p>للاستفسار عن هذه السياسة أو الإبلاغ عن مخالفة، يُرجى التواصل مع مدير النظام في ${h(s.college)}.</p>
+</div>`; }
+  function faqHTML(s) { return `<div class="about-doc faq-doc">
+  <p class="about-lead">إجابات عن أكثر الأسئلة شيوعاً حول استخدام نظام «${h(s.system_title)}» وأمان بياناته.</p>
+  <h3>عام</h3>
+  <details class="faq-item"><summary>ما نظام «${h(s.system_title)}»؟</summary><p>نظام إلكتروني لإدارة أيام بدل الراحة في ${h(s.college)}: يرفع فيه مسؤول شؤون الموظفين التوصيات بالأيام أو الساعات، ويتابع الموظف رصيده ويقدّم طلبات معالجة الغياب، وتُعتمد الطلبات إلكترونياً مع أرشفة كاملة.</p></details>
+  <details class="faq-item"><summary>من يستطيع الدخول إلى النظام؟</summary><p>منسوبو الجهة المصرّح لهم فقط، بحساب يُنشئه مدير النظام. لا يوجد تسجيل ذاتي، ولكل مستخدم دور يحدّد ما يراه: الموظف يرى رصيده وطلباته فقط، ومسؤول شؤون الموظفين يرى الموظفين المسندين إليه فقط، ومدير النظام يدير المنصة.</p></details>
+  <details class="faq-item"><summary>كيف أحصل على اسم المستخدم وكلمة المرور؟</summary><p>يسلّمك مدير النظام بطاقة دخول فيها اسم المستخدم (غالباً رقمك الوظيفي) وكلمة المرور. يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي».</p></details>
+  <details class="faq-item"><summary>نسيت كلمة المرور، ماذا أفعل؟</summary><p>تواصل مع مدير النظام في الجهة، فيعيد تعيينها ويسلّمك بطاقة دخول جديدة. لا يستطيع أحد — حتى مدير النظام — الاطلاع على كلمة المرور التي اخترتها بنفسك.</p></details>
+  <h3>الرصيد والطلبات</h3>
+  <details class="faq-item"><summary>كيف يُحسب رصيدي؟</summary><p>يُمنح الرصيد بالتوصيات التي يرفعها مسؤول شؤون الموظفين (أياماً أو ساعات)، ويُخصم منه ما اعتُمد من طلبات معالجة الغياب. تُحوَّل الساعات إلى أيام وفق عدد ساعات اليوم المعتمد في السنة، والساعات المتبقية التي لا تكمل يوماً لا يمكن طلبها.</p></details>
+  <details class="faq-item"><summary>هل يُرحَّل الرصيد غير المستخدم إلى السنة التالية؟</summary><p>لا؛ الرصيد مرتبط بسنته، فاحرص على استخدامه قبل نهايتها، ويُنبَّه مدير النظام قبل نهاية السنة إلى الأرصدة غير المستخدمة.</p></details>
+  <details class="faq-item"><summary>كيف أقدّم طلب معالجة غياب؟</summary><p>من «طلب معالجة غياب» تختار التاريخ أو الفترة، فيحسب النظام أيام العمل تلقائياً مستبعداً عطلة نهاية الأسبوع والعطل الرسمية، ثم يصل الطلب إلى مسؤول شؤون الموظفين لاعتماده، ويصلك إشعار بالقرار.</p></details>
+  <details class="faq-item"><summary>هل يمكن إلغاء طلب بعد اعتماده؟</summary><p>نعم، يستطيع مسؤول شؤون الموظفين أو مدير النظام إلغاء الاعتماد عند الحاجة (كخطأ في التاريخ) مع ذكر السبب، فيعود الرصيد إليك ويصلك إشعار بذلك. ويمكنك إلغاء طلبك بنفسك ما دام بانتظار الاعتماد.</p></details>
+  <details class="faq-item"><summary>من يعتمد طلبي إذا كان مسؤولي في إجازة؟</summary><p>يمكن تفويض مسؤول آخر بمتابعة الفريق خلال فترة الغياب، فيعتمد الطلبات بدلاً منه، ويُوثَّق كل قرار «بالتفويض» ويُشعَر به المسؤول الأصلي.</p></details>
+  <h3>الأمان وسرية المعلومات</h3>
+  <details class="faq-item"><summary>هل بياناتي آمنة؟</summary><p>نعم. يعمل النظام عبر اتصال مشفّر (HTTPS)، وتُحفظ كلمات المرور مشفّرة تشفيراً أحادي الاتجاه بخوارزمية Argon2 فلا يمكن استرجاعها أو قراءتها، وكل نموذج محمي من الطلبات المزوّرة، ولا تظهر بيانات أي موظف إلا لصاحبها والمسؤول المختص ومدير النظام.</p></details>
+  <details class="faq-item"><summary>ماذا يحدث عند محاولات دخول خاطئة متكررة؟</summary><p>يُقفل الحساب مؤقتاً لمدة 15 دقيقة بعد 5 محاولات خاطئة متتالية، وتُسجَّل المحاولات الفاشلة في سجل التدقيق.</p></details>
+  <details class="faq-item"><summary>هل تنتهي جلستي تلقائياً؟</summary><p>نعم، يُسجَّل الخروج تلقائياً بعد 30 دقيقة من عدم النشاط، حمايةً لحسابك إذا نسيت الجهاز مفتوحاً. ويُنصح دائماً بتسجيل الخروج من الأجهزة المشتركة.</p></details>
+  <details class="faq-item"><summary>من يستطيع الاطلاع على بياناتي؟</summary><p>أنت، ومسؤول شؤون الموظفين المسند إليك (أو المفوَّض بمتابعة فريقه خلال فترة التفويض فقط)، ومدير النظام. ولا تُشارك البيانات مع أي جهة خارج الجهة المالكة للنظام.</p></details>
+  <details class="faq-item"><summary>هل تُراقب العمليات في النظام؟</summary><p>تُسجَّل العمليات المهمة آلياً في سجل التدقيق (الدخول، والاعتماد، والتعديل، والتصدير، وغيرها) باسم المنفّذ ووقت التنفيذ، ويطّلع عليه مدير النظام لأغراض المراجعة والمساءلة.</p></details>
+  <details class="faq-item"><summary>هل تُرسَل بياناتي بالبريد الإلكتروني؟</summary><p>تصلك إشعارات مختصرة بالقرارات والتنبيهات على بريدك المسجّل، من نطاق موثّق للنظام، وفيها رابط للدخول. ولا تحتوي الرسائل على كلمات مرور. والإشعارات متاحة دائماً داخل النظام في «المراسلات».</p></details>
+  <h3>البيانات والاستضافة</h3>
+  <details class="faq-item"><summary>أين تُحفظ البيانات؟</summary><p>في قاعدة بيانات PostgreSQL على خادم مخصّص للنظام في مركز بيانات داخل المملكة العربية السعودية، ولا تُخزَّن في خدمات مشتركة مع جهات أخرى.</p></details>
+  <details class="faq-item"><summary>هل تُؤخذ نسخ احتياطية؟</summary><p>نعم، تُؤخذ نسخة احتياطية تلقائية من قاعدة البيانات والمرفقات كل ليلة ويُحتفظ بآخر 14 نسخة، إضافة إلى نسخة تلقائية قبل أي عملية حذف أو استعادة، ويمكن لمدير النظام تنزيل نسخة كاملة في أي وقت.</p></details>
+  <details class="faq-item"><summary>ما الملفات التي يمكن رفعها؟</summary><p>ملفات PDF فقط (مثل خطاب التوصية)، ويتحقق النظام من نوع الملف وحجمه قبل حفظه، ولا تُتاح المرفقات إلا لمن يحق له الاطلاع على السجل المرتبط بها.</p></details>
+  <details class="faq-item"><summary>هل يمكن تصدير البيانات؟</summary><p>نعم، يستطيع مسؤول شؤون الموظفين ومدير النظام تصدير الأرصدة والتوصيات والطلبات والتقارير إلى Excel، ويُسجَّل كل تصدير في سجل التدقيق.</p></details>
+  <h3>الدعم</h3>
+  <details class="faq-item"><summary>هل يعمل النظام على الجوال؟</summary><p>نعم، صُمّم ليعمل على الجوال والجهاز اللوحي والحاسب، ويدعم الوضع الداكن.</p></details>
+  <details class="faq-item"><summary>لمن أتوجّه عند وجود مشكلة أو ملاحظة؟</summary><p>لمسؤول شؤون الموظفين المختص بك فيما يخص الرصيد والطلبات، ولمدير النظام فيما يخص الحسابات والمشكلات التقنية. ويمكنك مراسلتهما من داخل النظام عبر «رسالة جديدة».</p></details>
 </div>`; }
   const BKEY = "hr_demo_banner_hidden";
   function bannerHidden() { try { return localStorage.getItem(BKEY) === "1"; } catch (e) { return false; } }

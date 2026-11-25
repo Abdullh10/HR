@@ -56,3 +56,15 @@ def test_welcome_banner(world):
         assert 'class="welcome"' in html and ("صباح الخير" in html or "مساء الخير" in html)
         assert "data-hijri=" in html and any(p in html for p in PHRASES)
         assert html.count('class="w-week"') == 1
+
+
+def test_faq_page_and_login_link(world):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    html = c.get("/login").text
+    assert 'data-open-dialog="faq-dlg"' in html and "الأسئلة الشائعة" in html
+    assert html.count('data-open-dialog="policy-dlg"') == 1  # الرابط داخل التنبيه فقط
+    page = c.get("/faq").text
+    assert "هل بياناتي آمنة؟" in page and "داخل المملكة العربية السعودية" in page
+    assert 'href="/faq"' in login("emp").get("/me").text

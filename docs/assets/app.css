@@ -1124,6 +1124,17 @@ details.danger-zone[open] > summary { margin-bottom: .8rem; }
 @media (max-width: 560px) { .welcome { padding: 1.1rem 1rem .9rem; } .w-week li { font-size: .78rem; } .w-date { font-size: .82rem; } }
 @media print { .welcome { display: none; } }
 
+/* ---------- الأسئلة الشائعة */
+.faq-doc h3 { margin: 1.2rem 0 .5rem; color: var(--brand-2); font-size: 1.02rem; }
+.faq-item { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); margin: 0 0 .45rem; }
+.faq-item > summary { cursor: pointer; list-style: none; padding: .7rem .9rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .6rem; }
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item > summary::before { content: "+"; flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-2); font-weight: 800; line-height: 1; }
+.faq-item[open] > summary::before { content: "−"; }
+.faq-item[open] { background: var(--surface); }
+.faq-item > p { margin: 0; padding: 0 .9rem .85rem 2.4rem; padding-inline-start: 2.5rem; padding-inline-end: .9rem; color: var(--muted); line-height: 1.9; }
+.faq-item > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 10px; }
+
 /* ---------- نسخة العرض */
 .demo-banner .banner-x { margin-inline-start: auto; background: none; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; width: 2rem; height: 2rem; border-radius: 8px; cursor: pointer; }
 .demo-banner .banner-x:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }

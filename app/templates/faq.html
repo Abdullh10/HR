@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}الأسئلة الشائعة{% endblock %}
+{% block body %}{% if user %}{{ super() }}{% else %}<main class="auth"><div class="box">{{ self.content() }}</div></main>{% endif %}{% endblock %}
+{% block heading %}الأسئلة الشائعة{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>الأسئلة الشائعة</h2>
+  {% include "_faq.html" %}
+</div>
+{% endblock %}

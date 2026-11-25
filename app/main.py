@@ -203,6 +203,14 @@ def policy(request: Request):
         return render(request, db, "policy.html", user=_load_user(request, db))
 
 
+@app.get("/faq", response_class=HTMLResponse)
+def faq(request: Request):
+    with SessionLocal() as db:
+        from .web import _load_user
+
+        return render(request, db, "faq.html", user=_load_user(request, db))
+
+
 @app.get("/about", response_class=HTMLResponse)
 def about(request: Request):
     with SessionLocal() as db:
