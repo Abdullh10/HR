@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 from collections import defaultdict
+import secrets
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -448,41 +449,74 @@ def recommendation_new(request: Request, kind: str = "days", emp: int | None = N
 @router.post("/recommendations/new")
 async def recommendation_create(request: Request, user: User = Depends(require(*STAFF)),
                                 db: Session = Depends(get_db)):
+    """رفع توصية لموظف واحد أو لعدة موظفين بخطاب واحد وملف PDF واحد (كاللجان والمراقبة)."""
     form = await request.form()
     kind = str(form.get("kind") or "days")
     back_url = f"/recommendations/new?kind={kind}"
+    raw_ids = [x for x in form.getlist("emps") if str(x).strip()] or ([form.get("emp")] if form.get("emp") else [])
+    ref_no = str(form.get("ref_no") or "").strip()[:64]
+    warn_dup = []
     try:
-        emp = db.get(Employee, int(form.get("emp") or 0))
-        if not emp or not can_manage(user, emp):
-            raise RuleError("اختر موظفاً من الموظفين المسندين إليك.")
+        ids = list(dict.fromkeys(int(x) for x in raw_ids))
+        emps = [db.get(Employee, i) for i in ids]
+        if not emps or any(e is None or not can_manage(user, e) for e in emps):
+            raise RuleError("اختر موظفاً واحداً على الأقل من الموظفين المسندين إليك.")
         amount = parse_float(str(form.get("amount") or ""))
         rec_date = parse_date(str(form.get("rec_date") or "")) or date.today()
+        task_from = parse_date(str(form.get("task_from") or ""))
+        task_to = parse_date(str(form.get("task_to") or "")) or task_from
+        if task_from and task_to and task_to < task_from:
+            raise RuleError("فترة التكليف غير صحيحة: تاريخ النهاية قبل تاريخ البداية.")
+        if task_from and task_from > rec_date:
+            raise RuleError("لا يمكن أن تبدأ فترة التكليف بعد تاريخ التوصية.")
         upload = form.get("file")
         has_file = bool(getattr(upload, "filename", ""))
-        year = validate_recommendation(db, emp, kind, amount, rec_date, has_file)
+        errors, year = [], None
+        for e in emps:
+            try:
+                year = validate_recommendation(db, e, kind, amount, rec_date, has_file)
+            except RuleError as err:
+                errors.append(f"{e.full_name}: {err}")
+                continue
+            if ref_no:
+                same = db.scalar(select(Recommendation).where(Recommendation.employee_id == e.id, Recommendation.status == "active",
+                                                              func.lower(Recommendation.ref_no) == ref_no.lower()))
+                if same and same.rec_date == rec_date and abs(same.amount - amount) < 1e-9 and same.kind == kind:
+                    errors.append(f"{e.full_name}: توجد توصية مطابقة بالخطاب نفسه ({ref_no}) والتاريخ والقيمة نفسها؛ يبدو أنها مكررة.")
+                elif same:
+                    warn_dup.append(e.full_name)
+        if errors:
+            raise RuleError("لم تُرفع أي توصية: " + " | ".join(errors[:6]) + (" …" if len(errors) > 6 else ""))
         att = await save_pdf(db, upload, user) if has_file else None
     except (RuleError, ValueError) as e:
         flash(request, str(e), "error")
-        return redirect(back_url + (f"&emp={form.get('emp')}" if form.get("emp") else ""))
-    before_alerts = alert_keys(compute_balance(db, emp.id, year))
-    rec = Recommendation(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, amount=amount, rec_date=rec_date,
-                         ref_no=str(form.get("ref_no") or "").strip()[:64],
-                         subject=str(form.get("subject") or "").strip(), attachment_id=att.id if att else None,
-                         entered_by=user.id, created_at=datetime.now())
-    db.add(rec)
-    db.flush()
-    assign_ref(db, rec, "REC")
+        return redirect(back_url + (f"&emp={raw_ids[0]}" if len(raw_ids) == 1 else ""))
+    batch = secrets.token_hex(6) if len(emps) > 1 else ""
     amount_txt = days_ar(amount) if kind == "days" else hours_ar(amount)
-    audit(db, user, "recommendation_added", "recommendation", rec.id, ip=client_ip(request),
-          employee=emp.full_name, kind=kind, amount=amount)
-    notify(db, employee_user(db, emp), f"منحك بدل راحة: {amount_txt}",
-           f"أُضيفت إلى رصيدك توصية بمنحك {rec.kind_label}: {amount_txt}"
-           f"{' — ' + rec.subject if rec.subject else ''}.", f"/me", sender=user)
-    db.flush()
-    notify_balance_alerts(db, emp, year, before_alerts, sender=user)
+    for emp in emps:
+        before_alerts = alert_keys(compute_balance(db, emp.id, year))
+        rec = Recommendation(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, amount=amount, rec_date=rec_date,
+                             ref_no=ref_no, subject=str(form.get("subject") or "").strip(),
+                             assigned_by=str(form.get("assigned_by") or "").strip()[:160], task_from=task_from, task_to=task_to,
+                             attachment_id=att.id if att else None, batch=batch, entered_by=user.id, created_at=datetime.now())
+        db.add(rec)
+        db.flush()
+        assign_ref(db, rec, "REC")
+        audit(db, user, "recommendation_added", "recommendation", rec.id, ip=client_ip(request),
+              employee=emp.full_name, kind=kind, amount=amount, batch=batch or None, count=len(emps) if batch else None)
+        notify(db, employee_user(db, emp), f"منحك بدل راحة: {amount_txt}",
+               f"أُضيفت إلى رصيدك توصية بمنحك {rec.kind_label}: {amount_txt}"
+               f"{' — ' + rec.subject if rec.subject else ''}.", "/me", sender=user)
+        db.flush()
+        notify_balance_alerts(db, emp, year, before_alerts, sender=user)
     db.commit()
-    flash(request, f"تم رفع التوصية وإضافة {amount_txt} إلى رصيد {emp.full_name}.")
-    return redirect(f"/employees/{emp.id}" if emp.id != user.employee_id else "/me")
+    if warn_dup:
+        flash(request, f"تنبيه: رقم الخطاب «{ref_no}» مستخدم سابقاً في توصية أخرى لـ: {'، '.join(warn_dup[:5])}. تأكد أنه ليس تكراراً.", "warn")
+    if len(emps) == 1:
+        flash(request, f"تم رفع التوصية وإضافة {amount_txt} إلى رصيد {emps[0].full_name}.")
+        return redirect(f"/employees/{emps[0].id}" if emps[0].id != user.employee_id else "/me")
+    flash(request, f"تم رفع التوصية بخطاب واحد لـ{count_ar(len(emps), 'emp')}، وأُضيف {amount_txt} إلى رصيد كل منهم.")
+    return redirect("/recommendations")
 
 
 @router.post("/recommendations/{rec_id}/cancel")

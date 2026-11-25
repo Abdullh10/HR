@@ -283,6 +283,11 @@ class Recommendation(Base):
     cancel_note: Mapped[str] = mapped_column(Text, default="")
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ref_code: Mapped[str] = mapped_column(String(32), default="", index=True)  # الرقم الصادر الدائم
+    # بيانات التكليف نفسه (للمراجعة: متى أُنجز العمل الإضافي ومن كلّف به)
+    task_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    task_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    assigned_by: Mapped[str] = mapped_column(String(160), default="")
+    batch: Mapped[str] = mapped_column(String(40), default="")  # توصيات رُفعت معاً بخطاب واحد
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     employee: Mapped[Employee] = relationship()

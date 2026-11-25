@@ -588,3 +588,20 @@
     run();
   });
 })();
+
+/* نموذج التوصية: عدّ الموظفين المحددين ونص زر الرفع */
+(function () {
+  function sync(box) {
+    var n = box.querySelectorAll('input[name="emps"]:checked').length, c = box.querySelector("[data-pick-count]");
+    if (c) c.textContent = n ? (n === 1 ? "موظف واحد محدد" : n === 2 ? "موظفان محددان" : n + " موظفين محددين") : "لم يُحدَّد أحد";
+    var btn = box.form && box.form.querySelector("[data-pick-submit]");
+    if (btn) btn.textContent = n > 1 ? "رفع التوصية لـ" + n + " موظفين بخطاب واحد" : "رفع التوصية وإضافة الرصيد";
+  }
+  document.addEventListener("change", function (ev) { var b = ev.target.closest && ev.target.closest("[data-pick-box]"); if (b) sync(b); });
+  document.addEventListener("click", function (ev) { if (ev.target.closest("[data-assign-all]")) { var b = ev.target.closest("[data-pick-box]"); if (b) setTimeout(function () { sync(b); }, 0); } });
+  document.addEventListener("submit", function (ev) {
+    var b = ev.target.querySelector && ev.target.querySelector("[data-pick-box]");
+    if (b && !b.querySelector('input[name="emps"]:checked')) { ev.preventDefault(); var c = b.querySelector("[data-pick-count]"); if (c) { c.textContent = "اختر موظفاً واحداً على الأقل"; c.classList.add("err-text"); } b.scrollIntoView({ block: "center" }); }
+  }, true);
+  document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("[data-pick-box]").forEach(sync); });
+})();

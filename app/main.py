@@ -119,6 +119,10 @@ _NEW_COLUMNS = [
     ("users", "email", "VARCHAR(160) DEFAULT ''"),
     ("users", "phone", "VARCHAR(32) DEFAULT ''"),
     ("users", "department_id", "INTEGER"),
+    ("recommendations", "task_from", "DATE"),
+    ("recommendations", "task_to", "DATE"),
+    ("recommendations", "assigned_by", "VARCHAR(160) DEFAULT ''"),
+    ("recommendations", "batch", "VARCHAR(40) DEFAULT ''"),
 ]
 
 
