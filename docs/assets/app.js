@@ -243,7 +243,9 @@
     if (action === "approve") { const al = allocate(y.hpd, b.gDays, b.gHours, b.taken + (r.unit === "days" ? r.days : 0), b.rawAH + (r.unit === "hours" ? r.hours : 0)); if (b.gHours - al.uHours < -1e-9) throw new RuleError("اعتماد هذا الطلب يتجاوز الرصيد المتاح (الأيام والساعات المحوّلة)."); r.status = "approved"; }
     else { if (!note) throw new RuleError("اذكر سبب الرفض."); r.status = "rejected"; }
     r.decidedBy = u.id; r.decidedAt = nowStr(); r.note = note || "";
-    audit("leave_" + r.status, "leave_request", r.id, { note });
+    const behalf = onBehalf(u, e);
+    audit("leave_" + r.status, "leave_request", r.id, { note, on_behalf: behalf || undefined });
+    if (behalf) { const ou = userOfEmp(byId("emps", e.mgr)); if (ou && ou.id !== u.id) notify(ou, "قرار بالنيابة في طلب " + e.name, "بتّ مدير النظام في طلب " + e.name + " (" + leaveAmount(r) + " بتاريخ " + r.start + ") بالنيابة عنك: " + REQ_ST[r.status] + ".", "#/requests", u); }
     notify(userOfEmp(e), "تم " + (r.status === "approved" ? "اعتماد" : "رفض") + " طلب " + LEAVE_KINDS[r.kind], "طلبك (" + leaveAmount(r) + " بتاريخ " + r.start + "): " + REQ_ST[r.status] + "." + (note ? " الملاحظة: " + note : ""), "#/requests", u);
     if (r.status === "approved") notifyAlerts(e, y, before, u);
   }
@@ -474,46 +476,73 @@
         <section class="card"><h2>كلمة المرور</h2><p class="hint">غيّر كلمة المرور دورياً، ولا تشاركها مع أحد.</p><a class="btn" href="#/password">${ico("shield")} تغيير كلمة المرور</a></section></div></div>`);
   };
 
+  const ageDays = (stamp) => Math.max(0, Math.floor((Date.now() - new Date(String(stamp).replace(" ", "T")).getTime()) / 864e5));
+  const ageBadge = (d) => d >= 7 ? `<span class="badge err">منذ ${daysAr(d)}</span>` : d >= 3 ? `<span class="badge warn">منذ ${daysAr(d)}</span>` : d >= 1 ? `<span class="badge muted">منذ ${daysAr(d)}</span>` : '<span class="badge muted">اليوم</span>';
+  const onBehalf = (u, e) => u.role === "admin" && !!e.mgr && e.mgr !== u.emp;
   V.dashboard = (u, q) => {
     if (u.role === "employee") { go("#/me"); return ""; }
-    const y = pickYear(q), emps = managedEmps(u), ids = new Set(emps.map((e) => e.id));
-    const t = { gd: 0, gh: 0, ud: 0, uh: 0, lh: 0, cap: 0, none: 0, geq: 0, ueq: 0, peq: 0 }; const near = [], byOff = {};
-    emps.forEach((e) => { const b = balance(e.id, y); t.gd += b.gDays; t.gh += b.gHours; t.ud += b.uDays; t.uh += b.uHours; t.lh += b.totalHours; t.geq += b.grantedEq; t.ueq += b.usedEq; t.peq += b.pDays + b.pHours / y.hpd;
+    const y = pickYear(q), emps = managedEmps(u), ids = new Set(emps.map((e) => e.id)), adm = u.role === "admin";
+    const t = { gd: 0, gh: 0, cap: 0, none: 0, geq: 0, ueq: 0, peq: 0 }; const near = [], byOff = {}, bals = new Map();
+    emps.forEach((e) => { const b = balance(e.id, y); bals.set(e.id, b); t.gd += b.gDays; t.gh += b.gHours; t.geq += b.grantedEq; t.ueq += b.usedEq; t.peq += b.pDays + b.pHours / y.hpd;
       if (b.capLeftHours <= 0) t.cap++; else if (b.capPct >= 80) near.push([e, b]); if (!b.gDays && !b.gHours) t.none++;
-      const k = mgrName(e) || "— غير مُسند —"; const o = byOff[k] || (byOff[k] = { c: 0, g: 0, u: 0, l: 0 }); o.c++; o.g += b.grantedEq; o.u += b.usedEq; o.l += b.totalHours / y.hpd; });
-    const [ld, lr] = earned(Math.max(t.lh, 0), y.hpd);
-    const G = round2(t.geq), pie = [["used", "مستخدم", round2(t.ueq)], ["pending", "معلّق بانتظار الاعتماد", round2(t.peq)], ["avail", "متاح", round2(Math.max(t.geq - t.ueq - t.peq, 0))]].map(([key, label, value]) => ({ key, label, value, pct: G ? Math.round((value / G) * 100) : 0 }));
-    const monthly = Array(12).fill(0);
-    DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)).forEach((r) => (monthly[Number(r.date.slice(5, 7)) - 1] += r.kind === "days" ? r.amount : r.amount / y.hpd));
-    const mx = Math.max(...monthly) || 1;
+      const k = mgrName(e) || "— غير مُسند —"; const o = byOff[k] || (byOff[k] = { c: 0, g: 0, u: 0, l: 0, p: 0, old: 0 }); o.c++; o.g += b.grantedEq; o.u += b.usedEq; o.l += Math.max(b.totalHours - (b.pDays * y.hpd + b.pHours), 0) / y.hpd; });
+    const G = round2(t.geq), avail = round2(Math.max(t.geq - t.ueq - t.peq, 0));
+    const pie = [["used", "مستخدم", round2(t.ueq)], ["pending", "معلّق بانتظار الاعتماد", round2(t.peq)], ["avail", "متاح", avail]].map(([key, label, value]) => ({ key, label, value, pct: G ? Math.round((value / G) * 100) : 0 }));
     const pending = DB.leaves.filter((r) => r.status === "pending" && ids.has(r.emp) && canManage(u, byId("emps", r.emp))).sort((a, b) => a.created.localeCompare(b.created));
-    const recent = DB.recs.filter((r) => ids.has(r.emp)).sort((a, b) => b.created.localeCompare(a.created)).slice(0, 6);
-    const unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
-    const lastB = DB.audit.find((a) => a.action === "backup_downloaded"), dueDays = lastB ? Math.floor((Date.now() - new Date(lastB.at.replace(" ", "T")).getTime()) / 864e5) : -1;
-    const backupNote = u.role === "admin" && (dueDays < 0 || dueDays >= 7) ? `<div class="alert warn" role="status">⚠ ${dueDays < 0 ? "لم تُنزَّل أي نسخة احتياطية بعد." : "مضى " + daysAr(dueDays) + " على آخر نسخة احتياطية."} <a href="#/admin/data">تنزيل نسخة الآن</a></div>` : "";
-    return layout(u, "لوحة المؤشرات", `${backupNote}<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${u.role === "admin" ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
-      ${u.role === "admin" ? "" : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
-        ["appr", "#/approvals", "approvals", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]])}
+    pending.forEach((r) => { r._age = ageDays(r.created); const o = byOff[mgrName(byId("emps", r.emp)) || "— غير مُسند —"]; if (o) { o.p++; o.old = Math.max(o.old, r._age); } });
+    const oldest = Math.max(0, ...pending.map((r) => r._age)), unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
+    // تنبيهات تحتاج إجراء
+    const alerts = [], A = (level, icon, text, href, cta) => alerts.push({ level, icon, text, href, cta });
+    const late7 = pending.filter((r) => r._age >= 7).length, late3 = pending.filter((r) => r._age >= 3 && r._age < 7).length;
+    if (late7) A("err", "hourglass", `${late7} طلب بانتظار الاعتماد منذ 7 أيام أو أكثر (أقدمها منذ ${daysAr(oldest)}).`, "#/approvals", "مراجعة الاعتمادات");
+    else if (late3) A("warn", "hourglass", `${late3} طلب بانتظار الاعتماد منذ 3 أيام أو أكثر.`, "#/approvals", "مراجعة الاعتمادات");
+    let noAcc = 0, pendCards = 0;
+    if (adm) {
+      const backlog = Object.entries(byOff).filter(([k, o]) => o.old >= 3 && k !== "— غير مُسند —").map(([k]) => k);
+      if (backlog.length) A("warn", "userkey", "مسؤولون لديهم طلبات متأخرة: " + backlog.slice(0, 4).join("، ") + (backlog.length > 4 ? "…" : "") + ".", "#/approvals", "عرض الطلبات");
+      const un = emps.filter((e) => e.active && !e.mgr).length;
+      if (un) A("warn", "users", `${un} موظف غير مُسند لمسؤول شؤون موظفين، فلا يعتمد طلباتهم إلا مدير النظام.`, "#/employees?officer=-1", "إسنادهم");
+      const linked = new Set(DB.users.filter((x) => x.emp).map((x) => x.emp)); noAcc = emps.filter((e) => e.active && !linked.has(e.id) && !isTmp(e)).length;
+      if (noAcc) A("warn", "badge", `${noAcc} موظف نشط بلا حساب دخول، فلا يستطيعون استخدام النظام.`, "#/admin/users", "إنشاء الحسابات");
+      const noMail = emps.filter((e) => e.active && !String(e.email || "").trim()).length;
+      if (noMail) A("info", "mail", `${noMail} موظف بلا بريد إلكتروني، فتصلهم الإشعارات داخل النظام فقط.`, "#/admin/import", "تحديث البريد دفعة واحدة");
+      const cards = DB.cards || []; pendCards = cards.filter((c) => c.pw).length; const stale = cards.filter((c) => c.pw && ageDays(c.at) > 7).length;
+      if (stale) A("info", "badge", `${stale} بطاقة دخول لم تُفعَّل منذ أكثر من أسبوع.`, "#/admin/cards?state=pending", "عرض البطاقات");
+      const now = new Date(), today = todayISO();
+      if (now.getMonth() >= 9 && y.start <= today && today <= y.end) { const lapse = emps.filter((e) => bals.get(e.id).bookable > 0); if (lapse.length) A("info", "calendar", `${lapse.length} موظف لديهم رصيد متاح (${daysAr(lapse.reduce((s, e) => s + bals.get(e.id).bookable, 0))} إجمالاً) يسقط بنهاية السنة ${h(y.name)} لأن الرصيد لا يُرحَّل.`, "#/employees", "عرض الأرصدة"); }
+      if (now.getMonth() >= 10 && !yearFor((now.getFullYear() + 1) + "-01-01")) A("err", "calendar-plus", `لم تُنشأ سنة ${now.getFullYear() + 1} بعد؛ لن تُقبل توصيات أو طلبات بتواريخها حتى تُنشأ.`, "#/admin/years", "إنشاء السنة");
+      const lastB = DB.audit.find((a) => a.action === "backup_downloaded"), dd = lastB ? ageDays(lastB.at) : -1;
+      if (dd < 0 || dd >= 7) A("info", "backup", (dd < 0 ? "لم تُنزَّل أي نسخة احتياطية من الواجهة بعد." : "مضى " + daysAr(dd) + " على آخر نسخة احتياطية منزّلة من الواجهة.") + " (النسخ الليلية على الخادم مستمرة.)", "#/admin/data", "تنزيل نسخة");
+    }
+    alerts.sort((a, b) => ({ err: 0, warn: 1, info: 2 }[a.level] - { err: 0, warn: 1, info: 2 }[b.level]));
+    const empty = adm && !emps.length ? `<section class="card empty-start">${ico("upload", "lg")}<div><h2>ابدأ بإعداد النظام</h2><ol>
+        <li>راجع <a href="#/admin/years">السنة وقواعد الرصيد</a> و<a href="#/admin/settings">هوية الجهة</a>.</li><li><a href="#/admin/import">استورد الموظفين</a> من ملف Excel، فتُنشأ حساباتهم وبطاقات دخولهم تلقائياً.</li>
+        <li>حدّد حسابات <a href="#/admin/users">شؤون الموظفين</a> وأسند لكل منهم موظفيه، ثم اطبع <a href="#/admin/cards">بطاقات الدخول</a>.</li></ol><a class="btn primary" href="#/admin/import">${ico("upload", "sm-ico")}استيراد الموظفين</a></div></section>` : "";
+    const quick = adm ? tiles([["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار الاعتماد", pending.length], ["days", "#/admin/import", "upload", "استيراد الموظفين", "ملف Excel للإضافة أو التحديث"],
+        ["hours", "#/admin/users", "userkey", "الحسابات الناقصة", noAcc + " موظف بلا حساب", noAcc], ["msg", "#/admin/cards?state=pending", "badge", "بطاقات الدخول", pendCards + " بانتظار أول دخول"]])
+      : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
+        ["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]]);
+    const lvlBadge = alerts.length ? (alerts[0].level === "err" ? "err" : alerts[0].level === "warn" ? "warn" : "muted") : "";
+    return layout(u, "لوحة المؤشرات", `<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${adm ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
+      ${empty}${quick}
+      ${alerts.length ? `<section class="card alerts-panel" aria-labelledby="alerts-h"><h2 id="alerts-h">تنبيهات تحتاج إجراء <span class="badge ${lvlBadge}">${alerts.length}</span></h2><ul class="alert-list">
+        ${alerts.map((a) => `<li class="lvl-${a.level}">${ico(a.icon)}<span class="txt">${a.text}</span><a class="btn sm" href="${a.href}">${a.cta}</a></li>`).join("")}</ul></section>` : ""}
       <div class="grid kpis">
         <div class="kpi brand">${ico("users")}<div class="l">الموظفون</div><div class="v">${emps.length}</div>${t.none ? `<div class="s">${t.none} بلا توصيات بعد</div>` : ""}</div>
-        <div class="kpi accent">${ico("calendar")}<div class="l">أيام ممنوحة بالتوصيات</div><div class="v">${n(t.gd)}</div><div class="s">مستخدم منها ${t.ud}</div></div>
-        <div class="kpi">${ico("clock")}<div class="l">ساعات ممنوحة بالتوصيات</div><div class="v">${n(t.gh)}</div><div class="s">مستخدم منها ${n(t.uh)}</div></div>
-        <div class="kpi ok">${ico("pie")}<div class="l">الرصيد المتاح (معادل)</div><div class="v">${ld}</div><div class="s">يوماً${lr ? " + " + hoursAr(lr) : ""}</div></div>
+        <div class="kpi accent">${ico("cal-check")}<div class="l">الممنوح بالتوصيات (معادل)</div><div class="v">${n(round2(t.geq))}</div><div class="s">يوماً · أيام ${n(t.gd)} · ساعات ${n(t.gh)}</div></div>
+        <div class="kpi">${ico("calendar")}<div class="l">المستخدم (معادل)</div><div class="v">${n(round2(t.ueq))}</div><div class="s">يوماً من طلبات معتمدة</div></div>
+        <div class="kpi ok">${ico("pie")}<div class="l">المتاح (معادل)</div><div class="v">${n(avail)}</div><div class="s">يوماً بعد خصم المعلّق${t.peq ? " (" + n(round2(t.peq)) + ")" : ""}</div></div>
         <div class="kpi warn">${ico("hourglass")}<div class="l">بلغوا الحد الأقصى</div><div class="v">${t.cap}</div><div class="s">${daysAr(y.cap)} في السنة</div></div></div>
       <div class="grid two">
         <section class="card"><h2>توزيع الرصيد الممنوح</h2><p class="hint chart-sub">بالأيام المعادلة (كل ${n(y.hpd)} ساعات = يوم) — السنة ${h(y.name)}</p>${G ? donut(pie, G, "يوم", "توزيع الرصيد الممنوح") : '<p class="empty">لم تُرفع توصيات في هذه السنة بعد.</p>'}</section>
-        <section class="card"><h2>الممنوح شهرياً (بالأيام المعادلة)</h2><div class="bars" role="img" aria-label="الأيام الممنوحة لكل شهر">${monthly.map((v, i) => `<div class="bar"><b>${v ? n(v) : ""}</b><span style="height:${Math.round((v / mx) * 100)}%"></span><small>${months[i]}</small></div>`).join("")}</div></section></div>
-      <div class="grid two">
-        <section class="card flush"><h2>طلبات بانتظار الاعتماد</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>
-          ${pending.slice(0, 8).map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة">${leaveAmount(r)}</td><td data-label="التاريخ" class="num">${r.start}</td></tr>`; }).join("") || '<tr><td colspan="4" class="empty">لا توجد طلبات معلّقة.</td></tr>'}
-        </tbody></table></div></section></div>
-      <div class="grid two">
-        ${u.role === "admin" ? `<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th></tr></thead><tbody>
-          ${Object.entries(byOff).sort((a, b) => b[1].c - a[1].c).map(([k, o]) => `<tr><td data-label="مسؤول شؤون الموظفين">${h(k)}</td><td class="n" data-label="موظفون">${o.c}</td><td class="n" data-label="ممنوح">${n(o.g)}</td><td class="n" data-label="مستخدم">${n(o.u)}</td><td class="n" data-label="متاح">${n(o.l)}</td></tr>`).join("")}</tbody></table></div></section>` : ""}
-        <section class="card flush"><h2>أحدث التوصيات</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>النوع</th><th>القيمة</th><th>التاريخ</th></tr></thead><tbody>
-          ${recent.map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="القيمة">${recAmount(r)}${r.status !== "active" ? ' <span class="badge muted">ملغاة</span>' : ""}</td><td data-label="التاريخ" class="num">${r.date}</td></tr>`; }).join("") || '<tr><td colspan="4" class="empty">لم تُرفع توصيات بعد.</td></tr>'}
-        </tbody></table></div></section>
-        ${near.length ? `<section class="card"><h2>قاربوا الحد الأقصى (80% فأكثر)</h2><ul>${near.slice(0, 8).map(([e, b]) => `<li><a href="#/employee/${e.id}">${h(e.name)}</a> — ${n(b.grantedEq)} من ${n(b.cap)} يوماً</li>`).join("")}</ul></section>` : ""}
+        <section class="card flush"><h2>طلبات بانتظار الاعتماد${pending.length ? ` <span class="badge muted">${pending.length}</span>` : ""}</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th></tr></thead><tbody>
+          ${pending.slice(0, 8).map((r) => { const e = byId("emps", r.emp); return `<tr><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a>${adm ? `<br><small class="muted">${h(mgrName(e) || "غير مُسند")}</small>` : ""}</td><td data-label="المدة">${leaveAmount(r)}</td><td data-label="التاريخ" class="num">${r.start}</td><td data-label="منذ">${ageBadge(r._age)}</td></tr>`; }).join("") || '<tr><td colspan="4" class="empty">لا توجد طلبات معلّقة.</td></tr>'}
+        </tbody></table></div>${pending.length ? `<p class="pad"><a href="#/approvals">فتح الاعتمادات${pending.length > 8 ? " (" + pending.length + ")" : ""}</a></p>` : ""}</section></div>
+      <div>
+        ${adm ? `<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">موظفون</th><th class="n">ممنوح (يوم)</th><th class="n">مستخدم</th><th class="n">متاح</th><th class="n">معلّقة</th></tr></thead><tbody>
+          ${Object.entries(byOff).sort((a, b) => b[1].c - a[1].c).map(([k, o]) => `<tr><td data-label="مسؤول شؤون الموظفين">${k === "— غير مُسند —" ? `<a href="#/employees?officer=-1">${k}</a>` : h(k)}</td><td class="n" data-label="موظفون">${o.c}</td><td class="n" data-label="ممنوح">${n(round2(o.g))}</td><td class="n" data-label="مستخدم">${n(round2(o.u))}</td><td class="n" data-label="متاح">${n(round2(o.l))}</td><td class="n" data-label="معلّقة">${o.p ? o.p + (o.old >= 3 ? ` <span class="badge ${o.old >= 7 ? "err" : "warn"}">أقدمها ${daysAr(o.old)}</span>` : "") : "—"}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">لا توجد بيانات.</td></tr>'}
+          </tbody></table></div></section>` : ""}
+        <section class="card"><h2>قاربوا الحد الأقصى (80% فأكثر)</h2>${near.length ? `<ul class="plain">${near.slice(0, 8).map(([e, b]) => `<li><a href="#/employee/${e.id}">${h(e.name)}</a> — ${n(b.grantedEq)} من ${n(b.cap)} يوماً</li>`).join("")}</ul>` : '<p class="empty">لا يوجد موظفون قاربوا الحد الأقصى.</p>'}</section>
       </div>`);
   };
 
@@ -747,12 +776,17 @@
   V.approvals = (u) => {
     need(u, STAFF);
     const rows = DB.leaves.filter((r) => r.status === "pending" && canManage(u, byId("emps", r.emp))).sort((a, b) => a.created.localeCompare(b.created));
-    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>${ico("stamp", "h-ico")} الاعتمادات</h1><p>${rows.length} طلب · يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
-      ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></th><th>الموظف</th><th>النوع</th><th>المدة</th><th>التاريخ</th><th>السبب</th><th>المتاح</th><th></th></tr></thead><tbody>
-      ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)); return `<tr><td><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></td><td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a></td><td data-label="النوع">${kindBadge(r.kind)}</td><td data-label="المدة"><b>${leaveAmount(r)}</b></td>
-        <td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="السبب">${h(r.reason)} ${pdfChip(r.att)}</td><td data-label="المتاح">${r.unit === "days" ? n(b.daysLeft) + " يوم" : n(b.hoursLeft) + " ساعة"}</td>
+    rows.forEach((r) => (r._age = ageDays(r.created)));
+    const oldest = Math.max(0, ...rows.map((r) => r._age)), late = rows.filter((r) => r._age >= 3).length, anyBehalf = rows.some((r) => onBehalf(u, byId("emps", r.emp)));
+    return layout(u, "الاعتمادات", `<div class="page-head"><div><h1>${ico("stamp", "h-ico")} الاعتمادات</h1><p>${rows.length} طلب بانتظار الاعتماد${rows.length ? " · أقدمها منذ " + (oldest ? daysAr(oldest) : "اليوم") : ""}${late ? ` · <b>${late} متأخر (3 أيام فأكثر)</b>` : ""}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
+      ${anyBehalf ? '<div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>' : ""}
+      ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح بعد الطلب</th><th></th></tr></thead><tbody>
+      ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)), ob = onBehalf(u, e); return `<tr><td data-label="تحديد"><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></td>
+        <td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a>${u.role === "admin" ? `<br><small class="muted">${h(mgrName(e) || "غير مُسند")}</small>${ob ? ' <span class="badge muted">بالنيابة</span>' : ""}` : ""}</td>
+        <td data-label="المدة"><b>${leaveAmount(r)}</b>${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</td><td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="منذ" class="age-col">${ageBadge(r._age)}</td>
+        <td data-label="السبب">${h(r.reason) || "—"} ${pdfChip(r.att)}</td><td data-label="المتاح بعد الطلب">${daysAr(b.bookable)}</td>
         <td class="actions-cell"><button class="btn sm ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn sm danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button></td></tr>`; }).join("")}
-      </tbody></table></div><div class="actions pad"><button class="btn ok" type="button" data-act="bulk" data-a="approve">اعتماد المحدد</button><button class="btn danger" type="button" data-act="bulk" data-a="reject">رفض المحدد</button></div></div>` : '<div class="card empty">لا توجد طلبات بانتظار قرارك. 👍</div>'}`);
+      </tbody></table></div><div class="actions pad"><button class="btn ok" type="button" data-act="bulk" data-a="approve">اعتماد المحدد</button><button class="btn danger" type="button" data-act="bulk" data-a="reject">رفض المحدد</button></div></div>` : '<div class="card empty">لا توجد طلبات بانتظار الاعتماد.</div>'}`);
   };
 
   V.messages = (u, q, seg) => {

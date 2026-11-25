@@ -388,17 +388,33 @@ pre.code { direction: ltr; text-align: left; background: var(--surface-2); borde
 .file-pick .file-name { color: var(--muted); font-size: .88rem; overflow-wrap: anywhere; }
 .file-pick.has-file .file-name { color: var(--text); font-weight: 600; }
 /* تبويبات الإعدادات على الجوال: تمرير أفقي بدل التكسّر */
-@media (max-width: 640px) { .tabs { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; width: 100%; -webkit-overflow-scrolling: touch; } .tabs a { white-space: nowrap; scroll-snap-align: start; flex: none; } }
+
 .role-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .7rem; margin: 0; }
 .role-list > div { padding: .75rem .9rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .role-list dt { font-weight: 700; color: var(--brand-ink); margin-bottom: .2rem; }
 .role-list dd { margin: 0; color: var(--muted); font-size: .9rem; }
 /* زر الوضع: قمر في الفاتح، وشمس في الداكن */
-.theme-sun { display: none; }
-:root[data-theme="dark"] .theme-sun { display: inline-block; } :root[data-theme="dark"] .theme-moon { display: none; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme-sun { display: inline-block; } :root:not([data-theme="light"]) .theme-moon { display: none; } }
+svg.i3d.theme-sun { display: none !important; }
+:root[data-theme="dark"] svg.i3d.theme-sun { display: inline-block !important; } :root[data-theme="dark"] svg.i3d.theme-moon { display: none !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) svg.i3d.theme-sun { display: inline-block !important; } :root:not([data-theme="light"]) svg.i3d.theme-moon { display: none !important; } }
 .btn .sm-ico { width: 22px; height: 22px; margin: 0; flex: none; }
 .btn { gap: .4rem; }
+/* لوحة المؤشرات: تنبيهات تحتاج إجراء */
+.alerts-panel h2 { display: flex; align-items: center; gap: .5rem; }
+.alert-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.alert-list li { display: flex; align-items: center; gap: .7rem; padding: .55rem .75rem; border-radius: 10px; border: 1px solid var(--border); border-inline-start: 4px solid var(--border); background: var(--surface-2); }
+.alert-list li .i3d { width: 30px; height: 30px; flex: none; }
+.alert-list li .txt { flex: 1; min-width: 0; font-size: .92rem; }
+.alert-list li .btn { flex: none; }
+.alert-list li.lvl-err { border-inline-start-color: var(--err); background: var(--err-soft); }
+.alert-list li.lvl-err .i3d { color: var(--err); }
+.alert-list li.lvl-warn { border-inline-start-color: var(--warn); background: var(--warn-soft); }
+.alert-list li.lvl-warn .i3d { color: var(--warn); }
+.alert-list li.lvl-info { border-inline-start-color: var(--brand-2); }
+@media (max-width: 640px) { .alert-list li { flex-wrap: wrap; } .alert-list li .btn { margin-inline-start: auto; } }
+.empty-start { display: flex; gap: 1rem; align-items: flex-start; }
+.empty-start ol { margin: .4rem 0 1rem; padding-inline-start: 1.2rem; line-height: 2; }
+.age-col { white-space: nowrap; }
 /* ---------- الطباعة */
 .print-only { display: none; }
 @media print {
@@ -1054,3 +1070,5 @@ html.js form[data-autofilter] .btn-apply { display: none; }
   .kpi .v { color: #000; }
   .grid.kpis { grid-template-columns: repeat(3, 1fr); }
 }
+/* تبويبات الإعدادات على الجوال: تمرير أفقي بدل التكسّر (في آخر الملف ليغلب القاعدة الأساسية) */
+@media (max-width: 640px) { nav.tabs { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; width: 100%; -webkit-overflow-scrolling: touch; scrollbar-width: thin; } nav.tabs a { white-space: nowrap; scroll-snap-align: start; flex: none; } }

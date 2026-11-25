@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import io
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -119,7 +119,7 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     ids = [e.id for e in emps]
     t = dict(employees=len(emps), granted_days=0.0, granted_hours=0.0, used_days=0, used_hours=0.0,
              left_hours=0.0, at_cap=0, no_rec=0, granted_eq=0.0, used_eq=0.0, pending_eq=0.0)
-    by_officer: dict[str, dict] = defaultdict(lambda: dict(count=0, granted=0.0, used=0.0, left=0.0))
+    by_officer: dict[str, dict] = defaultdict(lambda: dict(count=0, granted=0.0, used=0.0, left=0.0, pending=0, oldest=0))
     near_cap = []
     for e in emps:
         b = compute_balance(db, e.id, year)
@@ -141,7 +141,7 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
         o["count"] += 1
         o["granted"] += b.granted_equiv_days
         o["used"] += b.used_equiv_days
-        o["left"] += b.total_left_hours / year.hours_per_day
+        o["left"] += max(b.total_left_hours - b.pending_days * year.hours_per_day - b.pending_hours, 0) / year.hours_per_day
     hpd = year.hours_per_day
     t["left_days"], t["left_rem"] = int(t["left_hours"] // hpd), round(t["left_hours"] % hpd, 2)
     # توزيع الرصيد الممنوح (بالأيام المعادلة) للرسم الدائري
@@ -150,30 +150,67 @@ def dashboard(request: Request, year_id: int | None = None, user: User = Depends
     avail = round(max(g - used - pend, 0), 2)
     pie = [("used", "مستخدم", used), ("pending", "معلّق بانتظار الاعتماد", pend), ("avail", "متاح", avail)]
     pie = [dict(key=k, label=l, value=v, pct=(round(v / g * 100) if g else 0)) for k, l, v in pie]
-    monthly = [0.0] * 12
-    for r in db.scalars(select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
-                        Recommendation.status == "active",
-                        Recommendation.employee_id.in_(ids) if ids else false())):
-        monthly[r.rec_date.month - 1] += r.amount if r.kind == "days" else r.amount / hpd
-    monthly = [round(v, 1) for v in monthly]
+    t["avail_eq"], t["pending_eq"] = avail, pend
+    now = datetime.now()
     pending = list(db.scalars(select(LeaveRequest).where(
         LeaveRequest.status == "pending", LeaveRequest.employee_id.in_(ids) if ids else false())
         .order_by(LeaveRequest.created_at)))
     pending = [r for r in pending if can_manage(user, r.employee)]
-    recent = list(db.scalars(select(Recommendation).where(Recommendation.employee_id.in_(ids) if ids else false())
-                             .order_by(Recommendation.created_at.desc()).limit(6)))
-    backup_due = None
+    for r in pending:
+        r.age_days = (now - r.created_at).days
+        o = by_officer[r.employee.manager.full_name if r.employee.manager else "— غير مُسند —"]
+        o["pending"] = o.get("pending", 0) + 1
+        o["oldest"] = max(o.get("oldest", 0), r.age_days)
+    oldest = max((r.age_days for r in pending), default=0)
+    # تنبيهات تحتاج إجراء (مرتبة حسب الأهمية)
+    alerts = []
+    late7 = sum(1 for r in pending if r.age_days >= 7)
+    late3 = sum(1 for r in pending if 3 <= r.age_days < 7)
+    if late7:
+        alerts.append(dict(level="err", icon="hourglass", text=f"{late7} طلب بانتظار الاعتماد منذ 7 أيام أو أكثر (أقدمها منذ {days_ar(oldest)}).", href="/approvals", cta="مراجعة الاعتمادات"))
+    elif late3:
+        alerts.append(dict(level="warn", icon="hourglass", text=f"{late3} طلب بانتظار الاعتماد منذ 3 أيام أو أكثر.", href="/approvals", cta="مراجعة الاعتمادات"))
+    quick = {}
     if user.role == "admin":
-        from .models import AuditLog
-        last = db.scalar(select(AuditLog.created_at).where(AuditLog.action == "backup_downloaded")
-                         .order_by(AuditLog.id.desc()))
-        if not last or (datetime.now() - last).days >= 7:
-            backup_due = (datetime.now() - last).days if last else -1
-    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie, backup_due=backup_due,
-                  pie_total=g,
+        from .models import AuditLog, LoginCard
+        backlog = [n for n, d in by_officer.items() if d.get("oldest", 0) >= 3 and n != "— غير مُسند —"]
+        if backlog:
+            alerts.append(dict(level="warn", icon="userkey", text="مسؤولون لديهم طلبات متأخرة: " + "، ".join(backlog[:4]) + ("…" if len(backlog) > 4 else "") + ".", href="/approvals", cta="عرض الطلبات"))
+        unassigned = [e for e in emps if not e.manager_id and e.is_active]
+        if unassigned:
+            alerts.append(dict(level="warn", icon="users", text=f"{len(unassigned)} موظف غير مُسند لمسؤول شؤون موظفين، فلا يعتمد طلباتهم إلا مدير النظام.", href="/employees?officer=-1", cta="إسنادهم"))
+        linked = set(db.scalars(select(User.employee_id).where(User.employee_id.is_not(None))))
+        no_account = [e for e in emps if e.is_active and e.id not in linked and not e.is_temp_no]
+        if no_account:
+            alerts.append(dict(level="warn", icon="badge", text=f"{len(no_account)} موظف نشط بلا حساب دخول، فلا يستطيعون استخدام النظام.", href="/admin/users", cta="إنشاء الحسابات"))
+        no_email = sum(1 for e in emps if e.is_active and not (e.email or "").strip())
+        if no_email:
+            alerts.append(dict(level="info", icon="mail", text=f"{no_email} موظف بلا بريد إلكتروني، فتصلهم الإشعارات داخل النظام فقط.", href="/admin/import", cta="تحديث البريد دفعة واحدة"))
+        stale_cards = db.scalar(select(func.count(LoginCard.id)).where(LoginCard.temp_password.is_not(None),
+                                LoginCard.created_at < now - timedelta(days=7))) or 0
+        if stale_cards:
+            alerts.append(dict(level="info", icon="badge", text=f"{stale_cards} بطاقة دخول لم تُفعَّل منذ أكثر من أسبوع.", href="/admin/cards?state=pending", cta="عرض البطاقات"))
+        today = date.today()
+        if today.month >= 10 and year.start_date <= today <= year.end_date:
+            lapse = [(e, b) for e, b in ((e, compute_balance(db, e.id, year)) for e in emps) if b.bookable_days > 0]
+            if lapse:
+                total = sum(b.bookable_days for _, b in lapse)
+                alerts.append(dict(level="info", icon="calendar", text=f"{len(lapse)} موظف لديهم رصيد متاح ({days_ar(total)} إجمالاً) يسقط بنهاية السنة {year.name} لأن الرصيد لا يُرحَّل.", href="/employees", cta="عرض الأرصدة"))
+        if today.month >= 11:
+            nxt = date(today.year + 1, 1, 1)
+            if not db.scalar(select(FiscalYear.id).where(FiscalYear.start_date <= nxt, FiscalYear.end_date >= nxt)):
+                alerts.append(dict(level="err", icon="calendar-plus", text=f"لم تُنشأ سنة {today.year + 1} بعد؛ لن تُقبل توصيات أو طلبات بتواريخها حتى تُنشأ.", href="/admin/years", cta="إنشاء السنة"))
+        last = db.scalar(select(AuditLog.created_at).where(AuditLog.action == "backup_downloaded").order_by(AuditLog.id.desc()))
+        if not last or (now - last).days >= 7:
+            alerts.append(dict(level="info", icon="backup", text=("لم تُنزَّل أي نسخة احتياطية من الواجهة بعد." if not last else f"مضى {days_ar((now - last).days)} على آخر نسخة احتياطية منزّلة من الواجهة.") + " (النسخ الليلية على الخادم مستمرة.)", href="/admin/data", cta="تنزيل نسخة"))
+        pending_cards = db.scalar(select(func.count(LoginCard.id)).where(LoginCard.temp_password.is_not(None))) or 0
+        quick = dict(no_account=len(no_account), pending_cards=pending_cards)
+    order = {"err": 0, "warn": 1, "info": 2}
+    alerts.sort(key=lambda a: order[a["level"]])
+    return render(request, db, "dashboard.html", user=user, sel_year=year, years=years(db), t=t, pie=pie,
+                  pie_total=g, alerts=alerts, quick=quick, oldest=oldest,
                   by_officer=sorted(by_officer.items(), key=lambda kv: -kv[1]["count"]),
-                  monthly=monthly, monthly_max=max(monthly) or 1, pending=pending[:8],
-                  pending_count=len(pending), recent=recent, near_cap=near_cap[:8])
+                  pending=pending[:8], pending_count=len(pending), near_cap=near_cap[:8])
 
 
 # ================================================================ رصيدي وكشف الموظف
@@ -547,6 +584,12 @@ async def request_create(request: Request, user: User = Depends(current_user), d
     return redirect("/requests")
 
 
+def _on_behalf(user: User, req: LeaveRequest) -> bool:
+    """قرار مدير النظام في طلب موظف مُسند لمسؤول شؤون موظفين آخر يُسجَّل «بالنيابة»."""
+    m = req.employee.manager_id
+    return user.role == "admin" and bool(m) and m != user.employee_id
+
+
 def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note: str, ip: str) -> None:
     if req.status != "pending":
         raise RuleError("الطلب ليس بانتظار الاعتماد.")
@@ -562,8 +605,15 @@ def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note:
         req.status = "rejected"
     else:
         raise RuleError("إجراء غير معروف.")
+    behalf = _on_behalf(user, req)
     req.decided_by, req.decided_at, req.decision_note = user.id, datetime.now(), note.strip()
-    audit(db, user, f"leave_{req.status}", "leave_request", req.id, ip=ip, note=note)
+    audit(db, user, f"leave_{req.status}", "leave_request", req.id, ip=ip, note=note, on_behalf=behalf or None)
+    if behalf:  # إشعار المسؤول الأصلي بأن مدير النظام بتّ في طلب موظفه
+        for o in officer_users_for(db, req.employee):
+            if o.id != user.id:
+                notify(db, o, f"قرار بالنيابة في طلب {req.employee.full_name}",
+                       f"بتّ مدير النظام في طلب {req.employee.full_name} ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}) "
+                       f"بالنيابة عنك: {req.status_label}.", "/requests", sender=user)
     word = "اعتماد" if req.status == "approved" else "رفض"
     notify(db, employee_user(db, req.employee), f"تم {word} طلب {req.kind_label}",
            f"طلبك ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}): {req.status_label}."
@@ -641,10 +691,15 @@ def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Sessi
     if ids is not None:
         stmt = stmt.where(LeaveRequest.employee_id.in_(ids))
     rows = []
+    now = datetime.now()
     for r in db.scalars(stmt):
         if can_manage(user, r.employee):
+            r.age_days = (now - r.created_at).days
+            r.on_behalf = _on_behalf(user, r)
             rows.append((r, compute_balance(db, r.employee_id, db.get(FiscalYear, r.fiscal_year_id))))
-    return render(request, db, "approvals.html", user=user, rows=rows)
+    oldest = max((r.age_days for r, _ in rows), default=0)
+    return render(request, db, "approvals.html", user=user, rows=rows, oldest=oldest,
+                  late=sum(1 for r, _ in rows if r.age_days >= 3))
 
 
 @router.post("/approvals/bulk")
