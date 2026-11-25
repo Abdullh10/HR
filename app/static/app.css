@@ -1136,6 +1136,7 @@ details.danger-zone[open] > summary { margin-bottom: .8rem; }
 .faq-item > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 10px; }
 
 /* ---------- إشعارات الجهاز */
+[data-push-panel] [hidden], [data-push-prompt][hidden] { display: none !important; }
 .push-status { margin: .3rem 0 .8rem; font-weight: 600; color: var(--text); }
 .push-ios { margin-top: .8rem; padding: .8rem 1rem; border-radius: 10px; background: var(--brand-soft); color: var(--brand-ink); font-size: .92rem; }
 .push-ios ol { margin: .4rem 0 0; padding-inline-start: 1.2rem; }
