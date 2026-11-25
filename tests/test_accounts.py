@@ -42,3 +42,18 @@ def test_create_account_for_existing_employee(world):
     post(adm, f"/employees/{eid}/account")  # مرة ثانية: لا يتكرر
     with SessionLocal() as db:
         assert db.query(User).filter_by(employee_id=eid).count() == 1
+
+
+def test_employee_save_with_blank_optional_selects(world):
+    """القوائم المنسدلة الفارغة (القسم ومسؤول شؤون الموظفين) لا تُسقط حفظ الموظف."""
+    from .conftest import login, post
+    adm = login("admin")
+    r = post(adm, "/employees/save", {"employee_no": "5501", "full_name": "موظف بلا قسم", "department_id": "", "manager_id": "", "emp_id": ""})
+    assert r.status_code == 303, r.text
+    from app.db import SessionLocal
+    from app.models import Employee
+    with SessionLocal() as db:
+        e = db.query(Employee).filter_by(employee_no="5501").one()
+        assert e.department_id is None and e.manager_id is None
+    r = post(adm, "/admin/departments/save", {"dept_id": "", "name": "قسم جديد", "is_active": "1"})
+    assert r.status_code == 303

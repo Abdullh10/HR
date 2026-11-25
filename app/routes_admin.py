@@ -23,7 +23,7 @@ from .models import (
 )
 from .security import hash_password, password_problem, verify_password
 from .services import audit
-from .web import back, client_ip, flash, parse_date, parse_float, redirect, render, require
+from .web import opt_int, back, client_ip, flash, parse_date, parse_float, redirect, render, require
 
 router = APIRouter(prefix="/admin")
 admin_only = require("admin")
@@ -45,10 +45,11 @@ def users(request: Request, user: User = Depends(admin_only), db: Session = Depe
 
 
 @router.post("/users/save")
-def user_save(request: Request, user_id: int | None = Form(None), username: str = Form(...), role: str = Form(...),
-              employee_id: int | None = Form(None), password: str = Form(""), is_active: str = Form(""),
+def user_save(request: Request, user_id: str = Form(""), username: str = Form(...), role: str = Form(...),
+              employee_id: str = Form(""), password: str = Form(""), is_active: str = Form(""),
               assign: list[int] = Form([]), assign_present: str = Form(""),
               user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    user_id, employee_id = opt_int(user_id), opt_int(employee_id)
     username = username.strip().lower()
     if role not in ROLES:
         flash(request, "دور غير معروف.", "error")
@@ -284,8 +285,9 @@ def departments(request: Request, user: User = Depends(admin_only), db: Session 
 
 
 @router.post("/departments/save")
-def dept_save(request: Request, dept_id: int | None = Form(None), name: str = Form(...), is_active: str = Form(""),
+def dept_save(request: Request, dept_id: str = Form(""), name: str = Form(...), is_active: str = Form(""),
               user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    dept_id = opt_int(dept_id)
     name = " ".join(name.split())
     if not name or db.scalar(select(Department).where(Department.name == name, Department.id != (dept_id or 0))):
         flash(request, "اسم القسم فارغ أو مكرر.", "error")

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import Delegation, Employee, LeaveRequest, User
 from .services import audit, notify
-from .web import client_ip, flash, parse_date, redirect, render, require
+from .web import opt_int, client_ip, flash, parse_date, redirect, render, require
 
 router = APIRouter()
 MAX_DELEGATION_DAYS = 180
@@ -126,8 +126,9 @@ def delegation_page(request: Request, user: User = Depends(require("officer", "a
 
 @router.post("/delegations/new")
 def delegation_create(request: Request, to_emp_id: int = Form(...), start_date: str = Form(...), end_date: str = Form(...),
-                      note: str = Form(""), from_emp_id: int | None = Form(None),
+                      note: str = Form(""), from_emp_id: str = Form(""),
                       user: User = Depends(require("officer", "admin")), db: Session = Depends(get_db)):
+    from_emp_id = opt_int(from_emp_id)
     back_to = "/admin/teams#delegation" if user.role == "admin" else "/delegation"
     src_id = from_emp_id if user.role == "admin" else user.employee_id
     offs = {o.id: o for o in _officer_emps(db)}

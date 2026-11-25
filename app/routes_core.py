@@ -51,6 +51,7 @@ from .services import (
     visible_employee_ids,
 )
 from .web import (
+    opt_int,
     back,
     client_ip,
     current_user,
@@ -314,12 +315,13 @@ def employee_edit(request: Request, emp_id: int, user: User = Depends(require("a
 
 
 @router.post("/employees/save")
-def employee_save(request: Request, emp_id: int | None = Form(None), employee_no: str = Form(...),
-                  full_name: str = Form(...), department_id: int | None = Form(None),
-                  manager_id: int | None = Form(None), job_title: str = Form(""), email: str = Form(""),
+def employee_save(request: Request, emp_id: str = Form(""), employee_no: str = Form(...),
+                  full_name: str = Form(...), department_id: str = Form(""),
+                  manager_id: str = Form(""), job_title: str = Form(""), email: str = Form(""),
                   phone: str = Form(""), extension: str = Form(""), create_account: str = Form(""),
                   notes: str = Form(""), is_active: str = Form(""),
                   user: User = Depends(require("admin")), db: Session = Depends(get_db)):
+    emp_id, department_id, manager_id = opt_int(emp_id), opt_int(department_id), opt_int(manager_id)
     employee_no, full_name = employee_no.strip(), " ".join(full_name.split())
     emp = db.get(Employee, emp_id) if emp_id else Employee()
     err = None

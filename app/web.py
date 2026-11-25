@@ -204,3 +204,12 @@ def parse_float(s: str | None) -> float | None:
         return float(str(s).strip().replace("٫", ".").translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")))
     except ValueError:
         return None
+
+
+def opt_int(v) -> int | None:
+    """رقم اختياري من نموذج: القائمة المنسدلة «— اختر —» ترسل قيمة فارغة فتُعامل كأنها غير محددة."""
+    if v is None:
+        return None
+    v = str(v).strip()
+    return int(v) if v.lstrip("-").isdigit() else None
+
