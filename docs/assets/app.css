@@ -1076,6 +1076,24 @@ html.js form[data-autofilter] .btn-apply { display: none; }
 /* تبويبات الإعدادات على الجوال: تمرير أفقي بدل التكسّر (في آخر الملف ليغلب القاعدة الأساسية) */
 @media (max-width: 640px) { nav.tabs { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; width: 100%; -webkit-overflow-scrolling: touch; scrollbar-width: thin; } nav.tabs a { white-space: nowrap; scroll-snap-align: start; flex: none; } }
 
+/* ---------- المرحلة 4: الفرق والتفويض والتقارير */
+form.stack { display: grid; gap: .8rem; align-content: start; }
+form.stack .field select { width: 100%; }
+tr.dim td { opacity: .62; }
+.mbars { display: flex; align-items: stretch; gap: .35rem; height: 240px; padding: 1.5rem .2rem 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.mcol { flex: 1 0 44px; display: flex; flex-direction: column; align-items: center; gap: .35rem; min-width: 44px; }
+.mpair { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
+.mb { position: relative; width: 40%; max-width: 20px; min-height: 0; border-radius: 5px 5px 0 0; }
+.mb.g { background: var(--pie-avail); } .mb.u { background: var(--pie-used); }
+.mb em { position: absolute; bottom: 100%; inset-inline-start: 50%; transform: translateX(50%); font-style: normal; font-size: .68rem; color: var(--muted); white-space: nowrap; padding-bottom: 2px; }
+.mcol small { color: var(--muted); font-size: .75rem; padding-bottom: .3rem; }
+.mlegend { display: flex; gap: 1.2rem; margin-top: .7rem; color: var(--muted); font-size: .88rem; }
+.mlegend span { display: inline-flex; align-items: center; gap: .4rem; }
+.mlegend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.mlegend .sw.g { background: var(--pie-avail); } .mlegend .sw.u { background: var(--pie-used); }
+.ubar { display: inline-block; width: 70px; height: 7px; border-radius: 4px; background: var(--pie-track); vertical-align: middle; overflow: hidden; }
+.ubar i { display: block; height: 100%; background: var(--pie-used); border-radius: 4px; }
+
 /* ---------- نسخة العرض */
 .demo-banner .banner-x { margin-inline-start: auto; background: none; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; width: 2rem; height: 2rem; border-radius: 8px; cursor: pointer; }
 .demo-banner .banner-x:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }

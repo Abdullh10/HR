@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico %}
+{% from "_macros.html" import ico, people_tabs %}
 {% block title %}الموظفون{% endblock %}
 {% block heading %}{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'قائمة الموظفين' }}{% endblock %}
 {% block content %}
+{% if user.role == 'admin' %}{{ people_tabs('list') }}{% endif %}
 <div class="page-head">
   <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ rows|length }} موظف · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
   <div class="actions">
@@ -25,7 +26,7 @@
   <tbody>
   {% for e, b in rows %}
   <tr><td data-label="م">{{ loop.index }}</td>
-    <td data-label="الاسم"><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a>{% if e.department %}<small class="muted d-block">{{ e.department.name }}</small>{% endif %}</td>
+    <td data-label="الاسم"><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a>{% if user.role == 'officer' and e.manager_id and e.manager_id != user.employee_id and e.id != user.employee_id %} <span class="badge muted" title="فريق {{ e.manager.full_name }}">بالتفويض</span>{% endif %}{% if e.department %}<small class="muted d-block">{{ e.department.name }}</small>{% endif %}</td>
     <td data-label="الرقم" class="num">{{ e.employee_no }}</td>
     {% if user.role == 'admin' %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
     <td class="n" data-label="رصيد الأيام">{{ b.days_left|n }}</td><td class="n" data-label="رصيد الساعات">{{ b.hours_left|n }}</td>

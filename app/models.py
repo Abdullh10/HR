@@ -397,3 +397,39 @@ class LoginCard(Base):
     @property
     def active(self) -> bool:
         return self.temp_password is None
+
+
+class Delegation(Base):
+    """تفويض مؤقت: مسؤول شؤون موظفين (from_emp) يفوّض مسؤولاً آخر (to_emp) بمتابعة فريقه خلال فترة محددة
+    (اعتماد الطلبات ورفع التوصيات). يبقى للمسؤول الأصلي اطلاعه على فريقه طوال الفترة."""
+
+    __tablename__ = "delegations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    from_emp_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), index=True)
+    to_emp_id: Mapped[int] = mapped_column(ForeignKey("employees.id"), index=True)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    note: Mapped[str] = mapped_column(String(300), default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    from_emp: Mapped["Employee"] = relationship(foreign_keys=[from_emp_id])
+    to_emp: Mapped["Employee"] = relationship(foreign_keys=[to_emp_id])
+
+    def is_active_on(self, d: date) -> bool:
+        return self.cancelled_at is None and self.start_date <= d <= self.end_date
+
+    @property
+    def state(self) -> str:
+        today = date.today()
+        if self.cancelled_at:
+            return "cancelled"
+        if today < self.start_date:
+            return "upcoming"
+        return "active" if today <= self.end_date else "ended"
+
+    @property
+    def state_label(self) -> str:
+        return {"cancelled": "ملغى", "upcoming": "قادم", "active": "ساري", "ended": "منتهٍ"}[self.state]

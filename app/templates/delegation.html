@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico %}
+{% from "_delegation.html" import delegation_form, delegation_table with context %}
+{% block title %}التفويض{% endblock %}
+{% block heading %}التفويض{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('swap', 'h-ico') }} التفويض</h1>
+  <p>فوّض زميلاً من مسؤولي شؤون الموظفين بمتابعة فريقك ({{ team }} موظف) خلال غيابك، فيعتمد طلباتهم ويرفع توصياتهم حتى نهاية الفترة.</p></div></div>
+{% set mine_active = delegations|selectattr('to_emp_id', 'equalto', user.employee_id)|selectattr('state', 'equalto', 'active')|list %}
+{% if mine_active %}<div class="alert info" role="status">أنت مفوَّض حالياً بمتابعة: {% for d in mine_active %}فريق {{ d.from_emp.full_name }} حتى {{ d.end_date|d }}{{ '، ' if not loop.last }}{% endfor %}. تظهر طلباتهم في «الاعتمادات» وموظفوهم في «قائمة الموظفين».</div>{% endif %}
+<section class="card">
+  <h2>تفويض جديد</h2>
+  {% if officers %}{{ delegation_form(officers, max_days=max_days) }}{% else %}<p class="empty">لا يوجد مسؤولو شؤون موظفين آخرون للتفويض.</p>{% endif %}
+</section>
+<section class="card flush">
+  <h2>تفويضاتي</h2>
+  {{ delegation_table(delegations) }}
+</section>
+{% endblock %}

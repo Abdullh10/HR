@@ -182,11 +182,12 @@ def init_db() -> None:
 
 init_db()
 
-from . import routes_admin, routes_auth, routes_core  # noqa: E402
+from . import routes_admin, routes_auth, routes_core, routes_teams  # noqa: E402
 
 app.include_router(routes_auth.router)
 app.include_router(routes_core.router)
 app.include_router(routes_admin.router)
+app.include_router(routes_teams.router)
 
 
 @app.get("/healthz", response_class=PlainTextResponse)

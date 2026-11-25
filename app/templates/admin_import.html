@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico %}
+{% from "_macros.html" import ico, people_tabs %}
 {% block title %}استيراد الموظفين{% endblock %}
-{% block heading %}استيراد الموظفين{% endblock %}
+{% block heading %}الموظفون والأرصدة{% endblock %}
 {% block content %}
+{{ people_tabs('import') }}
 <div class="page-head">
   <div><h1>{{ ico('upload', 'h-ico') }} استيراد الموظفين وإنشاء حساباتهم</h1>
     <p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع الدور المحدد.</p></div>

@@ -1,23 +1,59 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select, donut %}
+{% from "_macros.html" import ico, donut, month_bars %}
 {% block title %}التقارير{% endblock %}
 {% block heading %}التقارير{% endblock %}
+{% macro agg_table(rows, first, show_lead=False) %}
+<div class="table-wrap"><table class="responsive">
+  <thead><tr><th>{{ first }}</th><th class="n">الموظفون</th><th class="n">الممنوح</th><th class="n">المستخدم</th><th class="n">المتاح</th><th>نسبة الاستخدام</th><th class="n">معلّقة</th>{% if show_lead %}<th class="n">متوسط مدة القرار</th>{% endif %}</tr></thead><tbody>
+  {% for name, d in rows %}<tr><td data-label="{{ first }}">{{ name }}</td><td class="n" data-label="الموظفون">{{ d.count }}</td>
+    <td class="n" data-label="الممنوح">{{ d.granted|round(1)|n }}</td><td class="n" data-label="المستخدم">{{ d.used|round(1)|n }}</td><td class="n" data-label="المتاح">{{ d.left|n }}</td>
+    <td data-label="نسبة الاستخدام"><span class="ubar" aria-hidden="true"><i style="width:{{ d.util if d.util <= 100 else 100 }}%"></i></span> {{ d.util }}%</td>
+    <td class="n" data-label="معلّقة">{{ d.n_pending or '—' }}</td>
+    {% if show_lead %}<td class="n" data-label="متوسط مدة القرار">{% if d.avg_lead is not none %}{{ d.avg_lead|n }} يوم{% if d.avg_lead >= 3 %} <span class="badge warn">بطيء</span>{% endif %}{% else %}—{% endif %}</td>{% endif %}</tr>
+  {% else %}<tr><td colspan="{{ 8 if show_lead else 7 }}" class="empty">لا توجد بيانات.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endmacro %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('reports', 'h-ico') }} التقارير</h1><p>السنة {{ sel_year.name }}</p></div>{{ year_select(years, sel_year) }}</div>
+<div class="page-head"><div><h1>{{ ico('reports', 'h-ico') }} التقارير</h1><p>السنة {{ sel_year.name }} · {{ stats.employees }} موظف نشط · الأرقام بالأيام المعادلة (كل {{ sel_year.hours_per_day|n }} ساعات = يوم)</p></div>
+  <a class="btn" href="/export/summary.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تنزيل الملخص (Excel)</a></div>
+<form method="get" class="card filters" data-autofilter>
+  <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="dp">القسم</label><select id="dp" name="dept"><option value="">كل الأقسام</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+  {% if user.role == 'admin' %}<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officer_list %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  <button class="btn primary btn-apply">عرض</button>{% if dept or officer %}<a class="clear-link" href="/reports?year_id={{ sel_year.id }}">مسح الفلاتر</a>{% endif %}
+</form>
 <div class="grid kpis">
-  <div class="kpi brand">{{ ico('cal-check') }}<div class="l">التوصيات السارية</div><div class="v">{{ stats.recs }}</div><div class="s">{{ stats.rec_days|n }} يوم · {{ stats.rec_hours|n }} ساعة</div></div>
-  <div class="kpi accent">{{ ico('calendar') }}<div class="l">الطلبات</div><div class="v">{{ stats.requests }}</div><div class="s">معتمدة ومعلّقة ومرفوضة</div></div>
-  <div class="kpi ok">{{ ico('approvals') }}<div class="l">معتمدة</div><div class="v">{{ stats.approved }}</div><div class="s">مرفوضة {{ stats.rejected }} · ملغاة {{ stats.cancelled }}</div></div>
+  <div class="kpi brand">{{ ico('cal-check') }}<div class="l">الممنوح بالتوصيات</div><div class="v">{{ stats.granted_eq|n }}</div><div class="s">{{ stats.recs }} توصية · أيام {{ stats.rec_days|n }} · ساعات {{ stats.rec_hours|n }}</div></div>
+  <div class="kpi accent">{{ ico('calendar') }}<div class="l">المستخدم بطلبات معتمدة</div><div class="v">{{ stats.used_eq|n }}</div><div class="s">نسبة الاستخدام {{ stats.util }}%</div></div>
+  <div class="kpi ok">{{ ico('approvals') }}<div class="l">طلبات معتمدة</div><div class="v">{{ stats.approved }}</div><div class="s">من {{ stats.requests }} · مرفوضة {{ stats.rejected }} · ملغاة {{ stats.cancelled }}</div></div>
   <div class="kpi warn">{{ ico('hourglass') }}<div class="l">بانتظار الاعتماد</div><div class="v">{{ stats.pending }}</div><div class="s">متوسط مدة القرار {{ stats.avg_lead|n }} يوم</div></div>
   <div class="kpi">{{ ico('audit') }}<div class="l">توصيات بلا PDF</div><div class="v">{{ stats.no_attachment }}</div></div>
 </div>
 <section class="card">
+  <h2>الممنوح والمستخدم شهرياً</h2>
+  <p class="hint chart-sub">الممنوح حسب تاريخ التوصية، والمستخدم حسب تاريخ بداية الطلب المعتمد — السنة {{ sel_year.name }}</p>
+  {% if stats.granted_eq or stats.used_eq %}{{ month_bars(months) }}{% else %}<p class="empty">لا توجد توصيات أو طلبات معتمدة في هذه السنة بعد.</p>{% endif %}
+</section>
+<div class="grid two">
+<section class="card">
   <h2>الطلبات حسب الحالة</h2>
-  <p class="hint chart-sub">عدد طلبات معالجة الغياب في السنة {{ sel_year.name }} موزّعة على حالاتها</p>
+  <p class="hint chart-sub">عدد طلبات معالجة الغياب موزّعة على حالاتها</p>
   {% if st_total %}{{ donut(st_pie, st_total, 'طلب', 'الطلبات حسب الحالة', 'إجمالي الطلبات') }}{% else %}<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>{% endif %}
 </section>
+<section class="card flush">
+  <h2>أعلى الأرصدة المتاحة{% if unused_total %} <span class="badge muted">الإجمالي {{ unused_total|n }} يوم</span>{% endif %}</h2>
+  <p class="hint pad">أرصدة لم تُستخدم بعد؛ راجعها قبل نهاية السنة ({{ sel_year.end_date|d }})، فالرصيد غير المستخدم لا يُرحَّل إلى السنة التالية.</p>
+  <div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>القسم</th><th class="n">المتاح</th></tr></thead><tbody>
+  {% for e, a in unused %}<tr><td data-label="الموظف"><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a></td><td data-label="القسم">{{ e.department.name if e.department else '—' }}</td><td class="n" data-label="المتاح">{{ a|n }}</td></tr>
+  {% else %}<tr><td colspan="3" class="empty">لا توجد أرصدة متاحة.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+</div>
+<section class="card flush"><h2>حسب القسم</h2>{{ agg_table(by_dept, 'القسم') }}</section>
+{% if user.role == 'admin' %}<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2>{{ agg_table(by_officer, 'مسؤول شؤون الموظفين', show_lead=True) }}</section>{% endif %}
 <section class="card"><h2>التصدير إلى Excel</h2>
   <div class="actions">
+    <a class="btn" href="/export/summary.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}ملخص التقارير</a>
     <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}أرصدة الموظفين</a>
     <a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}سجل التوصيات</a>
     <a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}سجل الطلبات</a>

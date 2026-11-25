@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico, account_tabs %}
+{% from "_delegation.html" import delegation_form, delegation_table with context %}
+{% block title %}الفرق والتفويض{% endblock %}
+{% block heading %}المستخدمون والصلاحيات{% endblock %}
+{% block content %}
+{{ account_tabs('teams') }}
+<div class="page-head"><div><h1>{{ ico('swap', 'h-ico') }} الفرق والتفويض</h1>
+  <p>{{ stats|length }} مسؤول شؤون موظفين{% if unassigned %} · <a href="/employees?officer=-1">{{ unassigned }} موظف غير مُسند</a>{% endif %}. انقل فريقاً كاملاً نقلاً دائماً، أو فوّض مسؤولاً بمتابعة فريق زميله مؤقتاً (أثناء إجازته مثلاً).</p></div></div>
+
+<section class="card flush">
+  <h2>فرق مسؤولي شؤون الموظفين</h2>
+  <div class="table-wrap"><table class="responsive">
+    <thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">الموظفون</th><th class="n">طلبات معلّقة</th><th>التفويض الساري</th></tr></thead><tbody>
+    {% for s in stats %}<tr>
+      <td data-label="المسؤول"><a href="/employees?officer={{ s.emp.id }}">{{ s.emp.full_name }}</a></td>
+      <td class="n" data-label="الموظفون">{{ s.count }}</td>
+      <td class="n" data-label="معلّقة">{{ s.pending or '—' }}</td>
+      <td data-label="التفويض">{% if s.away %}<span class="badge warn">فريقه لدى {{ s.away.to_emp.full_name }} حتى {{ s.away.end_date|d }}</span>{% endif %}
+        {% for c in s.covering %}<span class="badge ok">يتابع فريق {{ c.from_emp.full_name }}</span> {% endfor %}{% if not s.away and not s.covering %}—{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="empty">لا يوجد مسؤولو شؤون موظفين. أنشئ حساباً بدور «شؤون الموظفين» من «الحسابات والصلاحيات».</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+
+<div class="grid two">
+<section class="card" id="transfer">
+  <h2>نقل فريق كامل</h2>
+  <p class="hint">ينقل جميع الموظفين المسندين إلى المسؤول الأول إلى الثاني نقلاً دائماً (مثل انتقال المسؤول أو تقاعده)، ومعهم طلباتهم المعلّقة. لنقل موظفين محددين استخدم «الحسابات والصلاحيات».</p>
+  <form method="post" action="/admin/teams/transfer" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="tf">من</label><select id="tf" name="from_emp_id" required><option value="">— اختر —</option>{% for s in stats %}<option value="{{ s.emp.id }}"{% if not s.count %} disabled{% endif %}>{{ s.emp.full_name }} ({{ s.count }} موظف)</option>{% endfor %}</select></div>
+    <div class="field"><label for="tt">إلى</label><select id="tt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>
+    <label class="check"><input type="checkbox" name="notify_employees" value="1" checked><span>إشعار الموظفين المنقولين باسم مسؤولهم الجديد</span></label>
+    <div><button class="btn primary" data-confirm="نقل الفريق كاملاً إلى المسؤول المختار؟ يمكن إعادة توزيعه لاحقاً من «الحسابات والصلاحيات».">{{ ico('swap', 'sm-ico') }}نقل الفريق</button></div>
+  </form>
+</section>
+<section class="card" id="delegation">
+  <h2>تفويض مؤقت</h2>
+  {{ delegation_form(officers, admin=True, max_days=max_days) }}
+</section>
+</div>
+
+<section class="card flush">
+  <h2>سجل التفويضات</h2>
+  {{ delegation_table(delegations) }}
+</section>
+{% endblock %}

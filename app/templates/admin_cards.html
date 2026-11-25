@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico %}
+{% from "_macros.html" import ico, account_tabs %}
 {% block title %}بطاقات الدخول{% endblock %}
-{% block heading %}بطاقات الدخول{% endblock %}
+{% block heading %}المستخدمون والصلاحيات{% endblock %}
 {% block content %}
+{{ account_tabs('cards') }}
 <div class="page-head"><div><h1>{{ ico('badge', 'h-ico') }} بطاقات الدخول</h1>
   <p>تُحفظ هنا بطاقة دائمة لكل حساب جديد أو كلمة مرور أُعيد تعيينها، ويمكن طباعتها والرجوع إليها في أي وقت. يستطيع الموظف تغيير كلمة المرور متى شاء من «الملف الشخصي»، وعندها تُعلَّم بطاقته بأنها غُيّرت (لا تُعرض كلمات المرور التي يختارها المستخدمون لأنها تُحفظ مشفّرة).</p></div>
   <div class="actions"><a class="btn primary" href="/admin/cards/print?{{ 'batch=' ~ batch|urlencode ~ '&' if batch }}state=pending" target="_blank" rel="noopener">طباعة البطاقات {{ 'لهذه الدفعة' if batch else 'السارية' }}</a>

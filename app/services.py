@@ -376,9 +376,41 @@ def notify_balance_alerts(db: Session, emp: Employee, year: FiscalYear, before: 
 
 
 # ---------------------------------------------------------------- الصلاحيات
+def delegated_from(db: Session, user: User, on: date | None = None) -> list[int]:
+    """سجلات مسؤولي شؤون الموظفين الذين فوّضوا هذا المسؤول تفويضاً سارياً اليوم."""
+    if user.role != "officer" or not user.employee_id:
+        return []
+    from .models import Delegation
+    d = on or date.today()
+    return list(db.scalars(select(Delegation.from_emp_id).where(
+        Delegation.to_emp_id == user.employee_id, Delegation.cancelled_at.is_(None),
+        Delegation.start_date <= d, Delegation.end_date >= d)))
+
+
+def delegates_of(db: Session, officer_emp_id: int, on: date | None = None) -> list[int]:
+    """سجلات المسؤولين المفوَّضين اليوم بفريق هذا المسؤول."""
+    from .models import Delegation
+    d = on or date.today()
+    return list(db.scalars(select(Delegation.to_emp_id).where(
+        Delegation.from_emp_id == officer_emp_id, Delegation.cancelled_at.is_(None),
+        Delegation.start_date <= d, Delegation.end_date >= d)))
+
+
 def is_officer_of(user: User, emp: Employee) -> bool:
-    """مسؤول شؤون الموظفين المسند له الموظف (Employee.manager_id يشير إلى سجل مسؤول شؤون الموظفين)."""
-    return bool(user.role == "officer" and user.employee_id and emp.manager_id == user.employee_id)
+    """مسؤول شؤون الموظفين المسند له الموظف (Employee.manager_id يشير إلى سجل مسؤول شؤون الموظفين)،
+    أو المفوَّض بفريقه تفويضاً سارياً."""
+    if not (user.role == "officer" and user.employee_id and emp.manager_id):
+        return False
+    if emp.manager_id == user.employee_id:
+        return True
+    from sqlalchemy.orm import object_session
+    db = object_session(user) or object_session(emp)
+    return bool(db) and emp.manager_id in delegated_from(db, user)
+
+
+def is_delegated(user: User, emp: Employee) -> bool:
+    """يتابع المستخدمُ هذا الموظفَ بالتفويض لا بالإسناد."""
+    return bool(user.role == "officer" and emp.manager_id and emp.manager_id != user.employee_id and is_officer_of(user, emp))
 
 
 def can_view_employee(user: User, emp: Employee) -> bool:
@@ -397,7 +429,8 @@ def can_manage(user: User, emp: Employee) -> bool:
 def team_ids(db: Session, user: User) -> list[int]:
     if user.role != "officer" or not user.employee_id:
         return []
-    return list(db.scalars(select(Employee.id).where(Employee.manager_id == user.employee_id)))
+    owners = [user.employee_id, *delegated_from(db, user)]
+    return list(db.scalars(select(Employee.id).where(Employee.manager_id.in_(owners))))
 
 
 def visible_employee_ids(db: Session, user: User) -> list[int] | None:
@@ -411,9 +444,11 @@ def visible_employee_ids(db: Session, user: User) -> list[int] | None:
 
 
 def officer_users_for(db: Session, emp: Employee) -> list[User]:
+    """المسؤول المسند له الموظف، ومن فُوِّض بفريقه تفويضاً سارياً اليوم."""
     if not emp.manager_id:
         return []
-    return list(db.scalars(select(User).where(User.employee_id == emp.manager_id, User.is_active.is_(True),
+    owners = [emp.manager_id, *delegates_of(db, emp.manager_id)]
+    return list(db.scalars(select(User).where(User.employee_id.in_(owners), User.is_active.is_(True),
                                               User.role.in_(("officer", "admin")))))
 
 

@@ -69,6 +69,26 @@
 </nav>
 {%- endmacro %}
 
+{% macro page_tabs(label, items, active) -%}
+<nav class="tabs" aria-label="{{ label }}">
+  {% for href, key, text in items %}<a href="{{ href }}" {% if active == key %}aria-current="page" class="on"{% endif %}>{{ text }}</a>{% endfor %}
+</nav>
+{%- endmacro %}
+{% macro people_tabs(active) -%}{{ page_tabs('أقسام الموظفين', [('/employees','list','قائمة الموظفين'),('/admin/import','import','استيراد من Excel')], active) }}{%- endmacro %}
+{% macro account_tabs(active) -%}{{ page_tabs('أقسام الحسابات', [('/admin/users','users','الحسابات والصلاحيات'),('/admin/cards','cards','بطاقات الدخول'),('/admin/teams','teams','الفرق والتفويض')], active) }}{%- endmacro %}
+
+{% macro month_bars(months) -%}
+{# أعمدة شهرية مزدوجة (الممنوح/المستخدم)، مع جدول مخفي بصرياً لقارئات الشاشة #}
+<div class="mbars" role="img" aria-label="الممنوح والمستخدم شهرياً بالأيام المعادلة">
+  {% for m in months %}<div class="mcol" title="{{ m.label }} {{ m.year }}: ممنوح {{ m.granted|n }} · مستخدم {{ m.used|n }}">
+    <div class="mpair"><span class="mb g" style="height:{{ m.g_pct }}%">{% if m.granted %}<em>{{ m.granted|n }}</em>{% endif %}</span><span class="mb u" style="height:{{ m.u_pct }}%">{% if m.used %}<em>{{ m.used|n }}</em>{% endif %}</span></div>
+    <small>{{ m.label }}</small></div>{% endfor %}
+</div>
+<div class="legend mlegend"><span><i class="sw g"></i>الممنوح</span><span><i class="sw u"></i>المستخدم</span></div>
+<table class="sr-only"><caption>الممنوح والمستخدم شهرياً</caption><thead><tr><th>الشهر</th><th>الممنوح</th><th>المستخدم</th></tr></thead><tbody>
+{% for m in months %}<tr><td>{{ m.label }} {{ m.year }}</td><td>{{ m.granted|n }}</td><td>{{ m.used|n }}</td></tr>{% endfor %}</tbody></table>
+{%- endmacro %}
+
 {% macro donut(parts, total, unit='يوم', title='', cap=None) -%}
 {# رسم دائري (حلقة): أجزاء من كل واحد، فجوة 2 بين الأجزاء، القيم ظاهرة في المفتاح (لا يعتمد على اللون وحده) #}
 {% set C = 100 %}{% set gap = 0.8 if (parts|selectattr('value')|list|length) > 1 else 0 %}

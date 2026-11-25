@@ -1,0 +1,26 @@
+{# نموذج التفويض وجدوله: مشترك بين صفحة مدير النظام وصفحة مسؤول شؤون الموظفين #}
+{% macro state_badge(d) -%}
+<span class="badge {{ {'active': 'ok', 'upcoming': 'warn', 'ended': 'muted', 'cancelled': 'muted'}[d.state] }}">{{ d.state_label }}</span>
+{%- endmacro %}
+{% macro delegation_form(officers, admin=False, max_days=180) %}
+<form method="post" action="/delegations/new" class="filters" data-delegation-form><input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if admin %}<div class="field"><label for="df">الفريق (المفوِّض)</label><select id="df" name="from_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="dt">المفوَّض بالمتابعة</label><select id="dt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="ds">من</label><input id="ds" type="date" name="start_date" value="{{ today.isoformat() }}" required></div>
+  <div class="field"><label for="de">إلى</label><input id="de" type="date" name="end_date" required></div>
+  <div class="field grow"><label for="dn">ملاحظة <span class="hint">(اختياري، مثل: إجازة سنوية)</span></label><input id="dn" name="note" maxlength="300"></div>
+  <button class="btn primary">{{ ico('swap', 'sm-ico') }}إنشاء التفويض</button>
+</form>
+<p class="hint">خلال الفترة يعتمد المفوَّض طلبات الفريق ويرفع توصياته، وتصله إشعاراته، ويبقى للمسؤول الأصلي اطلاعه الكامل. يُسجَّل كل قرار «بالتفويض» في سجل التدقيق ويُشعَر به المسؤول الأصلي. أقصى مدة {{ max_days }} يوماً، وينتهي التفويض تلقائياً في آخر يوم من الفترة.</p>
+{% endmacro %}
+{% macro delegation_table(rows, show_cancel=True) %}
+<div class="table-wrap"><table class="responsive">
+  <thead><tr><th>الفريق (المفوِّض)</th><th>المفوَّض</th><th>الفترة</th><th>الحالة</th><th>ملاحظة</th><th></th></tr></thead><tbody>
+  {% for d in rows %}<tr{% if d.state in ('cancelled', 'ended') %} class="dim"{% endif %}>
+    <td data-label="الفريق">{{ d.from_emp.full_name }}</td><td data-label="المفوَّض">{{ d.to_emp.full_name }}</td>
+    <td data-label="الفترة" class="num">{{ d.start_date|d }} – {{ d.end_date|d }}</td>
+    <td data-label="الحالة">{{ state_badge(d) }}</td><td data-label="ملاحظة">{{ d.note or '—' }}</td>
+    <td>{% if show_cancel and d.state in ('active', 'upcoming') %}<form method="post" action="/delegations/{{ d.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm danger" data-confirm="إلغاء تفويض {{ d.to_emp.full_name }} بمتابعة فريق {{ d.from_emp.full_name }}؟">إلغاء</button></form>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="6" class="empty">لا توجد تفويضات.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endmacro %}

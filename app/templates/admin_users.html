@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico %}
+{% from "_macros.html" import ico, account_tabs %}
 {% block title %}المستخدمون والصلاحيات{% endblock %}
 {% block heading %}المستخدمون والصلاحيات{% endblock %}
 {% macro assign_box(officer_emp, open=False) %}
@@ -18,6 +18,7 @@
   </div>
 {% endmacro %}
 {% block content %}
+{{ account_tabs('users') }}
 <div class="page-head"><div><h1>{{ ico('userkey', 'h-ico') }} المستخدمون والصلاحيات</h1><p>{{ rows|length }} حساب</p></div>
   <form method="post" action="/admin/users/bulk-create" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}">
     <button class="btn" data-confirm="إنشاء حساب لكل موظف نشط ليس له حساب (اسم المستخدم = الرقم الوظيفي)؟">إنشاء حسابات الموظفين دفعة واحدة</button></form></div>

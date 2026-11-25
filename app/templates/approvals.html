@@ -22,7 +22,7 @@
     {% for r, b in rows %}<tr>
       <td data-label="تحديد"><input type="checkbox" name="req_ids" value="{{ r.id }}" aria-label="تحديد طلب {{ r.employee.full_name }}"></td>
       <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a>
-        {% if user.role == 'admin' %}<br><small class="muted">{{ r.employee.manager.full_name if r.employee.manager else 'غير مُسند' }}</small>{% if r.on_behalf %} <span class="badge muted">بالنيابة</span>{% endif %}{% endif %}</td>
+        {% if user.role == 'admin' %}<br><small class="muted">{{ r.employee.manager.full_name if r.employee.manager else 'غير مُسند' }}</small>{% if r.on_behalf %} <span class="badge muted">بالنيابة</span>{% endif %}{% endif %}{% if r.delegated %}<br><small class="muted">فريق {{ r.employee.manager.full_name }}</small> <span class="badge muted">بالتفويض</span>{% endif %}</td>
       <td data-label="المدة"><b>{{ r.amount_label }}</b>{% if r.kind != 'use' %} {{ kind_badge(r.kind) }}{% endif %}</td>
       <td data-label="التاريخ" class="num">{{ r.start_date|d }}{% if r.end_date != r.start_date %} ← {{ r.end_date|d }}{% endif %}</td>
       <td data-label="منذ" class="age-col">{{ age_badge(r.age_days) }}</td>

@@ -40,6 +40,7 @@ from .services import (
     message_recipients,
     notify,
     officer_users_for,
+    is_delegated,
     alert_keys,
     assign_ref,
     notify_balance_alerts,
@@ -333,7 +334,7 @@ def employee_save(request: Request, emp_id: int | None = Form(None), employee_no
             team = db.scalar(select(func.count(Employee.id)).where(Employee.manager_id == emp_id, Employee.is_active.is_(True))) or 0
             if team:
                 err = (f"لا يمكن إيقاف «{emp.full_name}»: يوجد {team} موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ "
-                       "انقل الفريق لمسؤول آخر أولاً من «المستخدمون والصلاحيات» أو من بطاقات الموظفين.")
+                       "انقل الفريق كاملاً لمسؤول آخر أولاً من «المستخدمون والصلاحيات ‹ الفرق والتفويض».")
         if not err:
             from .services import clean_email, clean_extension, clean_phone
             try:
@@ -615,13 +616,17 @@ def _decide_leave(db: Session, user: User, req: LeaveRequest, action: str, note:
     else:
         raise RuleError("إجراء غير معروف.")
     behalf = _on_behalf(user, req)
+    delegated = is_delegated(user, req.employee)
     req.decided_by, req.decided_at, req.decision_note = user.id, datetime.now(), note.strip()
-    audit(db, user, f"leave_{req.status}", "leave_request", req.id, ip=ip, note=note, on_behalf=behalf or None)
-    if behalf:  # إشعار المسؤول الأصلي بأن مدير النظام بتّ في طلب موظفه
-        for o in officer_users_for(db, req.employee):
+    audit(db, user, f"leave_{req.status}", "leave_request", req.id, ip=ip, note=note, on_behalf=behalf or None,
+          delegated=delegated or None)
+    if behalf or delegated:  # إشعار المسؤول الأصلي بأن غيره بتّ في طلب موظفه (مدير النظام بالنيابة، أو المفوَّض)
+        who = "مدير النظام" if behalf else f"{user.display_name} (بالتفويض)"
+        owner = [u for u in db.scalars(select(User).where(User.employee_id == req.employee.manager_id, User.is_active.is_(True)))]
+        for o in owner:
             if o.id != user.id:
-                notify(db, o, f"قرار بالنيابة في طلب {req.employee.full_name}",
-                       f"بتّ مدير النظام في طلب {req.employee.full_name} ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}) "
+                notify(db, o, f"قرار {'بالنيابة' if behalf else 'بالتفويض'} في طلب {req.employee.full_name}",
+                       f"بتّ {who} في طلب {req.employee.full_name} ({req.amount_label} بتاريخ {req.start_date:%Y-%m-%d}) "
                        f"بالنيابة عنك: {req.status_label}.", "/requests", sender=user)
     word = "اعتماد" if req.status == "approved" else "رفض"
     notify(db, employee_user(db, req.employee), f"تم {word} طلب {req.kind_label}",
@@ -705,6 +710,7 @@ def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Sessi
         if can_manage(user, r.employee):
             r.age_days = (now - r.created_at).days
             r.on_behalf = _on_behalf(user, r)
+            r.delegated = is_delegated(user, r.employee)
             rows.append((r, compute_balance(db, r.employee_id, db.get(FiscalYear, r.fiscal_year_id))))
     oldest = max((r.age_days for r, _ in rows), default=0)
     return render(request, db, "approvals.html", user=user, rows=rows, oldest=oldest,
@@ -812,37 +818,111 @@ def file_download(att_id: int, user: User = Depends(current_user), db: Session =
 
 
 # ================================================================ التقارير والتصدير
-@router.get("/reports")
-def reports(request: Request, year_id: int | None = None, user: User = Depends(require(*STAFF)),
-            db: Session = Depends(get_db)):
-    year = pick_year(db, year_id)
-    ids = visible_employee_ids(db, user)
-    rq = select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id)
-    rc = select(Recommendation).where(Recommendation.fiscal_year_id == year.id, Recommendation.status == "active")
-    if ids is not None:
-        rq = rq.where(LeaveRequest.employee_id.in_(ids))
-        rc = rc.where(Recommendation.employee_id.in_(ids))
-    reqs, recs = list(db.scalars(rq)), list(db.scalars(rc))
+MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+
+def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, officer: int | None) -> dict:
+    """بيانات التقارير مع التصفية حسب القسم ومسؤول شؤون الموظفين (للأدمن). يُستخدم للصفحة وللتصدير."""
+    hpd = year.hours_per_day or 7
+    emps = list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True)))
+    if dept:
+        emps = [e for e in emps if e.department_id == dept]
+    if officer and user.role == "admin":
+        emps = [e for e in emps if (e.manager_id or -1) == officer]
+    ids = [e.id for e in emps]
+    reqs = list(db.scalars(select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id,
+                                                      LeaveRequest.employee_id.in_(ids or [0]))))
+    recs = list(db.scalars(select(Recommendation).where(Recommendation.fiscal_year_id == year.id,
+                                                        Recommendation.status == "active",
+                                                        Recommendation.employee_id.in_(ids or [0]))))
+    rec_eq = lambda r: r.amount if r.kind == "days" else r.amount / hpd  # noqa: E731
+    req_eq = lambda r: r.days if r.unit == "days" else r.hours / hpd  # noqa: E731
     by = defaultdict(int)
     lead = []
     for r in reqs:
         by[r.status] += 1
-        by[f"k_{r.kind}"] += 1
         if r.decided_at and r.status in ("approved", "rejected"):
             lead.append((r.decided_at - r.created_at).total_seconds() / 86400)
     stats = dict(
+        employees=sum(1 for e in emps if e.is_active),
         recs=len(recs), rec_days=sum(r.amount for r in recs if r.kind == "days"),
         rec_hours=sum(r.amount for r in recs if r.kind == "hours"),
         requests=len(reqs), approved=by["approved"], pending=by["pending"], rejected=by["rejected"],
-        cancelled=by["cancelled"], use=by["k_use"], compensation=by["k_compensation"],
-        avg_lead=round(sum(lead) / len(lead), 1) if lead else 0,
+        cancelled=by["cancelled"], avg_lead=round(sum(lead) / len(lead), 1) if lead else 0,
         no_attachment=sum(1 for r in recs if not r.attachment_id),
+        granted_eq=round(sum(rec_eq(r) for r in recs), 1),
+        used_eq=round(sum(req_eq(r) for r in reqs if r.status == "approved"), 1),
     )
+    stats["util"] = round(stats["used_eq"] / stats["granted_eq"] * 100) if stats["granted_eq"] else 0
+    # شهرياً: الممنوح حسب تاريخ التوصية، والمستخدم حسب تاريخ بداية الطلب المعتمد
+    months, cur = [], date(year.start_date.year, year.start_date.month, 1)
+    while cur <= year.end_date and len(months) < 24:
+        months.append(dict(key=(cur.year, cur.month), label=MONTHS_AR[cur.month - 1], year=cur.year, granted=0.0, used=0.0))
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    mi = {m["key"]: m for m in months}
+    for r in recs:
+        if (m := mi.get((r.rec_date.year, r.rec_date.month))):
+            m["granted"] += rec_eq(r)
+    for r in reqs:
+        if r.status == "approved" and (m := mi.get((r.start_date.year, r.start_date.month))):
+            m["used"] += req_eq(r)
+    peak = max([m["granted"] for m in months] + [m["used"] for m in months] + [0]) or 1
+    for m in months:
+        m["granted"], m["used"] = round(m["granted"], 1), round(m["used"], 1)
+        m["g_pct"], m["u_pct"] = round(m["granted"] / peak * 100), round(m["used"] / peak * 100)
+    # حسب القسم وحسب المسؤول + أعلى الأرصدة غير المستخدمة
+    def blank():
+        return dict(count=0, granted=0.0, used=0.0, pending=0.0, n_pending=0, approved=0, rejected=0, lead=[])
+    by_dept, by_off = defaultdict(blank), defaultdict(blank)
+    unused = []
+    emp_reqs = defaultdict(list)
+    for r in reqs:
+        emp_reqs[r.employee_id].append(r)
+    for e in emps:
+        if not e.is_active:
+            continue
+        b = compute_balance(db, e.id, year)
+        pend = sum(req_eq(r) for r in emp_reqs[e.id] if r.status == "pending")
+        avail = round(b.granted_equiv_days - b.used_equiv_days - pend, 2)
+        for key, bucket in ((e.department.name if e.department else "— بلا قسم —", by_dept),
+                            (e.manager.full_name if e.manager else "— غير مُسند —", by_off)):
+            d = bucket[key]
+            d["count"] += 1
+            d["granted"] += b.granted_equiv_days
+            d["used"] += b.used_equiv_days
+            d["pending"] += pend
+            for r in emp_reqs[e.id]:
+                d["n_pending"] += r.status == "pending"
+                d["approved"] += r.status == "approved"
+                d["rejected"] += r.status == "rejected"
+                if r.decided_at and r.status in ("approved", "rejected"):
+                    d["lead"].append((r.decided_at - r.created_at).total_seconds() / 86400)
+        if avail > 0:
+            unused.append((e, avail))
+    def finish(bucket):
+        out = []
+        for name, d in sorted(bucket.items(), key=lambda kv: (kv[0].startswith("—"), kv[0])):
+            d["left"] = round(d["granted"] - d["used"] - d["pending"], 1)
+            d["util"] = round(d["used"] / d["granted"] * 100) if d["granted"] else 0
+            d["avg_lead"] = round(sum(d["lead"]) / len(d["lead"]), 1) if d["lead"] else None
+            out.append((name, d))
+        return out
+    unused.sort(key=lambda x: -x[1])
     st_pie = [("approved", "معتمدة"), ("pending", "بانتظار الاعتماد"), ("cancelled", "ملغاة"), ("rejected", "مرفوضة")]
     tot = len(reqs)
     st_pie = [dict(key=k, label=l, value=by[k], pct=(round(by[k] / tot * 100) if tot else 0)) for k, l in st_pie]
-    return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), stats=stats,
-                  st_pie=st_pie, st_total=tot)
+    return dict(stats=stats, months=months, by_dept=finish(by_dept), by_officer=finish(by_off), unused=unused[:10],
+                unused_total=round(sum(a for _, a in unused), 1), st_pie=st_pie, st_total=tot)
+
+
+@router.get("/reports")
+def reports(request: Request, year_id: int | None = None, dept: int | None = None, officer: int | None = None,
+            user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    year = pick_year(db, year_id)
+    data = _report_data(db, user, year, dept, officer)
+    depts = list(db.scalars(select(Department).order_by(Department.name)))
+    return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), depts=depts, dept=dept,
+                  officer=officer, officer_list=officers(db) if user.role == "admin" else [], **data)
 
 
 def _xlsx_response(wb, filename: str) -> StreamingResponse:
@@ -915,6 +995,22 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
         _sheet(wb, "الطلبات", ["م", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات",
                "الحالة", "السبب", "ملاحظة القرار"], rows)
         name = f"طلبات بدل الراحة {year.name}.xlsx"
+    elif kind == "summary":
+        data = _report_data(db, user, year, None, None)
+        cols = ["عدد الموظفين", "الممنوح (يوم معادل)", "المستخدم", "المعلّق", "المتاح", "نسبة الاستخدام %",
+                "طلبات معتمدة", "طلبات مرفوضة", "طلبات معلّقة", "متوسط مدة القرار (يوم)"]
+        def rows_of(lst):
+            return [[n, d["count"], round(d["granted"], 1), round(d["used"], 1), round(d["pending"], 1), d["left"], d["util"],
+                     d["approved"], d["rejected"], d["n_pending"], d["avg_lead"] if d["avg_lead"] is not None else ""]
+                    for n, d in lst]
+        _sheet(wb, "حسب القسم", ["القسم", *cols], rows_of(data["by_dept"]))
+        if user.role == "admin":
+            _sheet(wb, "حسب المسؤول", ["مسؤول شؤون الموظفين", *cols], rows_of(data["by_officer"]))
+        _sheet(wb, "شهرياً", ["الشهر", "السنة", "الممنوح (يوم معادل)", "المستخدم (يوم معادل)"],
+               [[m["label"], m["year"], m["granted"], m["used"]] for m in data["months"]])
+        _sheet(wb, "أعلى الأرصدة المتاحة", ["الموظف", "الرقم الوظيفي", "القسم", "المتاح (يوم معادل)"],
+               [[e.full_name, e.employee_no, e.department.name if e.department else "", a] for e, a in data["unused"]])
+        name = f"ملخص التقارير {year.name}.xlsx"
     else:
         raise HTTPException(404, "نوع تصدير غير معروف.")
     audit(db, user, "data_exported", "export", None, kind=kind, year=year.name)

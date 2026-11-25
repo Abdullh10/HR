@@ -42,6 +42,9 @@ ACTIONS = {
     "archive_exported": "تصدير أرشيف السنة",
     "data_exported": "تصدير بيانات إلى Excel",
     "audit_exported": "تصدير سجل التدقيق",
+    "team_transferred": "نقل فريق بين المسؤولين",
+    "delegation_created": "إنشاء تفويض",
+    "delegation_cancelled": "إلغاء تفويض",
 }
 
 ENTITIES = {
@@ -49,6 +52,7 @@ ENTITIES = {
     "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة",
     "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول",
     "export": "تصدير",
+    "delegation": "تفويض", "team": "فريق",
 }
 
 FIELDS = {
@@ -60,6 +64,8 @@ FIELDS = {
     "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف",
     "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي",
     "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية",
+    "delegated": "بالتفويض", "from": "من", "start": "من تاريخ", "end": "إلى تاريخ", "moved": "عدد المنقولين",
+    "pending_requests": "طلبات معلّقة انتقلت", "notify_employees": "إشعار الموظفين",
 }
 
 VALUES = {True: "نعم", False: "لا", "approved": "معتمد", "pending": "بانتظار الاعتماد", "rejected": "مرفوض",

@@ -172,7 +172,14 @@
     const b = balance(e.id, y), fresh = b.alerts.filter(([, t]) => !before.has(t.split(":")[0].split("(")[0].trim().slice(0, 20))).map(([, t]) => t);
     if (fresh.length) notify(userOfEmp(e), "تنبيه رصيد بدل الراحة", fresh.join("\n"), "#/me", from);
   }
-  const isOfficerOf = (u, e) => !!(u.role === "officer" && u.emp && e.mgr === u.emp);
+  // التفويض المؤقت: مسؤول يتابع فريق زميله خلال فترة محددة (اعتماد الطلبات ورفع التوصيات)
+  const activeDelegs = () => { const d0 = todayISO(); return (DB.delegations || []).filter((d) => !d.cancelled && d.start <= d0 && d.end >= d0); };
+  const delegState = (d) => { const t = todayISO(); return d.cancelled ? "cancelled" : t < d.start ? "upcoming" : t <= d.end ? "active" : "ended"; };
+  const DELEG_ST = { active: "ساري", upcoming: "قادم", ended: "منتهٍ", cancelled: "ملغى" };
+  const delegatedFrom = (u) => (u.role === "officer" && u.emp ? activeDelegs().filter((d) => d.to === u.emp).map((d) => d.from) : []);
+  const delegatesOf = (empId) => activeDelegs().filter((d) => d.from === empId).map((d) => d.to);
+  const isOfficerOf = (u, e) => !!(u.role === "officer" && u.emp && e.mgr && (e.mgr === u.emp || delegatedFrom(u).includes(e.mgr)));
+  const isDelegated = (u, e) => !!(u.role === "officer" && e.mgr && e.mgr !== u.emp && isOfficerOf(u, e));
   function canView(u, e) { return u.role === "admin" || u.emp === e.id || isOfficerOf(u, e); }
   function canManage(u, e) { if (u.emp === e.id) return false; return u.role === "admin" || isOfficerOf(u, e); }
   function visibleEmps(u, inactive) {
@@ -182,7 +189,7 @@
   }
   const managedEmps = (u, inactive) => visibleEmps(u, inactive).filter((e) => e.id !== u.emp);
   const officers = () => DB.emps.filter((e) => DB.users.some((u) => u.emp === e.id && u.role === "officer" && u.active)).sort((a, b) => a.name.localeCompare(b.name, "ar"));
-  const officerUsersFor = (e) => (e.mgr ? DB.users.filter((u) => u.emp === e.mgr && u.active && STAFF.includes(u.role)) : []);
+  const officerUsersFor = (e) => (e.mgr ? DB.users.filter((u) => [e.mgr, ...delegatesOf(e.mgr)].includes(u.emp) && u.active && STAFF.includes(u.role)) : []);
   function recipients(u) {
     const act = DB.users.filter((x) => x.active && x.id !== u.id);
     if (u.role === "admin") return act;
@@ -243,9 +250,9 @@
     if (action === "approve") { const al = allocate(y.hpd, b.gDays, b.gHours, b.taken + (r.unit === "days" ? r.days : 0), b.rawAH + (r.unit === "hours" ? r.hours : 0)); if (b.gHours - al.uHours < -1e-9) throw new RuleError("اعتماد هذا الطلب يتجاوز الرصيد المتاح (الأيام والساعات المحوّلة)."); r.status = "approved"; }
     else { if (!note) throw new RuleError("اذكر سبب الرفض."); r.status = "rejected"; }
     r.decidedBy = u.id; r.decidedAt = nowStr(); r.note = note || "";
-    const behalf = onBehalf(u, e);
-    audit("leave_" + r.status, "leave_request", r.id, { note, on_behalf: behalf || undefined });
-    if (behalf) { const ou = userOfEmp(byId("emps", e.mgr)); if (ou && ou.id !== u.id) notify(ou, "قرار بالنيابة في طلب " + e.name, "بتّ مدير النظام في طلب " + e.name + " (" + leaveAmount(r) + " بتاريخ " + r.start + ") بالنيابة عنك: " + REQ_ST[r.status] + ".", "#/requests", u); }
+    const behalf = onBehalf(u, e), deleg = isDelegated(u, e);
+    audit("leave_" + r.status, "leave_request", r.id, { note, on_behalf: behalf || undefined, delegated: deleg || undefined });
+    if (behalf || deleg) { const ou = userOfEmp(byId("emps", e.mgr)); if (ou && ou.id !== u.id) notify(ou, "قرار " + (behalf ? "بالنيابة" : "بالتفويض") + " في طلب " + e.name, "بتّ " + (behalf ? "مدير النظام" : displayName(u) + " (بالتفويض)") + " في طلب " + e.name + " (" + leaveAmount(r) + " بتاريخ " + r.start + ") بالنيابة عنك: " + REQ_ST[r.status] + ".", "#/requests", u); }
     notify(userOfEmp(e), "تم " + (r.status === "approved" ? "اعتماد" : "رفض") + " طلب " + LEAVE_KINDS[r.kind], "طلبك (" + leaveAmount(r) + " بتاريخ " + r.start + "): " + REQ_ST[r.status] + "." + (note ? " الملاحظة: " + note : ""), "#/requests", u);
     if (r.status === "approved") notifyAlerts(e, y, before, u);
   }
@@ -285,7 +292,7 @@
   const need = (u, roles) => { if (!roles.includes(u.role)) throw new Forbidden("ليست لديك صلاحية للوصول إلى هذه الصفحة."); };
 
   // الأيقونات تُضمَّن في الصفحة (inline sprite): مراجع <use> لملف خارجي لا تحلّ التدرجات في Safari/iOS فتختفي الرموز.
-  const ASSET_V = "7";
+  const ASSET_V = "8";
   let SPRITE_INLINE = false, HERO_INLINE = false;
   const ico = (n, c = "") => `<svg class="i3d ${c}" aria-hidden="true" focusable="false"><use href="${SPRITE_INLINE ? "" : "assets/icons.svg?v=" + ASSET_V}#i-${n}"/></svg>`;
   async function inlineSprite(file) {
@@ -312,14 +319,14 @@
     const inRecords = ["recs", "requests", "messages"].includes(sg[0]), inAdmin = sg[0] === "admin";
     const inSettings = inAdmin && ["years", "depts", "holidays", "settings", "mail"].includes(sg[1] || "years");
     const group = (key, label, def, active, inner, badge) => `<li class="nav-group" data-group="${key}" data-default="${def}" ${active ? 'data-active="1"' : ""}><button type="button" class="nav-toggle" aria-expanded="true" aria-controls="g-${key}">${label}${badge ? ` <span class="badge count">${badge}</span>` : ""}<span class="chev" aria-hidden="true"></span></button><ul class="nav-sub" id="g-${key}">${inner}</ul></li>`;
-    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", "الموظفون والأرصدة", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}
+    const adminNav = `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}<li><a href="#/employees" title="الموظفون والأرصدة" ${["employees", "employee"].includes(sg[0]) || (inAdmin && sg[1] === "import") ? 'aria-current="page"' : ""}>${ico("users")}<span class="lbl">الموظفون والأرصدة</span></a></li>${item("#/approvals", "الاعتمادات", "stamp", pend)}
       ${group("records", "السجلات", "open", inRecords, item("#/recs", "سجل التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات معالجة الغياب", "inbox", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
-      ${group("admin", "الإدارة", "open", inAdmin, item("#/admin/import", "استيراد الموظفين", "upload") + item("#/admin/users", "المستخدمون والصلاحيات", "userkey") + item("#/admin/cards", "بطاقات الدخول", "badge")
+      ${group("admin", "الإدارة", "open", inAdmin, `<li><a href="#/admin/users" title="المستخدمون والصلاحيات" ${inAdmin && ["users", "cards", "teams"].includes(sg[1]) ? 'aria-current="page"' : ""}>${ico("userkey")}<span class="lbl">المستخدمون والصلاحيات</span></a></li>`
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "backup") + item("#/admin/audit", "سجل التدقيق", "audit"))}
       <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}
       <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "user")}`;
     const nav = u.role === "admin" ? adminNav : [
-      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}
+      STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}${item("#/approvals", "الاعتمادات", "stamp", pend)}${u.role === "officer" ? item("#/delegation", "التفويض", "swap", delegatedFrom(u).length ? "مفوَّض" : 0) : ""}
         <li class="sep">التوصيات</li>${item("#/recs/new?kind=days", "توصية بالأيام", "calendar-plus")}${item("#/recs/new?kind=hours", "توصية بالساعات", "clock-plus")}${item("#/recs", "سجل التوصيات", "cal-check")}${item("#/requests", "طلبات الموظفين", "inbox")}` : "",
       u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "calendar") : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">طلب معالجة غياب</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "user")}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}`,
@@ -339,7 +346,7 @@
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <a class="t-logo" href="#/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></a>
-      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", employee: "المتابعة", approvals: "المتابعة" }[sg[0]] || "";
+      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", delegation: "المتابعة", employee: "المتابعة", approvals: "المتابعة" }[sg[0]] || "";
         return `<nav class="title crumbs" aria-label="مسار التنقل">${sec ? `<span class="crumb">${sec}</span><span class="crumb-sep" aria-hidden="true">‹</span>` : ""}<span aria-current="page">${h(title)}</span></nav>`; })()}<span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}<span class="sr-only">الوضع</span></button>
@@ -680,7 +687,7 @@
     let rows = list.map((e) => [e, balance(e.id, y)]);
     if (st === "cap") rows = rows.filter(([, b]) => b.capLeftHours <= 0); if (st === "none") rows = rows.filter(([, b]) => !b.gDays && !b.gHours);
     const admin = u.role === "admin";
-    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `<div class="page-head"><div><h1>${ico("users", "h-ico")} ${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
+    return layout(u, admin ? "الموظفون والأرصدة" : "قائمة الموظفين", `${admin ? peopleTabs("list") : ""}<div class="page-head"><div><h1>${ico("users", "h-ico")} ${admin ? "الموظفون والأرصدة" : "الموظفون المسندون إليّ"}</h1><p>السنة ${h(y.name)} · ${rows.length} موظف · الحد الأقصى ${daysAr(y.cap)}</p></div>
       <div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}تصدير Excel</button>${admin ? '<a class="btn primary" href="#/employee/new">+ إضافة موظف</a>' : ""}</div></div>
       <form class="card filters" data-form="filter" data-route="employees" role="search">
         <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="${h(qs)}"></div>
@@ -689,7 +696,7 @@
         <div class="field"><label for="st">تصفية</label><select id="st" name="state"><option value="">النشطون</option><option value="cap" ${st === "cap" ? "selected" : ""}>بلغوا الحد الأقصى</option><option value="none" ${st === "none" ? "selected" : ""}>بلا توصيات</option><option value="inactive" ${st === "inactive" ? "selected" : ""}>غير النشطين</option></select></div>
         ${yearSelect(y)}<button class="btn primary">عرض</button></form>
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>${admin ? "<th>مسؤول شؤون الموظفين</th>" : ""}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">الإجمالي</th><th>من الحد الأقصى</th><th></th></tr></thead><tbody>
-      ${rows.map(([e, b], i) => `<tr><td data-label="م">${i + 1}</td><td data-label="الاسم"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a>${deptName(e) ? `<small class="muted d-block">${h(deptName(e))}</small>` : ""}</td><td data-label="الرقم" class="num">${h(e.no)}</td>
+      ${rows.map(([e, b], i) => `<tr><td data-label="م">${i + 1}</td><td data-label="الاسم"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a>${isDelegated(u, e) ? ` <span class="badge muted" title="فريق ${h(mgrName(e))}">بالتفويض</span>` : ""}${deptName(e) ? `<small class="muted d-block">${h(deptName(e))}</small>` : ""}</td><td data-label="الرقم" class="num">${h(e.no)}</td>
         ${admin ? `<td data-label="مسؤول شؤون الموظفين">${h(mgrName(e) || "—")}</td>` : ""}<td class="n" data-label="رصيد الأيام">${n(b.daysLeft)}</td><td class="n" data-label="رصيد الساعات">${n(b.hoursLeft)}</td>
         <td class="n" data-label="الإجمالي"><b>${b.totalDays}</b>${b.totalRem ? `<small> +${n(b.totalRem)}س</small>` : ""}</td>
         <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width:${b.capPct}%"></span></div><span class="num">${n(b.grantedEq)}/${n(b.cap)}</span></div></td>
@@ -782,7 +789,7 @@
       ${anyBehalf ? '<div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>' : ""}
       ${rows.length ? `<div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th><input type="checkbox" data-check-all="req" aria-label="تحديد الكل"></th><th>الموظف</th><th>المدة</th><th>التاريخ</th><th>منذ</th><th>السبب</th><th>المتاح بعد الطلب</th><th></th></tr></thead><tbody>
       ${rows.map((r) => { const e = byId("emps", r.emp), b = balance(e.id, byId("years", r.year)), ob = onBehalf(u, e); return `<tr><td data-label="تحديد"><input type="checkbox" name="req" value="${r.id}" aria-label="تحديد طلب ${h(e.name)}"></td>
-        <td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a>${u.role === "admin" ? `<br><small class="muted">${h(mgrName(e) || "غير مُسند")}</small>${ob ? ' <span class="badge muted">بالنيابة</span>' : ""}` : ""}</td>
+        <td data-label="الموظف"><a href="#/employee/${e.id}">${h(e.name)}</a>${u.role === "admin" ? `<br><small class="muted">${h(mgrName(e) || "غير مُسند")}</small>${ob ? ' <span class="badge muted">بالنيابة</span>' : ""}` : ""}${isDelegated(u, e) ? `<br><small class="muted">فريق ${h(mgrName(e))}</small> <span class="badge muted">بالتفويض</span>` : ""}</td>
         <td data-label="المدة"><b>${leaveAmount(r)}</b>${r.kind !== "use" ? " " + kindBadge(r.kind) : ""}</td><td data-label="التاريخ" class="num">${dateRange(r)}</td><td data-label="منذ" class="age-col">${ageBadge(r._age)}</td>
         <td data-label="السبب">${h(r.reason) || "—"} ${pdfChip(r.att)}</td><td data-label="المتاح بعد الطلب">${daysAr(b.bookable)}</td>
         <td class="actions-cell"><button class="btn sm ok" type="button" data-act="decide" data-a="approve" data-id="${r.id}">اعتماد</button><button class="btn sm danger" type="button" data-act="decide" data-a="reject" data-id="${r.id}">رفض</button></td></tr>`; }).join("")}
@@ -841,26 +848,11 @@
       ${msgs.length ? `<section class="card flush"><h2>مراسلاتي (${msgs.length})</h2><ul class="msg-list">${msgs.map((m) => `<li><a href="#/messages/${m.id}"><span class="who">${m.from === u.id ? "إلى: " + h(displayName(byId("users", m.to))) : h(displayName(m.from ? byId("users", m.from) : null))}</span><b class="subj">${h(m.subject)}</b><span class="snip">${h(m.body.slice(0, 110))}</span><time class="num">${m.at}</time></a></li>`).join("")}</ul></section>` : ""}`);
   };
 
-  V.reports = (u, q) => {
-    need(u, STAFF);
-    const y = pickYear(q), ids = new Set(managedEmps(u, true).map((e) => e.id));
-    const recs = DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)), reqs = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp));
-    const c = (f) => reqs.filter(f).length;
-    return layout(u, "التقارير", `<div class="page-head"><div><h1>${ico("reports", "h-ico")} التقارير</h1><p>السنة ${h(y.name)}</p></div>${yearSelect(y)}</div>
-      <div class="grid kpis">
-        <div class="kpi brand">${ico("cal-check")}<div class="l">التوصيات السارية</div><div class="v">${recs.length}</div><div class="s">${n(recs.filter((r) => r.kind === "days").reduce((s, r) => s + r.amount, 0))} يوم · ${n(recs.filter((r) => r.kind === "hours").reduce((s, r) => s + r.amount, 0))} ساعة</div></div>
-        <div class="kpi accent">${ico("calendar")}<div class="l">الطلبات</div><div class="v">${reqs.length}</div><div class="s">معتمدة ومعلّقة ومرفوضة</div></div>
-        <div class="kpi ok">${ico("approvals")}<div class="l">معتمدة</div><div class="v">${c((r) => r.status === "approved")}</div><div class="s">مرفوضة ${c((r) => r.status === "rejected")} · ملغاة ${c((r) => r.status === "cancelled")}</div></div>
-        <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار الاعتماد</div><div class="v">${c((r) => r.status === "pending")}</div></div>
-        <div class="kpi">${ico("audit")}<div class="l">توصيات بلا PDF</div><div class="v">${recs.filter((r) => !r.att).length}</div></div></div>
-      ${(() => { const tot = reqs.length, parts = [["approved", "معتمدة"], ["pending", "بانتظار الاعتماد"], ["cancelled", "ملغاة"], ["rejected", "مرفوضة"]].map(([key, label]) => { const v = c((r) => r.status === key); return { key, label, value: v, pct: tot ? Math.round((v / tot) * 100) : 0 }; });
-        return `<section class="card"><h2>الطلبات حسب الحالة</h2><p class="hint chart-sub">عدد طلبات معالجة الغياب في السنة ${h(y.name)} موزّعة على حالاتها</p>${tot ? donut(parts, tot, "طلب", "الطلبات حسب الحالة", "إجمالي الطلبات") : '<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>'}</section>`; })()}
-      <section class="card"><h2>التصدير إلى Excel</h2><div class="actions"><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}أرصدة الموظفين</button><button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">${ico("download", "sm-ico")}سجل التوصيات</button><button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">${ico("download", "sm-ico")}سجل الطلبات</button></div></section>`);
-  };
-
-
   V.admin = (u, q, seg) => { need(u, ["admin"]); const f = A[seg[1] || "years"]; if (!f) throw new Forbidden("صفحة غير موجودة."); return f(u, q); };
   const A = {};
+  const pageTabs = (label, items, active) => `<nav class="tabs" aria-label="${label}">${items.map(([href, k, l]) => `<a href="${href}" ${k === active ? 'aria-current="page" class="on"' : ""}>${l}</a>`).join("")}</nav>`;
+  const peopleTabs = (active) => pageTabs("أقسام الموظفين", [["#/employees", "list", "قائمة الموظفين"], ["#/admin/import", "import", "استيراد من Excel"]], active);
+  const accountTabs = (active) => pageTabs("أقسام الحسابات", [["#/admin/users", "users", "الحسابات والصلاحيات"], ["#/admin/cards", "cards", "بطاقات الدخول"], ["#/admin/teams", "teams", "الفرق والتفويض"]], active);
   const settingsTabs = (active) => `<nav class="tabs" aria-label="أقسام الإعدادات">${[["years", "السنة وقواعد الرصيد"], ["depts", "الأقسام"], ["holidays", "العطل الرسمية"], ["settings", "هوية الجهة"], ["mail", "البريد الإلكتروني"]].map(([k, l]) => `<a href="#/admin/${k}" ${k === active ? 'aria-current="page" class="on"' : ""}>${l}</a>`).join("")}</nav>`;
   A.years = (u) => {
     const form = (y) => { const p = "y" + (y ? y.id : "new"), dis = y && y.locked ? "disabled" : "";
@@ -904,7 +896,7 @@
           ${c("error") ? `<div class="alert warn">ستُتجاوز الصفوف التي فيها أخطاء (${c("error")}).</div>` : ""}
           <div class="actions"><button class="btn primary">استيراد ${c("new") + c("update")} موظف</button><button class="btn" type="button" data-act="import-back">رجوع</button></div></form>` : '<div class="actions"><button class="btn" type="button" data-act="import-back">رجوع وتصحيح البيانات</button></div>'}`);
     }
-    return layout(u, "استيراد الموظفين", `<div class="page-head"><div><h1>${ico("upload", "h-ico")} استيراد الموظفين وإنشاء حساباتهم</h1><p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع الدور المحدد.</p></div>
+    return layout(u, "الموظفون والأرصدة", `${peopleTabs("import")}<div class="page-head"><div><h1>${ico("upload", "h-ico")} استيراد الموظفين وإنشاء حساباتهم</h1><p>ارفع ملف Excel أو الصق الأسماء والأرقام. يُنشأ لكل موظف حساب اسم المستخدم فيه رقمه الوظيفي، مع الدور المحدد.</p></div>
       <button class="btn" type="button" data-act="template">${ico("download", "sm-ico")}تنزيل نموذج Excel</button></div>
       <form data-form="import"><div class="grid two">
         <section class="card"><h2>1) رفع ملف Excel أو CSV</h2>
@@ -961,7 +953,7 @@
       <div class="check-list">${emps.filter((e) => e.id !== offEmp).map((e) => `<label class="check" data-text="${h(e.name + " " + e.no + " " + deptName(e))}"><input type="checkbox" name="assign" value="${e.id}" ${offEmp && e.mgr === offEmp ? "checked" : ""}>
         <span>${h(e.name)} <small class="muted">(${h(e.no)})${deptName(e) ? " · " + h(deptName(e)) : ""}${e.mgr && e.mgr !== offEmp ? " · حالياً لدى: " + h(mgrName(e)) : ""}</small></span></label>`).join("") || '<p class="hint">لا يوجد موظفون. أضفهم من «استيراد الموظفين».</p>'}</div>
       <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول.</span></div>`;
-    return layout(u, "المستخدمون والصلاحيات", `<div class="page-head"><div><h1>${ico("userkey", "h-ico")} المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
+    return layout(u, "المستخدمون والصلاحيات", `${accountTabs("users")}<div class="page-head"><div><h1>${ico("userkey", "h-ico")} المستخدمون والصلاحيات</h1><p>${DB.users.length} حساب</p></div>
       <button class="btn" type="button" data-act="bulk-users">إنشاء حسابات الموظفين دفعة واحدة</button></div>
       ${(() => { const na = emps.filter((e) => !linked.has(e.id) && !isTmp(e)); return na.length ? `<div class="alert warn" role="status">${na.length} موظف نشط بلا حساب دخول (${na.slice(0, 5).map((e) => h(e.name)).join("، ")}${na.length > 5 ? "…" : ""})، فلا يستطيعون الدخول إلى النظام. اضغط «إنشاء حسابات الموظفين دفعة واحدة» أعلاه لإنشاء حساباتهم وطباعة بطاقاتهم.</div>` : ""; })()}
       <div class="grid two"><section class="card"><h2>الأدوار</h2><ul>
@@ -1046,7 +1038,7 @@
     const batch = q.get("batch") || "", st = q.get("state") || "", qs = norm(q.get("q") || "").toLowerCase(), all = DB.cards || [];
     const rows = all.filter((c) => (!batch || c.batch === batch) && (!st || (st === "pending" ? !!c.pw : !c.pw)) && (!qs || norm(c.name + " " + c.username + " " + c.no).toLowerCase().includes(qs))).sort((a, b) => b.at.localeCompare(a.at) || a.id - b.id);
     const batches = [...new Set(all.slice().sort((a, b) => b.at.localeCompare(a.at)).map((c) => c.batch))];
-    return layout(u, "بطاقات الدخول", `<div class="page-head"><div><h1>${ico("badge", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة دائمة لكل حساب جديد أو كلمة مرور أُعيد تعيينها، ويمكن طباعتها والرجوع إليها في أي وقت. يستطيع الموظف تغيير كلمة المرور متى شاء من «الملف الشخصي»، وعندها تُعلَّم بطاقته بأنها غُيّرت (لا تُعرض كلمات المرور التي يختارها المستخدمون لأنها تُحفظ مشفّرة).</p></div>
+    return layout(u, "المستخدمون والصلاحيات", `${accountTabs("cards")}<div class="page-head"><div><h1>${ico("badge", "h-ico")} بطاقات الدخول</h1><p>تُحفظ هنا بطاقة دائمة لكل حساب جديد أو كلمة مرور أُعيد تعيينها، ويمكن طباعتها والرجوع إليها في أي وقت. يستطيع الموظف تغيير كلمة المرور متى شاء من «الملف الشخصي»، وعندها تُعلَّم بطاقته بأنها غُيّرت (لا تُعرض كلمات المرور التي يختارها المستخدمون لأنها تُحفظ مشفّرة).</p></div>
       <div class="actions"><a class="btn primary" href="#/print/cards?${batch ? "batch=" + encodeURIComponent(batch) + "&" : ""}state=pending">طباعة البطاقات ${batch ? "لهذه الدفعة" : "السارية"}</a><button class="btn" type="button" data-act="cards-dl">${ico("download", "sm-ico")}تنزيل Excel</button></div></div>
       <form class="card filters" data-form="filter" data-route="admin/cards"><div class="field grow"><label for="cq">بحث</label><input id="cq" type="search" name="q" value="${h(q.get("q") || "")}" placeholder="الاسم، اسم المستخدم، الرقم الوظيفي"></div>
         <div class="field"><label for="cb">الدفعة</label><select id="cb" name="batch"><option value="">كل الدفعات</option>${batches.map((b) => `<option value="${h(b)}" ${b === batch ? "selected" : ""}>${h(b)} (${all.filter((c) => c.batch === b).length})</option>`).join("")}</select></div>
@@ -1059,9 +1051,9 @@
       </tbody></table></div></div>`);
   };
 
-  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق"};
-  const AUDIT_ENTITIES = {"user": "حساب", "employee": "موظف", "recommendation": "توصية", "leave_request": "طلب", "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة", "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول", "export": "تصدير"};
-  const AUDIT_FIELDS = {"employee": "الموظف", "employee_id": "رقم سجل الموظف", "kind": "النوع", "unit": "الوحدة", "days": "أيام", "hours": "ساعات", "amount": "المقدار", "note": "الملاحظة", "reason": "السبب", "username": "اسم المستخدم", "role": "الدور", "count": "العدد", "file": "الملف", "batch": "الدفعة", "prev": "الحالة السابقة", "previous": "الحالة السابقة", "on_behalf": "بالنيابة", "to": "إلى", "ok": "النتيجة", "error": "الخطأ", "fields": "الحقول", "active": "نشط", "assigned": "عدد المسندين", "unassigned": "أُلغي إسنادهم", "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف", "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي", "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية"};
+  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق", "team_transferred": "نقل فريق بين المسؤولين", "delegation_created": "إنشاء تفويض", "delegation_cancelled": "إلغاء تفويض"};
+  const AUDIT_ENTITIES = {"user": "حساب", "employee": "موظف", "recommendation": "توصية", "leave_request": "طلب", "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة", "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول", "export": "تصدير", "delegation": "تفويض", "team": "فريق"};
+  const AUDIT_FIELDS = {"employee": "الموظف", "employee_id": "رقم سجل الموظف", "kind": "النوع", "unit": "الوحدة", "days": "أيام", "hours": "ساعات", "amount": "المقدار", "note": "الملاحظة", "reason": "السبب", "username": "اسم المستخدم", "role": "الدور", "count": "العدد", "file": "الملف", "batch": "الدفعة", "prev": "الحالة السابقة", "previous": "الحالة السابقة", "on_behalf": "بالنيابة", "to": "إلى", "ok": "النتيجة", "error": "الخطأ", "fields": "الحقول", "active": "نشط", "assigned": "عدد المسندين", "unassigned": "أُلغي إسنادهم", "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف", "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي", "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية", "delegated": "بالتفويض", "from": "من", "start": "من تاريخ", "end": "إلى تاريخ", "moved": "عدد المنقولين", "pending_requests": "طلبات معلّقة انتقلت", "notify_employees": "إشعار الموظفين"};
   const auditVal = (v) => Array.isArray(v) ? v.map(auditVal).join("، ") : v === true ? "نعم" : v === false ? "لا" : v && typeof v === "object" ? Object.entries(v).map(([k, x]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(x)).join("، ") : String(v);
   const auditDetails = (d) => { if (!d) return ""; if (typeof d === "string") { try { d = JSON.parse(d); } catch (e) { return d; } } return typeof d === "object" ? Object.entries(d).filter(([, v]) => v != null && v !== "").map(([k, v]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(v)).join(" · ") : String(d); };
   function auditRows(q) {
@@ -1172,6 +1164,14 @@
     else if (kind === "recs") { head = ["الرقم الصادر", "اسم الموظف", "الرقم الوظيفي", "تاريخ التوصية", "النوع", "القيمة", "رقم خطاب التوصية", "الموضوع", "الحالة", "ملف PDF"];
       rows = DB.recs.filter((r) => r.year === y.id && ids.has(r.emp)).sort((a, b) => a.date.localeCompare(b.date)).map((r, i) => { const e = byId("emps", r.emp); return [r.ref || i + 1, e.name, e.no, r.date, REC_KINDS[r.kind], r.amount, r.refNo || "", r.subject, r.status === "active" ? "سارية" : "ملغاة", r.att ? "نعم" : ""]; });
       name = "توصيات بدل الراحة " + y.name; }
+    else if (kind === "summary") {
+      const D = reportData(u, y, 0, 0), cols = ["عدد الموظفين", "الممنوح (يوم معادل)", "المستخدم", "المعلّق", "المتاح", "نسبة الاستخدام %", "طلبات معتمدة", "طلبات مرفوضة", "طلبات معلّقة", "متوسط مدة القرار (يوم)"];
+      const rowsOf = (lst) => lst.map(([k, d]) => [k, d.count, round2(d.granted), round2(d.used), round2(d.pending), d.left, d.util, d.approved, d.rejected, d.nPending, d.avgLead == null ? "" : d.avgLead]);
+      const sheets = [["حسب القسم", [["القسم", ...cols], ...rowsOf(D.byDept)]]];
+      if (u.role === "admin") sheets.push(["حسب المسؤول", [["مسؤول شؤون الموظفين", ...cols], ...rowsOf(D.byOff)]]);
+      sheets.push(["شهرياً", [["الشهر", "السنة", "الممنوح (يوم معادل)", "المستخدم (يوم معادل)"], ...D.months.map((m) => [m.label, m.year, m.g, m.u])]]);
+      sheets.push(["أعلى الأرصدة المتاحة", [["الموظف", "الرقم الوظيفي", "القسم", "المتاح (يوم معادل)"], ...D.unused.map(([e, a]) => [e.name, e.no, deptName(e), a])]]);
+      downloadBook(sheets, "ملخص التقارير " + y.name); return; }
     else { head = ["م", "اسم الموظف", "الرقم الوظيفي", "نوع الطلب", "من", "إلى", "أيام", "ساعات", "الحالة", "السبب", "ملاحظة القرار"];
       rows = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp)).sort((a, b) => a.start.localeCompare(b.start)).map((r, i) => { const e = byId("emps", r.emp); return [i + 1, e.name, e.no, LEAVE_KINDS[r.kind], r.start, r.end, r.unit === "days" ? r.days : "", r.unit === "hours" ? r.hours : "", REQ_ST[r.status], r.reason, r.note]; });
       name = "طلبات بدل الراحة " + y.name; }
@@ -1234,7 +1234,7 @@
     const email = cleanEmail(d.get("email")), phone = cleanPhone(d.get("phone")), ext = cleanExt(d.get("ext"));
     let e = id ? byId("emps", id) : null;
     const wasActive = e ? e.active : true, oldMgr = e ? e.mgr : null;
-    if (e && e.active && !d.get("active")) { const team = DB.emps.filter((x) => x.active && x.mgr === e.id).length; if (team) throw new RuleError("لا يمكن إيقاف «" + e.name + "»: يوجد " + team + " موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ انقل الفريق لمسؤول آخر أولاً من «المستخدمون والصلاحيات» أو من بطاقات الموظفين."); }
+    if (e && e.active && !d.get("active")) { const team = DB.emps.filter((x) => x.active && x.mgr === e.id).length; if (team) throw new RuleError("لا يمكن إيقاف «" + e.name + "»: يوجد " + team + " موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ انقل الفريق كاملاً لمسؤول آخر أولاً من «المستخدمون والصلاحيات ‹ الفرق والتفويض»."); }
     if (!e) { e = { id: nid(), active: true }; DB.emps.push(e); } else e.active = !!d.get("active");
     Object.assign(e, { no, name, dept: Number(d.get("dept") || 0) || null, mgr, title: String(d.get("title") || ""), email, phone, ext });
     if (mgr && mgr !== oldMgr) notifyReassign(e, mgr, u);
@@ -1467,8 +1467,8 @@
 
   <h3>رابعاً: الأدوار والصلاحيات</h3>
   <ul>
-    <li><b>مدير النظام:</b> إدارة المنصة والمستخدمين والصلاحيات، وإسناد الموظفين لمسؤولي شؤون الموظفين، وضبط السنة وقواعد الرصيد، والتقارير والنسخ الاحتياطي.</li>
-    <li><b>مسؤول شؤون الموظفين:</b> رفع توصيات الموظفين المسندين إليه، واعتماد طلباتهم أو رفضها أو إلغاء اعتمادها، ومراسلتهم.</li>
+    <li><b>مدير النظام:</b> إدارة المنصة والمستخدمين والصلاحيات، وإسناد الموظفين لمسؤولي شؤون الموظفين ونقل الفرق بينهم وتفويضهم مؤقتاً، وضبط السنة وقواعد الرصيد، والتقارير والنسخ الاحتياطي.</li>
+    <li><b>مسؤول شؤون الموظفين:</b> رفع توصيات الموظفين المسندين إليه، واعتماد طلباتهم أو رفضها أو إلغاء اعتمادها، ومراسلتهم، وتفويض زميل بمتابعة فريقه مؤقتاً خلال غيابه.</li>
     <li><b>الموظف:</b> متابعة رصيده، وتقديم طلبات معالجة الغياب، ومراسلة مسؤول شؤون الموظفين، وتحديث بيانات التواصل.</li>
   </ul>
 
@@ -1623,6 +1623,165 @@
   ACT["del-holiday"] = async (b) => { if (!await confirmDlg("حذف هذا اليوم؟")) return; const hd = DB.holidays.find((x) => x.id === Number(b.dataset.id)); DB.holidays = DB.holidays.filter((x) => x.id !== Number(b.dataset.id)); audit("holiday_deleted", "holiday", hd && hd.id, { name: hd && hd.name }); save(); if (hd) warnHolidayOverlap(hd.day, hd.day, false); render(); };
 
   // ============================================================ الأحداث
+  const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  // بيانات التقارير مع التصفية (القسم، ومسؤول شؤون الموظفين لمدير النظام) — للصفحة وللتصدير
+  function reportData(u, y, dept, off) {
+    const hpd = y.hpd || 7;
+    let emps = managedEmps(u, true);
+    if (dept) emps = emps.filter((e) => e.dept === dept);
+    if (off && u.role === "admin") emps = emps.filter((e) => (e.mgr || -1) === off);
+    const ids = new Set(emps.map((e) => e.id));
+    const recs = DB.recs.filter((r) => r.year === y.id && r.status === "active" && ids.has(r.emp)), reqs = DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp));
+    const recEq = (r) => (r.kind === "days" ? r.amount : r.amount / hpd), reqEq = (r) => (r.unit === "days" ? r.days : r.hours / hpd);
+    const c = (st) => reqs.filter((r) => r.status === st).length;
+    const leadOf = (r) => (r.decidedAt && ["approved", "rejected"].includes(r.status) ? (new Date(r.decidedAt.replace(" ", "T")) - new Date(String(r.created).replace(" ", "T"))) / 864e5 : null);
+    const leads = reqs.map(leadOf).filter((x) => x != null), avg = (a) => (a.length ? Math.round((a.reduce((s, x) => s + x, 0) / a.length) * 10) / 10 : null);
+    const stats = { employees: emps.filter((e) => e.active).length, recs: recs.length, recDays: recs.filter((r) => r.kind === "days").reduce((s, r) => s + r.amount, 0), recHours: recs.filter((r) => r.kind === "hours").reduce((s, r) => s + r.amount, 0),
+      requests: reqs.length, approved: c("approved"), pending: c("pending"), rejected: c("rejected"), cancelled: c("cancelled"), avgLead: avg(leads) || 0, noAtt: recs.filter((r) => !r.att).length,
+      grantedEq: round2(recs.reduce((s, r) => s + recEq(r), 0)), usedEq: round2(reqs.filter((r) => r.status === "approved").reduce((s, r) => s + reqEq(r), 0)) };
+    stats.util = stats.grantedEq ? Math.round((stats.usedEq / stats.grantedEq) * 100) : 0;
+    const months = []; let cur = new Date(parseISO(y.start).getFullYear(), parseISO(y.start).getMonth(), 1); const endD = parseISO(y.end);
+    while (cur <= endD && months.length < 24) { months.push({ k: cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, "0"), label: MONTHS_AR[cur.getMonth()], year: cur.getFullYear(), g: 0, u: 0 }); cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); }
+    const mi = Object.fromEntries(months.map((m) => [m.k, m]));
+    recs.forEach((r) => { const m = mi[String(r.date).slice(0, 7)]; if (m) m.g += recEq(r); });
+    reqs.filter((r) => r.status === "approved").forEach((r) => { const m = mi[String(r.start).slice(0, 7)]; if (m) m.u += reqEq(r); });
+    const peak = Math.max(1, ...months.map((m) => Math.max(m.g, m.u)));
+    months.forEach((m) => { m.g = round2(m.g); m.u = round2(m.u); m.gp = Math.round((m.g / peak) * 100); m.up = Math.round((m.u / peak) * 100); });
+    const byDept = {}, byOff = {}, unused = [];
+    const blank = () => ({ count: 0, granted: 0, used: 0, pending: 0, nPending: 0, approved: 0, rejected: 0, leads: [] });
+    emps.filter((e) => e.active).forEach((e) => {
+      const b = balance(e.id, y), er = reqs.filter((r) => r.emp === e.id), pend = er.filter((r) => r.status === "pending").reduce((s, r) => s + reqEq(r), 0), avail = round2(b.grantedEq - b.usedEq - pend);
+      [[deptName(e) || "— بلا قسم —", byDept], [mgrName(e) || "— غير مُسند —", byOff]].forEach(([k, bucket]) => { const d = (bucket[k] = bucket[k] || blank()); d.count++; d.granted += b.grantedEq; d.used += b.usedEq; d.pending += pend;
+        er.forEach((r) => { if (r.status === "pending") d.nPending++; if (r.status === "approved") d.approved++; if (r.status === "rejected") d.rejected++; const l = leadOf(r); if (l != null) d.leads.push(l); }); });
+      if (avail > 0) unused.push([e, avail]);
+    });
+    const finish = (bucket) => Object.entries(bucket).sort(([a], [b]) => (a.startsWith("—") - b.startsWith("—")) || a.localeCompare(b, "ar")).map(([k, d]) => { d.left = round2(d.granted - d.used - d.pending); d.util = d.granted ? Math.round((d.used / d.granted) * 100) : 0; d.avgLead = avg(d.leads); return [k, d]; });
+    unused.sort((a, b) => b[1] - a[1]);
+    const tot = reqs.length, pie = [["approved", "معتمدة"], ["pending", "بانتظار الاعتماد"], ["cancelled", "ملغاة"], ["rejected", "مرفوضة"]].map(([key, label]) => { const v = c(key); return { key, label, value: v, pct: tot ? Math.round((v / tot) * 100) : 0 }; });
+    return { stats, months, byDept: finish(byDept), byOff: finish(byOff), unused: unused.slice(0, 10), unusedTotal: round2(unused.reduce((s, [, a]) => s + a, 0)), pie, tot };
+  }
+  const monthBars = (months) => `<div class="mbars" role="img" aria-label="الممنوح والمستخدم شهرياً بالأيام المعادلة">${months.map((m) => `<div class="mcol" title="${m.label} ${m.year}: ممنوح ${n(m.g)} · مستخدم ${n(m.u)}"><div class="mpair"><span class="mb g" style="height:${m.gp}%">${m.g ? `<em>${n(m.g)}</em>` : ""}</span><span class="mb u" style="height:${m.up}%">${m.u ? `<em>${n(m.u)}</em>` : ""}</span></div><small>${m.label}</small></div>`).join("")}</div>
+    <div class="legend mlegend"><span><i class="sw g"></i>الممنوح</span><span><i class="sw u"></i>المستخدم</span></div>
+    <table class="sr-only"><caption>الممنوح والمستخدم شهرياً</caption><thead><tr><th>الشهر</th><th>الممنوح</th><th>المستخدم</th></tr></thead><tbody>${months.map((m) => `<tr><td>${m.label} ${m.year}</td><td>${n(m.g)}</td><td>${n(m.u)}</td></tr>`).join("")}</tbody></table>`;
+  const aggTable = (rows, first, lead) => `<div class="table-wrap"><table class="responsive"><thead><tr><th>${first}</th><th class="n">الموظفون</th><th class="n">الممنوح</th><th class="n">المستخدم</th><th class="n">المتاح</th><th>نسبة الاستخدام</th><th class="n">معلّقة</th>${lead ? '<th class="n">متوسط مدة القرار</th>' : ""}</tr></thead><tbody>
+    ${rows.map(([k, d]) => `<tr><td data-label="${first}">${h(k)}</td><td class="n" data-label="الموظفون">${d.count}</td><td class="n" data-label="الممنوح">${n(round2(d.granted))}</td><td class="n" data-label="المستخدم">${n(round2(d.used))}</td><td class="n" data-label="المتاح">${n(d.left)}</td>
+      <td data-label="نسبة الاستخدام"><span class="ubar" aria-hidden="true"><i style="width:${Math.min(100, d.util)}%"></i></span> ${d.util}%</td><td class="n" data-label="معلّقة">${d.nPending || "—"}</td>
+      ${lead ? `<td class="n" data-label="متوسط مدة القرار">${d.avgLead != null ? n(d.avgLead) + " يوم" + (d.avgLead >= 3 ? ' <span class="badge warn">بطيء</span>' : "") : "—"}</td>` : ""}</tr>`).join("") || `<tr><td colspan="${lead ? 8 : 7}" class="empty">لا توجد بيانات.</td></tr>`}</tbody></table></div>`;
+  V.reports = (u, q) => {
+    need(u, STAFF);
+    const y = pickYear(q), dept = Number(q.get("dept")) || 0, off = Number(q.get("officer")) || 0, admin = u.role === "admin";
+    const D = reportData(u, y, dept, off), s = D.stats;
+    return layout(u, "التقارير", `<div class="page-head"><div><h1>${ico("reports", "h-ico")} التقارير</h1><p>السنة ${h(y.name)} · ${s.employees} موظف نشط · الأرقام بالأيام المعادلة (كل ${n(y.hpd)} ساعات = يوم)</p></div>
+        <button class="btn" type="button" data-act="export" data-kind="summary" data-year="${y.id}">${ico("download", "sm-ico")}تنزيل الملخص (Excel)</button></div>
+      <form class="card filters" data-form="filter" data-route="reports">${yearSelect(y)}
+        <div class="field"><label for="dp">القسم</label><select id="dp" name="dept"><option value="">كل الأقسام</option>${DB.depts.map((d) => `<option value="${d.id}" ${dept === d.id ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select></div>
+        ${admin ? `<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" ${off === -1 ? "selected" : ""}>— غير مُسند —</option>${officers().map((o) => `<option value="${o.id}" ${off === o.id ? "selected" : ""}>${h(o.name)}</option>`).join("")}</select></div>` : ""}
+        <button class="btn primary">عرض</button>${dept || off ? `<a class="clear-link" href="#/reports?year=${y.id}">مسح الفلاتر</a>` : ""}</form>
+      <div class="grid kpis">
+        <div class="kpi brand">${ico("cal-check")}<div class="l">الممنوح بالتوصيات</div><div class="v">${n(s.grantedEq)}</div><div class="s">${s.recs} توصية · أيام ${n(s.recDays)} · ساعات ${n(s.recHours)}</div></div>
+        <div class="kpi accent">${ico("calendar")}<div class="l">المستخدم بطلبات معتمدة</div><div class="v">${n(s.usedEq)}</div><div class="s">نسبة الاستخدام ${s.util}%</div></div>
+        <div class="kpi ok">${ico("approvals")}<div class="l">طلبات معتمدة</div><div class="v">${s.approved}</div><div class="s">من ${s.requests} · مرفوضة ${s.rejected} · ملغاة ${s.cancelled}</div></div>
+        <div class="kpi warn">${ico("hourglass")}<div class="l">بانتظار الاعتماد</div><div class="v">${s.pending}</div><div class="s">متوسط مدة القرار ${n(s.avgLead)} يوم</div></div>
+        <div class="kpi">${ico("audit")}<div class="l">توصيات بلا PDF</div><div class="v">${s.noAtt}</div></div></div>
+      <section class="card"><h2>الممنوح والمستخدم شهرياً</h2><p class="hint chart-sub">الممنوح حسب تاريخ التوصية، والمستخدم حسب تاريخ بداية الطلب المعتمد — السنة ${h(y.name)}</p>${s.grantedEq || s.usedEq ? monthBars(D.months) : '<p class="empty">لا توجد توصيات أو طلبات معتمدة في هذه السنة بعد.</p>'}</section>
+      <div class="grid two">
+        <section class="card"><h2>الطلبات حسب الحالة</h2><p class="hint chart-sub">عدد طلبات معالجة الغياب موزّعة على حالاتها</p>${D.tot ? donut(D.pie, D.tot, "طلب", "الطلبات حسب الحالة", "إجمالي الطلبات") : '<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>'}</section>
+        <section class="card flush"><h2>أعلى الأرصدة المتاحة${D.unusedTotal ? ` <span class="badge muted">الإجمالي ${n(D.unusedTotal)} يوم</span>` : ""}</h2><p class="hint pad">أرصدة لم تُستخدم بعد؛ راجعها قبل نهاية السنة (${h(y.end)})، فالرصيد غير المستخدم لا يُرحَّل إلى السنة التالية.</p>
+          <div class="table-wrap"><table class="responsive"><thead><tr><th>الموظف</th><th>القسم</th><th class="n">المتاح</th></tr></thead><tbody>${D.unused.map(([e, a]) => `<tr><td data-label="الموظف"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a></td><td data-label="القسم">${h(deptName(e) || "—")}</td><td class="n" data-label="المتاح">${n(a)}</td></tr>`).join("") || '<tr><td colspan="3" class="empty">لا توجد أرصدة متاحة.</td></tr>'}</tbody></table></div></section></div>
+      <section class="card flush"><h2>حسب القسم</h2>${aggTable(D.byDept, "القسم")}</section>
+      ${admin ? `<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2>${aggTable(D.byOff, "مسؤول شؤون الموظفين", true)}</section>` : ""}
+      <section class="card"><h2>التصدير إلى Excel</h2><div class="actions"><button class="btn" type="button" data-act="export" data-kind="summary" data-year="${y.id}">${ico("download", "sm-ico")}ملخص التقارير</button><button class="btn" type="button" data-act="export" data-kind="balances" data-year="${y.id}">${ico("download", "sm-ico")}أرصدة الموظفين</button><button class="btn" type="button" data-act="export" data-kind="recs" data-year="${y.id}">${ico("download", "sm-ico")}سجل التوصيات</button><button class="btn" type="button" data-act="export" data-kind="requests" data-year="${y.id}">${ico("download", "sm-ico")}سجل الطلبات</button></div></section>`);
+  };
+
+  // ============================================================ الفرق والتفويض
+  const MAX_DELEG_DAYS = 180;
+  const delegBadge = (d) => { const st = delegState(d); return `<span class="badge ${{ active: "ok", upcoming: "warn" }[st] || "muted"}">${DELEG_ST[st]}</span>`; };
+  const delegForm = (offs, admin) => `<form class="filters" data-form="delegation">
+      ${admin ? `<div class="field"><label for="df">الفريق (المفوِّض)</label><select id="df" name="from" required><option value="">— اختر —</option>${offs.map((o) => `<option value="${o.id}">${h(o.name)}</option>`).join("")}</select></div>` : ""}
+      <div class="field"><label for="dt">المفوَّض بالمتابعة</label><select id="dt" name="to" required><option value="">— اختر —</option>${offs.map((o) => `<option value="${o.id}">${h(o.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="ds">من</label><input id="ds" type="date" name="start" value="${todayISO()}" required></div>
+      <div class="field"><label for="de">إلى</label><input id="de" type="date" name="end" required></div>
+      <div class="field grow"><label for="dn">ملاحظة <span class="hint">(اختياري، مثل: إجازة سنوية)</span></label><input id="dn" name="note" maxlength="300"></div>
+      <button class="btn primary">${ico("swap", "sm-ico")}إنشاء التفويض</button></form>
+    <p class="hint">خلال الفترة يعتمد المفوَّض طلبات الفريق ويرفع توصياته، وتصله إشعاراته، ويبقى للمسؤول الأصلي اطلاعه الكامل. يُسجَّل كل قرار «بالتفويض» في سجل التدقيق ويُشعَر به المسؤول الأصلي. أقصى مدة ${MAX_DELEG_DAYS} يوماً، وينتهي التفويض تلقائياً في آخر يوم من الفترة.</p>`;
+  const delegTable = (rows) => { const ord = { active: 0, upcoming: 1, ended: 2, cancelled: 3 };
+    rows = rows.slice().sort((a, b) => ord[delegState(a)] - ord[delegState(b)] || b.start.localeCompare(a.start));
+    return `<div class="table-wrap"><table class="responsive"><thead><tr><th>الفريق (المفوِّض)</th><th>المفوَّض</th><th>الفترة</th><th>الحالة</th><th>ملاحظة</th><th></th></tr></thead><tbody>
+    ${rows.map((d) => { const st = delegState(d); return `<tr${["ended", "cancelled"].includes(st) ? ' class="dim"' : ""}><td data-label="الفريق">${h(byId("emps", d.from).name)}</td><td data-label="المفوَّض">${h(byId("emps", d.to).name)}</td><td data-label="الفترة" class="num">${h(d.start)} – ${h(d.end)}</td><td data-label="الحالة">${delegBadge(d)}</td><td data-label="ملاحظة">${h(d.note || "—")}</td>
+      <td>${["active", "upcoming"].includes(st) ? `<button class="btn sm danger" type="button" data-act="cancel-deleg" data-id="${d.id}">إلغاء</button>` : ""}</td></tr>`; }).join("") || '<tr><td colspan="6" class="empty">لا توجد تفويضات.</td></tr>'}</tbody></table></div>`; };
+  A.teams = (u) => {
+    const offs = officers(), act = activeDelegs(), unassigned = DB.emps.filter((e) => e.active && !e.mgr).length;
+    const stats = offs.map((o) => ({ o, count: DB.emps.filter((e) => e.active && e.mgr === o.id).length, pending: DB.leaves.filter((r) => r.status === "pending" && byId("emps", r.emp).mgr === o.id).length, away: act.find((d) => d.from === o.id), covering: act.filter((d) => d.to === o.id) }));
+    return layout(u, "المستخدمون والصلاحيات", `${accountTabs("teams")}<div class="page-head"><div><h1>${ico("swap", "h-ico")} الفرق والتفويض</h1><p>${offs.length} مسؤول شؤون موظفين${unassigned ? ` · <a href="#/employees?officer=-1">${unassigned} موظف غير مُسند</a>` : ""}. انقل فريقاً كاملاً نقلاً دائماً، أو فوّض مسؤولاً بمتابعة فريق زميله مؤقتاً (أثناء إجازته مثلاً).</p></div></div>
+      <section class="card flush"><h2>فرق مسؤولي شؤون الموظفين</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">الموظفون</th><th class="n">طلبات معلّقة</th><th>التفويض الساري</th></tr></thead><tbody>
+        ${stats.map((s) => `<tr><td data-label="المسؤول"><a href="#/employees?officer=${s.o.id}">${h(s.o.name)}</a></td><td class="n" data-label="الموظفون">${s.count}</td><td class="n" data-label="معلّقة">${s.pending || "—"}</td>
+          <td data-label="التفويض">${s.away ? `<span class="badge warn">فريقه لدى ${h(byId("emps", s.away.to).name)} حتى ${h(s.away.end)}</span> ` : ""}${s.covering.map((c) => `<span class="badge ok">يتابع فريق ${h(byId("emps", c.from).name)}</span> `).join("")}${!s.away && !s.covering.length ? "—" : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">لا يوجد مسؤولو شؤون موظفين. أنشئ حساباً بدور «شؤون الموظفين» من «الحسابات والصلاحيات».</td></tr>'}</tbody></table></div></section>
+      <div class="grid two">
+        <section class="card" id="transfer"><h2>نقل فريق كامل</h2><p class="hint">ينقل جميع الموظفين المسندين إلى المسؤول الأول إلى الثاني نقلاً دائماً (مثل انتقال المسؤول أو تقاعده)، ومعهم طلباتهم المعلّقة. لنقل موظفين محددين استخدم «الحسابات والصلاحيات».</p>
+          <form class="stack" data-form="team-transfer">
+            <div class="field"><label for="tf">من</label><select id="tf" name="from" required><option value="">— اختر —</option>${stats.map((s) => `<option value="${s.o.id}" ${s.count ? "" : "disabled"}>${h(s.o.name)} (${s.count} موظف)</option>`).join("")}</select></div>
+            <div class="field"><label for="tt">إلى</label><select id="tt" name="to" required><option value="">— اختر —</option>${offs.map((o) => `<option value="${o.id}">${h(o.name)}</option>`).join("")}</select></div>
+            <label class="check"><input type="checkbox" name="notify" value="1" checked><span>إشعار الموظفين المنقولين باسم مسؤولهم الجديد</span></label>
+            <div><button class="btn primary">${ico("swap", "sm-ico")}نقل الفريق</button></div></form></section>
+        <section class="card" id="delegation"><h2>تفويض مؤقت</h2>${delegForm(offs, true)}</section></div>
+      <section class="card flush"><h2>سجل التفويضات</h2>${delegTable(DB.delegations || [])}</section>`);
+  };
+  V.delegation = (u) => {
+    need(u, ["officer", "admin"]); if (u.role === "admin") { go("#/admin/teams"); return ""; }
+    const offs = officers().filter((o) => o.id !== u.emp), mine = (DB.delegations || []).filter((d) => d.from === u.emp || d.to === u.emp);
+    const team = DB.emps.filter((e) => e.active && e.mgr === u.emp).length, cover = mine.filter((d) => d.to === u.emp && delegState(d) === "active");
+    return layout(u, "التفويض", `<div class="page-head"><div><h1>${ico("swap", "h-ico")} التفويض</h1><p>فوّض زميلاً من مسؤولي شؤون الموظفين بمتابعة فريقك (${team} موظف) خلال غيابك، فيعتمد طلباتهم ويرفع توصياتهم حتى نهاية الفترة.</p></div></div>
+      ${cover.length ? `<div class="alert info" role="status">أنت مفوَّض حالياً بمتابعة: ${cover.map((d) => "فريق " + h(byId("emps", d.from).name) + " حتى " + h(d.end)).join("، ")}. تظهر طلباتهم في «الاعتمادات» وموظفوهم في «قائمة الموظفين».</div>` : ""}
+      <section class="card"><h2>تفويض جديد</h2>${offs.length ? delegForm(offs, false) : '<p class="empty">لا يوجد مسؤولو شؤون موظفين آخرون للتفويض.</p>'}</section>
+      <section class="card flush"><h2>تفويضاتي</h2>${delegTable(mine)}</section>`);
+  };
+  F["team-transfer"] = async (form, u) => {
+    need(u, ["admin"]); const d = fd(form), src = byId("emps", d.get("from")), dst = officers().find((o) => o.id === Number(d.get("to")));
+    if (!src || !dst) throw new RuleError("اختر مسؤولَي شؤون الموظفين (المنقول منه والمنقول إليه).");
+    if (src.id === dst.id) throw new RuleError("لا يمكن نقل الفريق إلى المسؤول نفسه.");
+    const moved = DB.emps.filter((e) => e.mgr === src.id && e.id !== dst.id);
+    if (!moved.length) throw new RuleError("لا يوجد موظفون مسندون إلى «" + src.name + "».");
+    if (!await confirmDlg("نقل " + moved.length + " موظف من «" + src.name + "» إلى «" + dst.name + "»؟ يمكن إعادة توزيعهم لاحقاً من «الحسابات والصلاحيات».")) return;
+    const mids = new Set(moved.map((e) => e.id)), pend = DB.leaves.filter((r) => r.status === "pending" && mids.has(r.emp)).length;
+    moved.forEach((e) => (e.mgr = dst.id));
+    const names = moved.slice(0, 8).map((e) => e.name).join("، ") + (moved.length > 8 ? "…" : "");
+    const du = userOfEmp(dst), su = userOfEmp(src);
+    if (du) notify(du, "أُسند إليك فريق " + src.name, "نقل مدير النظام إليك " + moved.length + " موظفاً كانوا مسندين إلى " + src.name + ": " + names + "." + (pend ? " لديهم " + pend + " طلب بانتظار قرارك." : ""), pend ? "#/approvals" : "#/employees", u);
+    if (su) notify(su, "نُقل فريقك إلى مسؤول آخر", "نقل مدير النظام " + moved.length + " موظفاً من فريقك إلى " + dst.name + ".", "#/employees", u);
+    if (d.get("notify")) moved.forEach((e) => notify(userOfEmp(e), "تغيّر مسؤول شؤون الموظفين", "أصبح " + dst.name + " مسؤول شؤون الموظفين المختص بطلباتك وتوصياتك.", "#/messages/new", u));
+    audit("team_transferred", "team", src.id, { from: src.name, to: dst.name, moved: moved.length, pending_requests: pend, notify_employees: !!d.get("notify") });
+    save(); flash("نُقل " + moved.length + " موظف من «" + src.name + "» إلى «" + dst.name + "»" + (pend ? "، ومعهم " + pend + " طلب معلّق صار بانتظار قرار المسؤول الجديد" : "") + "."); render();
+  };
+  F.delegation = (form, u) => {
+    need(u, ["officer", "admin"]); const d = fd(form), offs = officers();
+    const src = offs.find((o) => o.id === (u.role === "admin" ? Number(d.get("from")) : u.emp)), dst = offs.find((o) => o.id === Number(d.get("to")));
+    const sd = String(d.get("start") || ""), ed = String(d.get("end") || ""), note = String(d.get("note") || "").trim().slice(0, 300);
+    if (!src || !dst) throw new RuleError("اختر مسؤول شؤون الموظفين المفوِّض والمفوَّض.");
+    if (src.id === dst.id) throw new RuleError("لا يمكن تفويض المسؤول نفسه.");
+    if (!parseISO(sd) || !parseISO(ed) || ed < sd) throw new RuleError("حدّد فترة صحيحة (تاريخ النهاية بعد تاريخ البداية أو يساويه).");
+    if (ed < todayISO()) throw new RuleError("فترة التفويض منتهية؛ اختر فترة حالية أو قادمة.");
+    if ((parseISO(ed) - parseISO(sd)) / 864e5 + 1 > MAX_DELEG_DAYS) throw new RuleError("أقصى مدة للتفويض " + MAX_DELEG_DAYS + " يوماً؛ للنقل الدائم استخدم «نقل فريق».");
+    const all = DB.delegations || (DB.delegations = []), ov = (x) => !x.cancelled && x.start <= ed && x.end >= sd;
+    const clash = all.find((x) => x.from === src.id && ov(x));
+    if (clash) throw new RuleError("يوجد تفويض آخر لفريق «" + src.name + "» يتداخل مع هذه الفترة (إلى " + byId("emps", clash.to).name + " من " + clash.start + " إلى " + clash.end + "). ألغه أولاً أو اختر فترة أخرى.");
+    if (all.find((x) => x.from === dst.id && ov(x))) throw new RuleError("«" + dst.name + "» نفسه مفوِّض لفريقه خلال هذه الفترة، فلا يمكن تفويضه.");
+    const rec = { id: nid(), from: src.id, to: dst.id, start: sd, end: ed, note, by: u.id, at: nowStr(), cancelled: null }; all.push(rec);
+    const period = "من " + sd + " إلى " + ed;
+    notify(userOfEmp(dst), "فُوِّضت بمتابعة فريق " + src.name, "أصبحت مفوَّضاً بمتابعة فريق " + src.name + " " + period + ": اعتماد الطلبات ورفع التوصيات." + (note ? " ملاحظة: " + note : ""), "#/approvals", u);
+    if (u.role === "admin") notify(userOfEmp(src), "تفويض فريقك", "فوّض مدير النظام " + dst.name + " بمتابعة فريقك " + period + ".", "#/delegation", u);
+    audit("delegation_created", "delegation", rec.id, { from: src.name, to: dst.name, start: sd, end: ed, note });
+    save(); flash("تم تفويض «" + dst.name + "» بمتابعة فريق «" + src.name + "» " + period + "."); render();
+  };
+  ACT["cancel-deleg"] = async (b, u) => {
+    const d = (DB.delegations || []).find((x) => x.id === Number(b.dataset.id)); if (!d) return;
+    if (u.role !== "admin" && ![d.from, d.to].includes(u.emp)) { flash("لا يمكنك إلغاء هذا التفويض.", "error"); render(); return; }
+    const fe = byId("emps", d.from), te = byId("emps", d.to);
+    if (!await confirmDlg("إلغاء تفويض " + te.name + " بمتابعة فريق " + fe.name + "؟")) return;
+    d.cancelled = nowStr(); d.cancelledBy = u.id;
+    [d.from, d.to].filter((x) => x !== u.emp).forEach((x) => notify(userOfEmp(byId("emps", x)), "إلغاء تفويض", "أُلغي تفويض " + te.name + " بمتابعة فريق " + fe.name + " (" + d.start + " – " + d.end + ").", "#/delegation", u));
+    audit("delegation_cancelled", "delegation", d.id, { from: fe.name, to: te.name }); save(); flash("أُلغي التفويض."); render();
+  };
+
   document.addEventListener("submit", async (ev) => {
     const form = ev.target.closest("form[data-form]"); if (!form) return;
     ev.preventDefault();
@@ -1778,6 +1937,7 @@
     if (!DB || !DB.years || !DB.recs) await seed();
     try { localStorage.removeItem("hr_demo_v1"); localStorage.removeItem("hr_demo_v2"); localStorage.removeItem("hr_demo_v3"); } catch (e) {}
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
+    DB.delegations = DB.delegations || [];
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null || DB.settings.tagline === "إدارة أيام بدل الراحة بكفاءة واحتراف") DB.settings.tagline = TAGLINE;
     if (!DB.settings.credit || DB.settings.credit === "تطوير مريم حمدي") DB.settings.credit = CREDIT;

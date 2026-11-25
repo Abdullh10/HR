@@ -42,7 +42,7 @@ templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "43"
+ASSET_V = "44"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"
@@ -88,10 +88,15 @@ def nav_counts(db: Session, user: User | None) -> dict:
     pending = 0
     if user.role == "admin":
         pending = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.status == "pending")) or 0
-    elif user.role == "officer" and user.employee_id:
+    delegation_badge = None
+    if user.role == "officer" and user.employee_id:
+        from .services import delegated_from
+        owners = [user.employee_id, *delegated_from(db, user)]
         pending = db.scalar(select(func.count(LeaveRequest.id)).join(Employee, Employee.id == LeaveRequest.employee_id)
-                            .where(LeaveRequest.status == "pending", Employee.manager_id == user.employee_id)) or 0
-    return dict(unread=unread, pending_approvals=pending)
+                            .where(LeaveRequest.status == "pending", Employee.manager_id.in_(owners),
+                                   Employee.id != user.employee_id)) or 0
+        delegation_badge = "مفوَّض" if len(owners) > 1 else None
+    return dict(unread=unread, pending_approvals=pending, delegation_badge=delegation_badge)
 
 
 def render(request: Request, db: Session, name: str, user: User | None = None, status_code: int = 200, **ctx):
