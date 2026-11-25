@@ -429,3 +429,18 @@
     inp.focus();
   });
 })();
+
+/* التاريخ الهجري (تقويم أم القرى) لشريط الترحيب — يُحسب في المتصفح ويُخفى إن لم يدعمه */
+(function () {
+  function fillHijri(root) {
+    (root || document).querySelectorAll("[data-hijri]").forEach(function (el) {
+      try {
+        var p = el.getAttribute("data-hijri").split("-").map(Number);
+        var txt = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date(p[0], p[1] - 1, p[2], 12));
+        if (/\d/.test(txt)) { el.textContent = txt.replace(/\s*هـ$/, "") + " هـ"; el.hidden = false; }
+      } catch (e) { /* يبقى مخفياً */ }
+    });
+  }
+  window.fillHijri = fillHijri;
+  document.addEventListener("DOMContentLoaded", function () { fillHijri(); });
+})();

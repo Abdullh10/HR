@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, year_select, kind_badge, donut %}
+{% from "_macros.html" import ico, year_select, kind_badge, donut, welcome_banner %}
 {% block title %}لوحة المؤشرات{% endblock %}
 {% block heading %}لوحة المؤشرات{% endblock %}
 {% macro age_badge(d) -%}
@@ -9,6 +9,7 @@
   {%- else -%}<span class="badge muted">اليوم</span>{%- endif -%}
 {%- endmacro %}
 {% block content %}
+{{ welcome_banner(user) }}
 <div class="page-head">
   <div><h1>{{ ico('dashboard', 'h-ico') }} لوحة المؤشرات</h1><p>{{ 'جميع الموظفين' if user.role == 'admin' else 'الموظفون المسندون إليك' }} · السنة {{ sel_year.name }} · الحد الأقصى {{ days_ar(sel_year.base_days) }} لكل موظف</p></div>
   {{ year_select(years, sel_year) }}

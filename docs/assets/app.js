@@ -486,6 +486,22 @@
   const ageDays = (stamp) => Math.max(0, Math.floor((Date.now() - new Date(String(stamp).replace(" ", "T")).getTime()) / 864e5));
   const ageBadge = (d) => d >= 7 ? `<span class="badge err">منذ ${daysAr(d)}</span>` : d >= 3 ? `<span class="badge warn">منذ ${daysAr(d)}</span>` : d >= 1 ? `<span class="badge muted">منذ ${daysAr(d)}</span>` : '<span class="badge muted">اليوم</span>';
   const onBehalf = (u, e) => u.role === "admin" && !!e.mgr && e.mgr !== u.emp;
+  // شريط الترحيب: تحية حسب الوقت (توقيت الرياض)، وعبارة يومية، ومسار أيام العمل، والتاريخ الميلادي والهجري
+  const W_PHRASES = ["الراحة المنظّمة جزء من الإنجاز، لا استراحة منه.", "خطوة صغيرة كل يوم تصنع فرقاً كبيراً مع الوقت.", "العمل المتقن يبدأ بذهنٍ مرتاح وخطةٍ واضحة.", "التوازن بين الجهد والراحة سرّ الاستمرار.", "كل مهمة تُنجَز اليوم تخفّف عبء الغد.", "الفريق المتعاون يصل أبعد مما يصل إليه الفرد.", "النظام في التفاصيل الصغيرة يصنع جودة النتائج الكبيرة.", "ابدأ يومك بأهم مهمة، وسيتبعها الباقي بسهولة.", "الدقة في العمل احترامٌ للوقت وللآخرين.", "حقّك في الراحة يعيد إليك طاقتك للعطاء.", "التقدّم المستمر أهم من الكمال المؤجَّل.", "الوضوح في التواصل يختصر نصف الطريق.", "يوم منظّم يبدأ بقائمة قصيرة وأولويات واضحة.", "الإنجاز الحقيقي ما يبقى أثره بعد انتهاء المهمة.", "استثمر وقتك فيما يضيف قيمة، ودع ما سواه.", "التعاون يحوّل المهام الصعبة إلى إنجازات مشتركة.", "خذ استراحة قصيرة، ثم عُد بتركيز أعلى.", "الالتزام اليومي يبني الثقة قبل أن يبني النتائج.", "كل جهد تبذله اليوم محسوبٌ لك في رصيد الغد.", "الهدوء في التعامل يصنع بيئة عمل أفضل للجميع.", "التخطيط الجيد يوفّر عليك ساعات من التصحيح.", "النجاح سلسلة من الأيام الجيدة المتتالية.", "اجعل جودة عملك توقيعك الذي يعرفك به الآخرون.", "التعلّم المستمر يفتح أبواباً لم تكن تتوقعها.", "التقدير الصادق لزملائك يضاعف حماس الفريق.", "أنجِز ما بين يديك بإتقان، فهو أفضل استعداد لما بعده.", "الراحة في وقتها تحمي جودة العمل من الإرهاق.", "المبادرة بحلّ صغير خيرٌ من انتظار حلّ كامل.", "بيئة العمل الإيجابية يصنعها كل فرد فيها.", "اختم يومك بمراجعة ما أنجزت، وابدأ غدك بما تبقّى.", "الثبات على العادات الجيدة يصنع الفارق الحقيقي."];
+  const W_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  function welcomeBanner(u) {
+    let now; try { now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" })); } catch (e) { now = new Date(); }
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), hr = now.getHours(), wd = today.getDay();
+    const first = (displayName(u) || "").split(" ")[0], ord = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 864e5) + 719163;
+    const sunday = new Date(today); sunday.setDate(today.getDate() - wd);
+    const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"].map((label, i) => { const d = new Date(sunday); d.setDate(sunday.getDate() + i); return [label, d.getTime() === today.getTime() ? "today" : d < today ? "past" : "next"]; });
+    let hij = ""; try { const t = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)); if (/\d/.test(t)) hij = t.replace(/\s*هـ$/, "") + " هـ"; } catch (e) {}
+    const weekend = wd === 5 || wd === 6;
+    return `<section class="welcome" aria-label="ترحيب"><div class="w-top"><div><h2 class="w-hi">${4 <= hr && hr < 12 ? "صباح الخير" : "مساء الخير"}${first ? "، " + h(first) : ""}</h2><p class="w-quote">${W_PHRASES[ord % W_PHRASES.length]}</p></div>
+      <p class="w-date"><span>${today.getDate()} ${W_MONTHS[today.getMonth()]} ${today.getFullYear()}</span>${hij ? `<span class="w-hijri">${hij}</span>` : ""}</p></div>
+      <ol class="w-week" aria-label="أيام أسبوع العمل${weekend ? " — عطلة نهاية الأسبوع" : ""}">${days.map(([l, st]) => `<li class="${st}"${st === "today" ? ' aria-current="date"' : ""}><span>${l}</span><i aria-hidden="true"></i></li>`).join("")}</ol>
+      ${weekend ? '<p class="w-off">عطلة نهاية الأسبوع — نتمنى لك راحة طيبة.</p>' : ""}</section>`;
+  }
   V.dashboard = (u, q) => {
     if (u.role === "employee") { go("#/me"); return ""; }
     const y = pickYear(q), emps = managedEmps(u), ids = new Set(emps.map((e) => e.id)), adm = u.role === "admin";
@@ -530,7 +546,7 @@
       : tiles([["days", "#/recs/new?kind=days", "calendar-plus", "توصية بدل راحة بالأيام", "رفع التوصية بأيام ممنوحة"], ["hours", "#/recs/new?kind=hours", "clock-plus", "توصية بدل راحة بالساعات", "كل " + n(y.hpd) + " ساعات = يوم"],
         ["appr", "#/approvals", "stamp", "الاعتمادات", pending.length + " طلب بانتظار قرارك", pending.length], ["msg", "#/messages", "mail", "المراسلات", unread + " رسالة غير مقروءة", unread]]);
     const lvlBadge = alerts.length ? (alerts[0].level === "err" ? "err" : alerts[0].level === "warn" ? "warn" : "muted") : "";
-    return layout(u, "لوحة المؤشرات", `<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${adm ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
+    return layout(u, "لوحة المؤشرات", `${welcomeBanner(u)}<div class="page-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المؤشرات</h1><p>${adm ? "جميع الموظفين" : "الموظفون المسندون إليك"} · السنة ${h(y.name)} · الحد الأقصى ${daysAr(y.cap)} لكل موظف</p></div>${yearSelect(y)}</div>
       ${empty}${quick}
       ${alerts.length ? `<section class="card alerts-panel" aria-labelledby="alerts-h"><h2 id="alerts-h">تنبيهات تحتاج إجراء <span class="badge ${lvlBadge}">${alerts.length}</span></h2><ul class="alert-list">
         ${alerts.map((a) => `<li class="lvl-${a.level}">${ico(a.icon)}<span class="txt">${a.text}</span><a class="btn sm" href="${a.href}">${a.cta}</a></li>`).join("")}</ul></section>` : ""}
@@ -573,7 +589,7 @@
     const y = pickYear(q), b = balance(e.id, y);
     const recs = DB.recs.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.date.localeCompare(a.date));
     const reqs = DB.leaves.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.created.localeCompare(a.created));
-    return layout(u, "رصيدي", `<div class="page-head"><div><h1>مرحباً، ${h(e.name.split(" ")[0])}</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
+    return layout(u, "رصيدي", `${welcomeBanner(u)}<div class="page-head"><div><h1>${ico("pie", "h-ico")} رصيدي</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a></div></div>
       ${board(b, true)}
       ${y.empCanRequest ? tiles([["days", "#/requests/new", "calendar-plus", "طلب معالجة غياب", "إجازة من رصيدك في تاريخ تختاره، أو تعويض غياب حدث"], ["msg", "#/messages/new", "send", "مراسلة شؤون الموظفين", "استفسار أو متابعة"]]) : ""}

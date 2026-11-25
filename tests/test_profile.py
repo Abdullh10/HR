@@ -47,3 +47,12 @@ def test_login_page_policy_and_about(world):
     p = c.get("/policy")
     assert p.status_code == 200 and "المادة (12)" in p.text
     assert "قواعد الرصيد" in c.get("/about").text
+
+
+def test_welcome_banner(world):
+    from app.welcome import PHRASES
+    for who, url in (("emp", "/me"), ("mgr", "/dashboard"), ("admin", "/dashboard")):
+        html = login(who).get(url).text
+        assert 'class="welcome"' in html and ("صباح الخير" in html or "مساء الخير" in html)
+        assert "data-hijri=" in html and any(p in html for p in PHRASES)
+        assert html.count('class="w-week"') == 1

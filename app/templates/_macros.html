@@ -69,6 +69,21 @@
 </nav>
 {%- endmacro %}
 
+{% macro welcome_banner(user) -%}
+{% set w = welcome_info(user) %}
+<section class="welcome" aria-label="ترحيب">
+  <div class="w-top">
+    <div><h2 class="w-hi">{{ w.greeting }}{% if w.first %}، {{ w.first }}{% endif %}</h2>
+      <p class="w-quote">{{ w.phrase }}</p></div>
+    <p class="w-date"><span>{{ w.greg }}</span><span class="w-hijri" data-hijri="{{ w.iso }}" hidden></span></p>
+  </div>
+  <ol class="w-week" aria-label="أيام أسبوع العمل{{ ' — عطلة نهاية الأسبوع' if w.weekend }}">
+    {% for d in w.days %}<li class="{{ d.state }}"{% if d.state == 'today' %} aria-current="date"{% endif %}><span>{{ d.label }}</span><i aria-hidden="true"></i></li>{% endfor %}
+  </ol>
+  {% if w.weekend %}<p class="w-off">عطلة نهاية الأسبوع — نتمنى لك راحة طيبة.</p>{% endif %}
+</section>
+{%- endmacro %}
+
 {% macro page_tabs(label, items, active) -%}
 <nav class="tabs" aria-label="{{ label }}">
   {% for href, key, text in items %}<a href="{{ href }}" {% if active == key %}aria-current="page" class="on"{% endif %}>{{ text }}</a>{% endfor %}

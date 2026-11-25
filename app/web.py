@@ -40,9 +40,11 @@ templates.env.globals["days_ar"] = days_ar
 templates.env.globals["hours_ar"] = hours_ar
 templates.env.globals["WEEKDAYS_AR"] = WEEKDAYS_AR
 templates.env.globals["ROLES"] = ROLES
+from .welcome import welcome_info  # noqa: E402
+templates.env.globals["welcome_info"] = welcome_info
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "45"
+ASSET_V = "46"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"
