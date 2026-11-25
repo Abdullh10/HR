@@ -1093,3 +1093,5 @@ tr.dim td { opacity: .62; }
 .mlegend .sw.g { background: var(--pie-avail); } .mlegend .sw.u { background: var(--pie-used); }
 .ubar { display: inline-block; width: 70px; height: 7px; border-radius: 4px; background: var(--pie-track); vertical-align: middle; overflow: hidden; }
 .ubar i { display: block; height: 100%; background: var(--pie-used); border-radius: 4px; }
+details.danger-zone > summary { cursor: pointer; display: flex; align-items: center; gap: .5rem; color: var(--err); }
+details.danger-zone[open] > summary { margin-bottom: .8rem; }

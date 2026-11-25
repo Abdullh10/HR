@@ -1,9 +1,31 @@
 {% extends "base.html" %}
 {% from "_macros.html" import ico %}
-{% block title %}سجل التدقيق{% endblock %}
-{% block heading %}سجل التدقيق{% endblock %}
+{% block title %}سجل التدقيق<details class="card danger-zone" id="clear">
+  <summary><b>{{ ico('audit', 'sm-ico') }} حذف سجل التدقيق</b> <span class="hint">لمدير النظام فقط</span></summary>
+  <div class="alert warn" role="note">سجل التدقيق مرجع المساءلة عند أي اعتراض أو مراجعة؛ يُنصح بحذف القيود القديمة فقط بعد <a href="/admin/audit.xlsx">تصديرها إلى Excel</a> وحفظها. تُحفظ نسخة احتياطية تلقائية قبل الحذف، ويبقى قيد يوثّق عملية الحذف نفسها (من حذف ومتى وكم قيداً).</div>
+  <form method="post" action="/admin/audit/clear" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="cs">ما يُحذف</label><select id="cs" name="scope"><option value="before">القيود السابقة لتاريخ</option><option value="all">السجل كاملاً</option></select></div>
+    <div class="field"><label for="cb">قبل تاريخ</label><input id="cb" type="date" name="before" value="{{ (today.replace(year=today.year - 1)).isoformat() if not (today.month == 2 and today.day == 29) else today.isoformat() }}"></div>
+    <div class="field"><label for="cc">اكتب «{{ wipe_word }}» للتأكيد</label><input id="cc" name="confirm" autocomplete="off" required></div>
+    <div class="field"><label for="cp">كلمة مرور مدير النظام</label><input id="cp" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="btn danger" data-confirm="حذف القيود المحددة من سجل التدقيق نهائياً؟">حذف</button>
+  </form>
+</details>
+{% endblock %}
+{% block heading %}سجل التدقيق<details class="card danger-zone" id="clear">
+  <summary><b>{{ ico('audit', 'sm-ico') }} حذف سجل التدقيق</b> <span class="hint">لمدير النظام فقط</span></summary>
+  <div class="alert warn" role="note">سجل التدقيق مرجع المساءلة عند أي اعتراض أو مراجعة؛ يُنصح بحذف القيود القديمة فقط بعد <a href="/admin/audit.xlsx">تصديرها إلى Excel</a> وحفظها. تُحفظ نسخة احتياطية تلقائية قبل الحذف، ويبقى قيد يوثّق عملية الحذف نفسها (من حذف ومتى وكم قيداً).</div>
+  <form method="post" action="/admin/audit/clear" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="cs">ما يُحذف</label><select id="cs" name="scope"><option value="before">القيود السابقة لتاريخ</option><option value="all">السجل كاملاً</option></select></div>
+    <div class="field"><label for="cb">قبل تاريخ</label><input id="cb" type="date" name="before" value="{{ (today.replace(year=today.year - 1)).isoformat() if not (today.month == 2 and today.day == 29) else today.isoformat() }}"></div>
+    <div class="field"><label for="cc">اكتب «{{ wipe_word }}» للتأكيد</label><input id="cc" name="confirm" autocomplete="off" required></div>
+    <div class="field"><label for="cp">كلمة مرور مدير النظام</label><input id="cp" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="btn danger" data-confirm="حذف القيود المحددة من سجل التدقيق نهائياً؟">حذف</button>
+  </form>
+</details>
+{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('audit', 'h-ico') }} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد وتصدير، بالمنفّذ والوقت. السجل للقراءة فقط ولا يُحذف.</p></div>
+<div class="page-head"><div><h1>{{ ico('audit', 'h-ico') }} سجل التدقيق</h1><p>كل عملية دخول وإنشاء وتعديل واعتماد وتصدير، بالمنفّذ والوقت · {{ total }} قيد{% if oldest %} منذ {{ oldest|d }}{% endif %}.</p></div>
   <div class="actions"><a class="btn" href="/admin/audit.xlsx{{ '?' ~ qs if qs }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a></div></div>
 <form method="get" class="card filters" data-autofilter>
   <div class="field grow"><label for="q">بحث</label><input id="q" type="search" name="q" value="{{ q }}" placeholder="اسم المستخدم، العملية، التفاصيل"></div>
@@ -20,4 +42,15 @@
 {% else %}<tr><td colspan="6" class="empty">لا توجد سجلات مطابقة.</td></tr>{% endfor %}
 </tbody></table></div></div>
 <div class="actions">{% if page > 1 %}<a class="btn" href="?{{ qs ~ '&' if qs }}page={{ page - 1 }}">السابق</a>{% endif %}<span class="muted">صفحة {{ page }}</span>{% if has_next %}<a class="btn" href="?{{ qs ~ '&' if qs }}page={{ page + 1 }}">التالي</a>{% endif %}</div>
+<details class="card danger-zone" id="clear">
+  <summary><b>{{ ico('audit', 'sm-ico') }} حذف سجل التدقيق</b> <span class="hint">لمدير النظام فقط</span></summary>
+  <div class="alert warn" role="note">سجل التدقيق مرجع المساءلة عند أي اعتراض أو مراجعة؛ يُنصح بحذف القيود القديمة فقط بعد <a href="/admin/audit.xlsx">تصديرها إلى Excel</a> وحفظها. تُحفظ نسخة احتياطية تلقائية قبل الحذف، ويبقى قيد يوثّق عملية الحذف نفسها (من حذف ومتى وكم قيداً).</div>
+  <form method="post" action="/admin/audit/clear" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="cs">ما يُحذف</label><select id="cs" name="scope"><option value="before">القيود السابقة لتاريخ</option><option value="all">السجل كاملاً</option></select></div>
+    <div class="field"><label for="cb">قبل تاريخ</label><input id="cb" type="date" name="before" value="{{ (today.replace(year=today.year - 1)).isoformat() if not (today.month == 2 and today.day == 29) else today.isoformat() }}"></div>
+    <div class="field"><label for="cc">اكتب «{{ wipe_word }}» للتأكيد</label><input id="cc" name="confirm" autocomplete="off" required></div>
+    <div class="field"><label for="cp">كلمة مرور مدير النظام</label><input id="cp" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="btn danger" data-confirm="حذف القيود المحددة من سجل التدقيق نهائياً؟">حذف</button>
+  </form>
+</details>
 {% endblock %}

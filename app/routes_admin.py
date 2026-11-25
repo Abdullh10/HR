@@ -462,9 +462,43 @@ def audit_page(request: Request, q: str = "", who: str = "", action: str = "", d
     actions = sorted(((k, action_label(k)) for k in used), key=lambda kv: kv[1])
     from urllib.parse import urlencode
     qs = urlencode({k: v for k, v in dict(q=q, who=who, action=action, date_from=date_from, date_to=date_to).items() if v})
-    return render(request, db, "admin_audit.html", user=user, rows=rows[:per], q=q, who=who, action=action,
+    total = db.scalar(select(func.count(AuditLog.id))) or 0
+    oldest = db.scalar(select(func.min(AuditLog.created_at)))
+    return render(request, db, "admin_audit.html", user=user, rows=rows[:per], total=total, oldest=oldest, wipe_word=WIPE_WORD, q=q, who=who, action=action,
                   date_from=date_from, date_to=date_to, users=users, actions=actions, page=page, qs=qs,
                   has_next=len(rows) > per, action_label=action_label, entity_label=entity_label, details_text=details_text)
+
+
+@router.post("/audit/clear")
+def audit_clear(request: Request, scope: str = Form("before"), before: str = Form(""), confirm: str = Form(""),
+                password: str = Form(""), user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    """حذف سجل التدقيق (كله أو ما قبل تاريخ) بكلمة مرور مدير النظام وكلمة التأكيد، بعد نسخة احتياطية تلقائية.
+    يبقى بعد الحذف قيد واحد يوثّق عملية الحذف نفسها."""
+    from . import backup
+    from sqlalchemy import delete
+    if not verify_password(password, user.password_hash):
+        audit(db, user, "audit_clear_denied", "system", None, ip=client_ip(request), reason="wrong_password")
+        db.commit()
+        flash(request, "لم يُحذف شيء: كلمة مرور مدير النظام غير صحيحة.", "error")
+        return redirect("/admin/audit")
+    if confirm.strip() != WIPE_WORD:
+        flash(request, f"لم يُحذف شيء: للتأكيد اكتب كلمة «{WIPE_WORD}» كما هي.", "error")
+        return redirect("/admin/audit")
+    stmt = delete(AuditLog)
+    label = "السجل كاملاً"
+    if scope != "all":
+        d = parse_date(before)
+        if not d:
+            flash(request, "لم يُحذف شيء: حدّد التاريخ الذي تُحذف القيود السابقة له.", "error")
+            return redirect("/admin/audit")
+        stmt = stmt.where(AuditLog.created_at < datetime.combine(d, datetime.min.time()))
+        label = f"القيود قبل {d:%Y-%m-%d}"
+    auto = backup.auto_backup(db, "before-audit-clear")
+    n = db.execute(stmt).rowcount or 0
+    audit(db, user, "audit_cleared", "system", None, ip=client_ip(request), scope=label, rows=n, auto_backup=auto)
+    db.commit()
+    flash(request, f"حُذف {n} قيد من سجل التدقيق ({label}). حُفظت نسخة احتياطية تلقائية قبل الحذف ({auto}).")
+    return redirect("/admin/audit")
 
 
 @router.get("/audit.xlsx")

@@ -42,6 +42,8 @@ ACTIONS = {
     "archive_exported": "تصدير أرشيف السنة",
     "data_exported": "تصدير بيانات إلى Excel",
     "audit_exported": "تصدير سجل التدقيق",
+    "audit_cleared": "حذف من سجل التدقيق",
+    "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)",
     "team_transferred": "نقل فريق بين المسؤولين",
     "delegation_created": "إنشاء تفويض",
     "delegation_cancelled": "إلغاء تفويض",
@@ -65,7 +67,7 @@ FIELDS = {
     "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي",
     "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية",
     "delegated": "بالتفويض", "from": "من", "start": "من تاريخ", "end": "إلى تاريخ", "moved": "عدد المنقولين",
-    "pending_requests": "طلبات معلّقة انتقلت", "notify_employees": "إشعار الموظفين",
+    "pending_requests": "طلبات معلّقة انتقلت", "scope": "النطاق", "notify_employees": "إشعار الموظفين",
 }
 
 VALUES = {True: "نعم", False: "لا", "approved": "معتمد", "pending": "بانتظار الاعتماد", "rejected": "مرفوض",

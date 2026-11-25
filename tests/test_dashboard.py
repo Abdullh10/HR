@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from app.db import SessionLocal
 from app.models import AuditLog, Employee, LeaveRequest, Message, User
 
-from .conftest import login, post
+from .conftest import PW, login, post
 from .test_flows import MON, leave, rec
 
 
@@ -69,3 +69,25 @@ def test_holiday_overlap_warning(world):
     leave(emp, world["e"], "use", "days", MON, MON)
     r = post(adm, "/admin/holidays/add", {"start": str(MON), "end": str(MON), "name": "عطلة طارئة"})
     assert "يتقاطع مع العطلة المضافة" in adm.get(r.headers["location"]).text
+
+
+def test_audit_log_clear(world):
+    adm = login("admin")
+    adm.get("/export/balances.xlsx")
+    with SessionLocal() as db:
+        old = db.query(AuditLog).first()
+        old.created_at = datetime.now() - timedelta(days=500)
+        db.commit()
+        total = db.query(AuditLog).count()
+    assert "حذف سجل التدقيق" in adm.get("/admin/audit").text
+    r = post(adm, "/admin/audit/clear", {"scope": "all", "confirm": "حذف", "password": "wrong"})
+    assert "غير صحيحة" in adm.get(r.headers["location"]).text
+    with SessionLocal() as db:
+        assert db.query(AuditLog).count() == total + 1  # بقي كل شيء + قيد الرفض
+    cutoff = (datetime.now() - timedelta(days=365)).date()
+    r = post(adm, "/admin/audit/clear", {"scope": "before", "before": str(cutoff), "confirm": "حذف", "password": PW})
+    assert "حُذف 1 قيد" in adm.get(r.headers["location"]).text
+    post(adm, "/admin/audit/clear", {"scope": "all", "confirm": "حذف", "password": PW})
+    with SessionLocal() as db:
+        rows = db.query(AuditLog).all()
+        assert [a.action for a in rows if a.action != "login"] == ["audit_cleared"]
