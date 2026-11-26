@@ -32,6 +32,7 @@ ACTIONS = {
     "department_merged": "دمج أقسام",
     "holiday_added": "إضافة عطلة رسمية",
     "holiday_deleted": "حذف عطلة رسمية",
+    "holiday_updated": "تعديل عطلة رسمية",
     "year_saved": "حفظ إعدادات السنة",
     "year_activated": "تفعيل سنة",
     "year_locked": "إقفال سنة",

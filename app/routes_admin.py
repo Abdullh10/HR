@@ -323,10 +323,110 @@ def dept_merge(request: Request, source: int = Form(...), target: int = Form(...
 
 
 # ================================================================ العطل الرسمية
+def _holiday_groups(rows: list[Holiday]) -> list[dict]:
+    """تجميع الأيام المتتالية التي تحمل الاسم نفسه في فترة واحدة (للعرض والتعديل والحذف دفعة واحدة)."""
+    groups: list[dict] = []
+    for h in sorted(rows, key=lambda x: x.day):
+        g = groups[-1] if groups else None
+        if g and g["name"] == h.name and (h.day - g["end"]).days == 1:
+            g["end"], g["days"] = h.day, g["days"] + 1
+        else:
+            groups.append(dict(name=h.name, start=h.day, end=h.day, days=1))
+    return list(reversed(groups))
+
+
 @router.get("/holidays")
-def holidays(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+def holidays(request: Request, year: int | None = None, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    from .saudi_holidays import presets, supported_years
     rows = list(db.scalars(select(Holiday).order_by(Holiday.day.desc())))
-    return render(request, db, "admin_holidays.html", user=user, rows=rows)
+    years_ = supported_years()
+    today = datetime.now().date()
+    sel = year if year in years_ else (today.year + 1 if today.month >= 10 and today.year + 1 in years_ else
+                                       (today.year if today.year in years_ else years_[-1]))
+    existing = {h.day for h in rows}
+    pre = presets(sel)
+    for p_ in pre:
+        n = (p_["end"] - p_["start"]).days + 1
+        p_["have"] = sum(1 for i in range(n) if p_["start"] + timedelta(days=i) in existing)
+        p_["days"] = n
+    return render(request, db, "admin_holidays.html", user=user, rows=rows, groups=_holiday_groups(rows),
+                  presets=pre, preset_year=sel, preset_years=years_)
+
+
+@router.post("/holidays/presets")
+async def holiday_presets_add(request: Request, user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    """إضافة العطل الرسمية المختارة بعد مراجعة تواريخها وتعديلها."""
+    f = await request.form()
+    added, names, span = 0, [], []
+    for key in ("founding", "fitr", "adha", "national"):
+        if not f.get(f"use_{key}"):
+            continue
+        name = str(f.get(f"name_{key}") or "").strip()
+        sd, ed = parse_date(str(f.get(f"start_{key}") or "")), parse_date(str(f.get(f"end_{key}") or ""))
+        ed = ed or sd
+        if not name or not sd or ed < sd or (ed - sd).days > 30:
+            flash(request, f"تواريخ «{name or key}» غير صحيحة؛ لم يُضف شيء منها.", "error")
+            continue
+        d = sd
+        while d <= ed:
+            if not db.scalar(select(Holiday).where(Holiday.day == d)):
+                db.add(Holiday(day=d, name=name))
+                added += 1
+            d += timedelta(days=1)
+        names.append(name)
+        span.append((sd, ed))
+    if names:
+        audit(db, user, "holiday_added", "holiday", None, ip=client_ip(request), name="، ".join(names), count=added)
+        db.commit()
+        flash(request, f"أُضيفت العطل الرسمية ({'، '.join(names)}): {added} يوم جديد." + (" الأيام الموجودة مسبقاً لم تُكرَّر." if added == 0 else ""))
+        for sd, ed in span:
+            _warn_holiday_overlap(request, db, sd, ed, added=True)
+    elif not any(m for m in request.session.get("flash", [])):
+        flash(request, "لم تُختر أي عطلة.", "warn")
+    return redirect("/admin/holidays")
+
+
+@router.post("/holidays/group/update")
+def holiday_group_update(request: Request, old_name: str = Form(...), old_start: str = Form(...), old_end: str = Form(...),
+                         name: str = Form(...), start: str = Form(...), end: str = Form(""),
+                         user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    """تعديل عطلة (اسمها أو فترتها): تُحذف أيام الفترة القديمة وتُضاف الفترة الجديدة."""
+    osd, oed = parse_date(old_start), parse_date(old_end)
+    sd, ed = parse_date(start), parse_date(end) or parse_date(start)
+    if not osd or not oed or not sd or not ed or ed < sd or (ed - sd).days > 60 or not name.strip():
+        flash(request, "بيانات التعديل غير صحيحة.", "error")
+        return redirect("/admin/holidays")
+    for h in db.scalars(select(Holiday).where(Holiday.name == old_name, Holiday.day >= osd, Holiday.day <= oed)):
+        db.delete(h)
+    db.flush()
+    d = sd
+    while d <= ed:
+        if not db.scalar(select(Holiday).where(Holiday.day == d)):
+            db.add(Holiday(day=d, name=name.strip()))
+        d += timedelta(days=1)
+    audit(db, user, "holiday_updated", "holiday", None, ip=client_ip(request), name=name.strip(),
+          before=f"{osd:%Y-%m-%d} – {oed:%Y-%m-%d}", after=f"{sd:%Y-%m-%d} – {ed:%Y-%m-%d}")
+    db.commit()
+    flash(request, f"عُدّلت العطلة «{name.strip()}».")
+    _warn_holiday_overlap(request, db, min(osd, sd), max(oed, ed), added=True)
+    return redirect("/admin/holidays")
+
+
+@router.post("/holidays/group/delete")
+def holiday_group_delete(request: Request, name: str = Form(...), start: str = Form(...), end: str = Form(...),
+                         user: User = Depends(admin_only), db: Session = Depends(get_db)):
+    sd, ed = parse_date(start), parse_date(end)
+    if not sd or not ed:
+        return redirect("/admin/holidays")
+    n = 0
+    for h in db.scalars(select(Holiday).where(Holiday.name == name, Holiday.day >= sd, Holiday.day <= ed)):
+        db.delete(h)
+        n += 1
+    audit(db, user, "holiday_deleted", "holiday", None, ip=client_ip(request), name=name, start=sd, end=ed, count=n)
+    db.commit()
+    flash(request, f"حُذفت العطلة «{name}» ({n} يوم).")
+    _warn_holiday_overlap(request, db, sd, ed, added=False)
+    return redirect("/admin/holidays")
 
 
 @router.post("/holidays/add")

@@ -93,3 +93,33 @@ def test_audit_log_clear(world):
     with SessionLocal() as db:
         rows = db.query(AuditLog).all()
         assert [a.action for a in rows if a.action != "login"] == ["audit_cleared"]
+
+
+def test_saudi_official_holidays_presets_edit_delete(world):
+    from datetime import date
+    from app.models import Holiday
+    adm = login("admin")
+    page = adm.get("/admin/holidays?year=2027").text
+    assert "يوم التأسيس" in page and "اليوم الوطني" in page and "عيد الفطر" in page and "عيد الأضحى" in page
+    assert 'value="2027-02-22"' in page and 'value="2027-09-23"' in page and 'value="2027-03-09"' in page
+    # تعديل فترة عيد الفطر قبل الحفظ، وعدم إضافة اليوم الوطني
+    r = post(adm, "/admin/holidays/presets", {
+        "use_founding": "1", "name_founding": "يوم التأسيس", "start_founding": "2027-02-22", "end_founding": "2027-02-22",
+        "use_fitr": "1", "name_fitr": "عيد الفطر", "start_fitr": "2027-03-04", "end_fitr": "2027-03-14",
+        "use_adha": "1", "name_adha": "عيد الأضحى", "start_adha": "2027-05-15", "end_adha": "2027-05-18",
+        "name_national": "اليوم الوطني", "start_national": "2027-09-23", "end_national": "2027-09-23"})
+    assert "أُضيفت العطل الرسمية" in adm.get(r.headers["location"]).text
+    with SessionLocal() as db:
+        assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 11
+        assert db.query(Holiday).filter_by(day=date(2027, 9, 23)).count() == 0
+    html = adm.get("/admin/holidays?year=2027").text
+    assert "مضافة" in html and "11 يوماً" in html
+    # تعديل العطلة المسجلة (تقصير الفترة)
+    post(adm, "/admin/holidays/group/update", {"old_name": "عيد الفطر", "old_start": "2027-03-04", "old_end": "2027-03-14",
+                                               "name": "إجازة عيد الفطر", "start": "2027-03-08", "end": "2027-03-13"})
+    with SessionLocal() as db:
+        assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 0
+        assert db.query(Holiday).filter_by(name="إجازة عيد الفطر").count() == 6
+    post(adm, "/admin/holidays/group/delete", {"name": "عيد الأضحى", "start": "2027-05-15", "end": "2027-05-18"})
+    with SessionLocal() as db:
+        assert db.query(Holiday).filter_by(name="عيد الأضحى").count() == 0

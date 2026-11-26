@@ -1045,13 +1045,47 @@
       </tbody></table></div>`);
   };
 
-  A.holidays = (u) => layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>${ico("holiday", "h-ico")} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
-    <section class="card"><form class="filters" data-form="holiday"><div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required></div>
+  // العطل الرسمية في السعودية: يوم التأسيس واليوم الوطني ثابتان، والعيدان وفق تقويم أم القرى (تقديري)
+  const HIJRI_ANCHORS = { 2026: { fitr: "2026-03-20", arafah: "2026-05-26" }, 2027: { fitr: "2027-03-09", arafah: "2027-05-15" }, 2028: { fitr: "2028-02-26", arafah: "2028-05-04" } };
+  const ANNOUNCED = { "2026:fitr": ["2026-03-13", "2026-03-24"] };
+  const addDays = (d, k) => { const x = parseISO(d); x.setDate(x.getDate() + k); return iso(x); };
+  function saPresets(yr) {
+    const out = [{ key: "founding", name: "يوم التأسيس", start: yr + "-02-22", end: yr + "-02-22", note: "22 فبراير من كل عام." }], a = HIJRI_ANCHORS[yr];
+    if (a) { const f = ANNOUNCED[yr + ":fitr"];
+      out.push({ key: "fitr", name: "عيد الفطر", start: f ? f[0] : a.fitr, end: f ? f[1] : addDays(a.fitr, 3), note: f ? "وفق إعلان وزارة الموارد البشرية للقطاع الحكومي." : "1 شوال المتوقع " + a.fitr + " (أم القرى). المقترح 4 أيام؛ عدّلها حسب تعميم الوزارة للقطاع الحكومي." });
+      out.push({ key: "adha", name: "عيد الأضحى", start: a.arafah, end: addDays(a.arafah, 3), note: "يوم عرفة المتوقع " + a.arafah + " (أم القرى). المقترح من عرفة إلى 12 ذو الحجة؛ عدّلها حسب تعميم الوزارة." }); }
+    out.push({ key: "national", name: "اليوم الوطني", start: yr + "-09-23", end: yr + "-09-23", note: "23 سبتمبر من كل عام." });
+    return out;
+  }
+  function holidayGroups() {
+    const g = []; DB.holidays.slice().sort((x, y) => x.day.localeCompare(y.day)).forEach((h0) => { const last = g[g.length - 1];
+      if (last && last.name === h0.name && addDays(last.end, 1) === h0.day) { last.end = h0.day; last.days++; } else g.push({ name: h0.name, start: h0.day, end: h0.day, days: 1 }); });
+    return g.reverse();
+  }
+  function addHolidayRange(name, sd, ed) { let c = 0; for (let d = sd; d <= ed; d = addDays(d, 1)) { if (!DB.holidays.some((x) => x.day === d)) { DB.holidays.push({ id: nid(), day: d, name }); c++; } } return c; }
+  A.holidays = (u, q) => {
+    const yrs = Object.keys(HIJRI_ANCHORS).map(Number), now = new Date(), cy = now.getFullYear();
+    const sel = yrs.includes(Number(q.get("year"))) ? Number(q.get("year")) : (now.getMonth() >= 9 && yrs.includes(cy + 1) ? cy + 1 : (yrs.includes(cy) ? cy : yrs[yrs.length - 1]));
+    const have = new Set(DB.holidays.map((x) => x.day)), pre = saPresets(sel).map((p0) => { let n0 = 0, hv = 0; for (let d = p0.start; d <= p0.end; d = addDays(d, 1)) { n0++; if (have.has(d)) hv++; } return { ...p0, days: n0, have: hv }; });
+    const groups = holidayGroups();
+    return layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>${ico("holiday", "h-ico")} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
+    <section class="card" id="official"><div class="sec-head"><h2>${ico("calendar-plus", "sm-ico")} العطل الرسمية في المملكة العربية السعودية</h2>
+      <form class="inline year-pick" data-form="filter" data-route="admin/holidays"><label for="py" class="sr-only">السنة</label><select id="py" name="year" data-autosubmit>${yrs.map((y) => `<option value="${y}" ${y === sel ? "selected" : ""}>${y}</option>`).join("")}</select></form></div>
+      <p class="hint">التواريخ مقترحة: يوم التأسيس واليوم الوطني ثابتان، وتاريخا العيدين بحسب تقويم أم القرى وقد يتغيران بيوم وفق الرؤية الشرعية. <b>راجع الفترات وعدّلها حسب تعميم وزارة الموارد البشرية أو تقويم الجهة</b> ثم احفظ؛ ويمكنك تعديلها أو حذفها لاحقاً من القائمة أدناه.</p>
+      <form data-form="holiday-presets"><div class="table-wrap"><table class="responsive preset-table"><caption class="sr-only">العطل الرسمية المقترحة لسنة ${sel}</caption><thead><tr><th>إضافة</th><th>العطلة</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>
+      ${pre.map((p0) => `<tr><td data-label="إضافة"><label class="chk"><input type="checkbox" name="use_${p0.key}" value="1" ${p0.have < p0.days ? "checked" : ""} aria-label="إضافة ${p0.name}"></label>${p0.have === p0.days ? ' <span class="badge ok">مضافة</span>' : p0.have ? ' <span class="badge warn">مضافة جزئياً</span>' : ""}</td>
+        <td data-label="العطلة"><input name="name_${p0.key}" value="${h(p0.name)}" class="cell-input" aria-label="اسم العطلة"></td><td data-label="من"><input type="date" name="start_${p0.key}" value="${p0.start}" class="cell-input" aria-label="من تاريخ ${p0.name}"></td>
+        <td data-label="إلى"><input type="date" name="end_${p0.key}" value="${p0.end}" class="cell-input" aria-label="إلى تاريخ ${p0.name}"></td><td data-label="ملاحظة"><small class="muted">${p0.note}</small></td></tr>`).join("")}</tbody></table></div>
+      <div class="actions"><button class="btn primary">${ico("calendar-plus", "sm-ico")}إضافة المحدد لسنة ${sel}</button></div></form></section>
+    <section class="card"><h2>إضافة عطلة أخرى</h2><form class="filters" data-form="holiday"><div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة منتصف الفصل"></div>
       <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div><div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div><button class="btn primary">إضافة</button></form></section>
-    <div class="card flush"><table class="responsive"><thead><tr><th>التاريخ</th><th>اليوم</th><th>العطلة</th><th></th></tr></thead><tbody>
-    ${DB.holidays.slice().sort((a, b) => b.day.localeCompare(a.day)).map((x) => `<tr><td class="num" data-label="التاريخ">${x.day}</td><td data-label="اليوم">${WD[weekday(x.day)]}</td><td data-label="العطلة">${h(x.name)}</td><td><button class="btn sm danger" type="button" data-act="del-holiday" data-id="${x.id}">حذف</button></td></tr>`).join("") || '<tr><td colspan="4" class="empty">لا توجد عطل مسجلة.</td></tr>'}
-    </tbody></table></div>`);
-
+    <section class="card flush"><h2>العطل المسجلة ${groups.length ? `<span class="badge muted">${groups.length}</span>` : ""}</h2><div class="table-wrap"><table class="responsive"><caption class="sr-only">العطل المسجلة</caption><thead><tr><th>العطلة</th><th>الفترة</th><th class="n">الأيام</th><th></th></tr></thead><tbody>
+    ${groups.map((g0) => `<tr><td data-label="العطلة"><b>${h(g0.name)}</b></td><td data-label="الفترة"><span class="d-range"><bdi class="d">${g0.start}</bdi>${g0.end !== g0.start ? `<span aria-hidden="true">←</span><bdi class="d">${g0.end}</bdi>` : ""}</span> <small class="muted">(${WD[weekday(g0.start)]}${g0.end !== g0.start ? " – " + WD[weekday(g0.end)] : ""})</small></td><td class="n" data-label="الأيام">${daysAr(g0.days)}</td>
+      <td class="actions-cell"><details class="row-edit"><summary class="btn sm">تعديل</summary><form class="filters" data-form="holiday-edit" data-name="${h(g0.name)}" data-start="${g0.start}" data-end="${g0.end}">
+        <div class="field"><label>الاسم</label><input name="name" value="${h(g0.name)}" required></div><div class="field"><label>من</label><input type="date" name="start" value="${g0.start}" required></div><div class="field"><label>إلى</label><input type="date" name="end" value="${g0.end}"></div><button class="btn sm primary">حفظ التعديل</button></form></details>
+        <button class="btn sm danger" type="button" data-act="del-holiday-group" data-name="${h(g0.name)}" data-start="${g0.start}" data-end="${g0.end}">حذف</button></td></tr>`).join("") || '<tr><td colspan="4" class="empty">لا توجد عطل مسجلة. أضف العطل الرسمية من الأعلى.</td></tr>'}
+    </tbody></table></div></section>`);
+  };
   A.mail = (u) => layout(u, "الإعدادات", `${settingsTabs("mail")}<div class="page-head"><div><h1>${ico("mail", "h-ico")} البريد الإلكتروني</h1>
       <p>إشعارات البريد تصل للمستخدمين عند الرسائل الجديدة، واعتماد الطلبات أو رفضها أو إلغائها، ورفع التوصيات، وتنبيهات الرصيد.</p></div></div>
       <div class="alert info">في نسخة العرض لا يُرسل أي بريد فعلي. في النظام الفعلي تعرض هذه الصفحة حالة البريد، وخادم الإرسال والمرسِل، وآخر إرسال ناجح وآخر خطأ، مع زر «إرسال رسالة تجريبية» ومعاينة شكل الرسالة.</div>
@@ -1107,7 +1141,7 @@
       </tbody></table></div></div>`);
   };
 
-  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employee_deleted": "حذف موظف أُدخل بالخطأ", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "recommendation_submitted": "رفع توصية من الموظف للاعتماد", "recommendation_approved": "اعتماد توصية مرفوعة من الموظف", "recommendation_rejected": "رفض توصية مرفوعة من الموظف", "recommendation_withdrawn": "سحب توصية قبل اعتمادها", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق", "team_transferred": "نقل فريق بين المسؤولين", "delegation_created": "إنشاء تفويض", "delegation_cancelled": "إلغاء تفويض", "audit_cleared": "حذف من سجل التدقيق", "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)"};
+  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employee_deleted": "حذف موظف أُدخل بالخطأ", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "recommendation_submitted": "رفع توصية من الموظف للاعتماد", "recommendation_approved": "اعتماد توصية مرفوعة من الموظف", "recommendation_rejected": "رفض توصية مرفوعة من الموظف", "recommendation_withdrawn": "سحب توصية قبل اعتمادها", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "holiday_updated": "تعديل عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق", "team_transferred": "نقل فريق بين المسؤولين", "delegation_created": "إنشاء تفويض", "delegation_cancelled": "إلغاء تفويض", "audit_cleared": "حذف من سجل التدقيق", "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)"};
   const AUDIT_ENTITIES = {"user": "حساب", "employee": "موظف", "recommendation": "توصية", "leave_request": "طلب", "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة", "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول", "export": "تصدير", "delegation": "تفويض", "team": "فريق"};
   const AUDIT_FIELDS = {"employee": "الموظف", "employee_id": "رقم سجل الموظف", "kind": "النوع", "unit": "الوحدة", "days": "أيام", "hours": "ساعات", "amount": "المقدار", "note": "الملاحظة", "reason": "السبب", "username": "اسم المستخدم", "role": "الدور", "count": "العدد", "file": "الملف", "batch": "الدفعة", "prev": "الحالة السابقة", "previous": "الحالة السابقة", "on_behalf": "بالنيابة", "to": "إلى", "ok": "النتيجة", "error": "الخطأ", "fields": "الحقول", "active": "نشط", "assigned": "عدد المسندين", "unassigned": "أُلغي إسنادهم", "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف", "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي", "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية", "delegated": "بالتفويض", "from": "من", "start": "من تاريخ", "end": "إلى تاريخ", "moved": "عدد المنقولين", "pending_requests": "طلبات معلّقة انتقلت", "notify_employees": "إشعار الموظفين", "scope": "النطاق"};
   const auditVal = (v) => Array.isArray(v) ? v.map(auditVal).join("، ") : v === true ? "نعم" : v === false ? "لا" : v && typeof v === "object" ? Object.entries(v).map(([k, x]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(x)).join("، ") : ({ approved: "معتمد", pending: "بانتظار الاعتماد", rejected: "مرفوض", cancelled: "ملغى", days: "أيام", hours: "ساعات", use: "معالجة غياب", employee: "موظف", officer: "شؤون الموظفين", admin: "مدير النظام", wrong_password: "كلمة مرور خاطئة" })[v] || String(v);
@@ -2070,6 +2104,27 @@
     if (bl.length) { flash("لا يمكن حذف «" + e.name + "»: " + bl.join("، و") + ". للحفاظ على السجلات أوقفه بدلاً من حذفه.", "error"); render(); return; }
     if (!await confirmDlg("حذف الموظف «" + e.name + "» وحسابه نهائياً؟ يُسمح بذلك لمن أُدخل بالخطأ ولا سجلات له.")) return;
     removeEmp(e); flash("حُذف الموظف «" + e.name + "» (" + e.no + ") وحسابه."); render();
+  };
+
+  F["holiday-presets"] = (form) => {
+    const d = fd(form), names = [], spans = []; let c = 0;
+    ["founding", "fitr", "adha", "national"].forEach((k) => { if (!d.get("use_" + k)) return; const nm = String(d.get("name_" + k) || "").trim(), sd = String(d.get("start_" + k) || ""), ed = String(d.get("end_" + k) || "") || sd;
+      if (!nm || !parseISO(sd) || !parseISO(ed) || ed < sd) throw new RuleError("تواريخ «" + (nm || k) + "» غير صحيحة.");
+      c += addHolidayRange(nm, sd, ed); names.push(nm); spans.push([sd, ed]); });
+    if (!names.length) throw new RuleError("لم تُختر أي عطلة.");
+    audit("holiday_added", "holiday", null, { name: names.join("، "), count: c }); save();
+    flash("أُضيفت العطل الرسمية (" + names.join("، ") + "): " + c + " يوم جديد."); spans.forEach(([a0, b0]) => warnHolidayOverlap(a0, b0, true)); render();
+  };
+  F["holiday-edit"] = (form) => {
+    const d = fd(form), on = form.dataset.name, os = form.dataset.start, oe = form.dataset.end, nm = String(d.get("name") || "").trim(), sd = String(d.get("start") || ""), ed = String(d.get("end") || "") || sd;
+    if (!nm || !parseISO(sd) || !parseISO(ed) || ed < sd) throw new RuleError("بيانات التعديل غير صحيحة.");
+    DB.holidays = DB.holidays.filter((x) => !(x.name === on && x.day >= os && x.day <= oe)); addHolidayRange(nm, sd, ed);
+    audit("holiday_updated", "holiday", null, { name: nm, before: os + " – " + oe, after: sd + " – " + ed }); save(); flash("عُدّلت العطلة «" + nm + "»."); warnHolidayOverlap(sd < os ? sd : os, ed > oe ? ed : oe, true); render();
+  };
+  ACT["del-holiday-group"] = async (b) => {
+    const nm = b.dataset.name, sd = b.dataset.start, ed = b.dataset.end, n0 = DB.holidays.filter((x) => x.name === nm && x.day >= sd && x.day <= ed).length;
+    if (!await confirmDlg("حذف «" + nm + "» (" + daysAr(n0) + ")؟")) return;
+    DB.holidays = DB.holidays.filter((x) => !(x.name === nm && x.day >= sd && x.day <= ed)); audit("holiday_deleted", "holiday", null, { name: nm, count: n0 }); save(); flash("حُذفت العطلة «" + nm + "» (" + daysAr(n0) + ")."); warnHolidayOverlap(sd, ed, false); render();
   };
 
   document.addEventListener("submit", async (ev) => {

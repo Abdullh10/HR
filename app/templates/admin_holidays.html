@@ -5,14 +5,46 @@
 {% block content %}
 {{ settings_tabs('holidays') }}
 <div class="page-head"><div><h1>{{ ico('holiday', 'h-ico') }} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
-<section class="card"><form method="post" action="/admin/holidays/add" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
-  <div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة عيد الفطر"></div>
+
+<section class="card" id="official">
+  <div class="sec-head"><h2>{{ ico('calendar-plus', 'sm-ico') }} العطل الرسمية في المملكة العربية السعودية</h2>
+    <form method="get" class="inline year-pick"><label for="py" class="sr-only">السنة</label><select id="py" name="year" data-autosubmit>{% for y in preset_years %}<option value="{{ y }}" {% if y == preset_year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></form></div>
+  <p class="hint">التواريخ مقترحة: يوم التأسيس واليوم الوطني ثابتان، وتاريخا العيدين بحسب تقويم أم القرى وقد يتغيران بيوم وفق الرؤية الشرعية. <b>راجع الفترات وعدّلها حسب تعميم وزارة الموارد البشرية أو تقويم الجهة</b> ثم احفظ؛ ويمكنك تعديلها أو حذفها لاحقاً من القائمة أدناه.</p>
+  <form method="post" action="/admin/holidays/presets"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="table-wrap"><table class="responsive preset-table"><caption class="sr-only">العطل الرسمية المقترحة لسنة {{ preset_year }}</caption>
+      <thead><tr><th>إضافة</th><th>العطلة</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>
+      {% for p in presets %}<tr>
+        <td data-label="إضافة"><label class="chk"><input type="checkbox" name="use_{{ p.key }}" value="1" {% if p.have < p.days %}checked{% endif %} aria-label="إضافة {{ p.name }}"></label>{% if p.have == p.days %} <span class="badge ok">مضافة</span>{% elif p.have %} <span class="badge warn">مضافة جزئياً</span>{% endif %}</td>
+        <td data-label="العطلة"><input name="name_{{ p.key }}" value="{{ p.name }}" aria-label="اسم العطلة" class="cell-input"></td>
+        <td data-label="من"><input type="date" name="start_{{ p.key }}" value="{{ p.start.isoformat() }}" aria-label="من تاريخ {{ p.name }}" class="cell-input"></td>
+        <td data-label="إلى"><input type="date" name="end_{{ p.key }}" value="{{ p.end.isoformat() }}" aria-label="إلى تاريخ {{ p.name }}" class="cell-input"></td>
+        <td data-label="ملاحظة"><small class="muted">{{ p.note }}</small></td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="actions"><button class="btn primary">{{ ico('calendar-plus', 'sm-ico') }}إضافة المحدد لسنة {{ preset_year }}</button></div>
+  </form>
+</section>
+
+<section class="card"><h2>إضافة عطلة أخرى</h2><form method="post" action="/admin/holidays/add" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة منتصف الفصل"></div>
   <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div>
   <div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div>
   <button class="btn primary">إضافة</button></form></section>
-<div class="card flush"><table class="responsive"><thead><tr><th>التاريخ</th><th>اليوم</th><th>العطلة</th><th></th></tr></thead><tbody>
-{% for h in rows %}<tr><td class="num" data-label="التاريخ">{{ h.day|d }}</td><td data-label="اليوم">{{ WEEKDAYS_AR[h.day.weekday()] }}</td><td data-label="العطلة">{{ h.name }}</td>
-<td><form method="post" action="/admin/holidays/{{ h.id }}/delete" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm danger" data-confirm="حذف هذا اليوم؟">حذف</button></form></td></tr>
-{% else %}<tr><td colspan="4" class="empty">لا توجد عطل مسجلة.</td></tr>{% endfor %}
-</tbody></table></div>
+
+<section class="card flush"><h2>العطل المسجلة {% if groups %}<span class="badge muted">{{ groups|length }}</span>{% endif %}</h2>
+<div class="table-wrap"><table class="responsive"><caption class="sr-only">العطل المسجلة</caption><thead><tr><th>العطلة</th><th>الفترة</th><th class="n">الأيام</th><th></th></tr></thead><tbody>
+{% for g in groups %}<tr>
+  <td data-label="العطلة"><b>{{ g.name }}</b></td>
+  <td data-label="الفترة"><span class="d-range"><bdi class="d">{{ g.start|d }}</bdi>{% if g.end != g.start %}<span aria-hidden="true">←</span><bdi class="d">{{ g.end|d }}</bdi>{% endif %}</span> <small class="muted">({{ WEEKDAYS_AR[g.start.weekday()] }}{% if g.end != g.start %} – {{ WEEKDAYS_AR[g.end.weekday()] }}{% endif %})</small></td>
+  <td class="n" data-label="الأيام">{{ days_ar(g.days) }}</td>
+  <td class="actions-cell">
+    <details class="row-edit"><summary class="btn sm">تعديل</summary>
+      <form method="post" action="/admin/holidays/group/update" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <input type="hidden" name="old_name" value="{{ g.name }}"><input type="hidden" name="old_start" value="{{ g.start.isoformat() }}"><input type="hidden" name="old_end" value="{{ g.end.isoformat() }}">
+        <div class="field"><label>الاسم</label><input name="name" value="{{ g.name }}" required></div>
+        <div class="field"><label>من</label><input type="date" name="start" value="{{ g.start.isoformat() }}" required></div>
+        <div class="field"><label>إلى</label><input type="date" name="end" value="{{ g.end.isoformat() }}"></div>
+        <button class="btn sm primary">حفظ التعديل</button></form></details>
+    <form method="post" action="/admin/holidays/group/delete" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="name" value="{{ g.name }}"><input type="hidden" name="start" value="{{ g.start.isoformat() }}"><input type="hidden" name="end" value="{{ g.end.isoformat() }}"><button class="btn sm danger" data-confirm="حذف «{{ g.name }}» ({{ days_ar(g.days) }})؟">حذف</button></form></td></tr>
+{% else %}<tr><td colspan="4" class="empty">لا توجد عطل مسجلة. أضف العطل الرسمية من الأعلى.</td></tr>{% endfor %}
+</tbody></table></div></section>
 {% endblock %}
