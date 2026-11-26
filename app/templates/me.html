@@ -13,7 +13,7 @@
   <div class="actions no-print">{{ year_select(years, sel_year) }}<a class="btn" href="/employees/{{ emp.id }}?year_id={{ sel_year.id }}&print=1" target="_blank" rel="noopener">طباعة تقرير</a></div>
 </div>
 {% if today.month >= 10 and sel_year.start_date <= today <= sel_year.end_date and info.bookable_days > 0 %}
-<div class="alert warn" role="status">{{ ico('calendar', 'sm-ico') }} لديك <b>{{ days_ar(info.bookable_days) }}</b> متاحة للطلب تسقط في <bdi class="d">{{ sel_year.end_date|d }}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.{% if sel_year.employee_can_request %} <a href="/requests/new">قدّم طلباً الآن</a>.{% endif %}</div>
+<div class="alert warn" role="status">{{ ico('calendar', 'sm-ico') }}<span>لديك <b>{{ days_ar(info.bookable_days) }}</b> متاحة للطلب تسقط في <bdi class="d">{{ sel_year.end_date|d }}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.{% if sel_year.employee_can_request %} <a href="/requests/new">قدّم طلباً الآن</a>.{% endif %}</span></div>
 {% endif %}
 {{ balance_board(info, big=True) }}
 <nav class="action-tiles" aria-label="طلبات">

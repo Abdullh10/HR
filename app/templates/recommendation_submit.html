@@ -10,7 +10,7 @@
 </div>
 <form method="post" action="/recommendations/submit" data-keep enctype="multipart/form-data" class="card form-narrow">
   <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
-  <div class="alert info" role="note">{{ ico('hourglass', 'sm-ico') }} تبقى التوصية «بانتظار الاعتماد» ولا تُحتسب في رصيدك حتى يعتمدها مسؤول شؤون الموظفين بعد مراجعة الخطاب. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }}، والمتاح للمنح حالياً {% if is_days %}{{ (info.cap_left_hours / info.hours_per_day)|round(2)|n }} يوم{% else %}{{ info.cap_left_hours|n }} ساعة{% endif %}.</div>
+  <div class="alert info" role="note">{{ ico('hourglass', 'sm-ico') }}<span>تبقى التوصية «بانتظار الاعتماد» ولا تُحتسب في رصيدك حتى يعتمدها مسؤول شؤون الموظفين بعد مراجعة الخطاب. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }}، والمتاح للمنح حالياً {% if is_days %}{{ (info.cap_left_hours / info.hours_per_day)|round(2)|n }} يوم{% else %}{{ info.cap_left_hours|n }} ساعة{% endif %}.</span></div>
   <div class="form-grid">
     <div class="field"><label for="am">{{ 'عدد الأيام الممنوحة' if is_days else 'عدد الساعات الممنوحة' }} *</label><input id="am" name="amount" type="number" required min="{{ 1 if is_days else 0.25 }}" step="{{ 1 if is_days else 0.25 }}" inputmode="decimal"></div>
     <div class="field"><label for="dt">تاريخ التوصية (الخطاب) *</label><input id="dt" name="rec_date" type="date" required></div>

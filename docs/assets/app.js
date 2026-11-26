@@ -369,7 +369,7 @@
         </div>
       </details>
     </header>
-    <main id="main" class="content" tabindex="-1">${(() => { const dl = u.role === "officer" ? activeDelegs().filter((d) => d.to === u.emp) : []; return dl.length && ["dashboard", "approvals", "requests", "employees"].includes(sg[0] || "dashboard") ? `<div class="alert info deleg-banner" role="note">${ico("swap", "sm-ico")} تعمل بالتفويض عن ${dl.map((d) => "فريق <b>" + h(byId("emps", d.from).name) + "</b> حتى <bdi class=\"d\">" + d.end + "</bdi>").join("، ")}؛ تظهر طلباتهم وموظفوهم معك مع علامة «بالتفويض». <a href="#/delegation">التفاصيل</a></div>` : ""; })()}${fl}${body}</main>
+    <main id="main" class="content" tabindex="-1">${(() => { const dl = u.role === "officer" ? activeDelegs().filter((d) => d.to === u.emp) : []; return dl.length && ["dashboard", "approvals", "requests", "employees"].includes(sg[0] || "dashboard") ? `<div class="alert info deleg-banner" role="note">${ico("swap", "sm-ico")}<span>تعمل بالتفويض عن ${dl.map((d) => "فريق <b>" + h(byId("emps", d.from).name) + "</b> حتى <bdi class=\"d\">" + d.end + "</bdi>").join("، ")}؛ تظهر طلباتهم وموظفوهم معك مع علامة «بالتفويض». <a href="#/delegation">التفاصيل</a></span></div>` : ""; })()}${fl}${body}</main>
     <footer class="footer">© ${new Date().getFullYear()} ${h(s.university)} – ${h(s.college)} · ${h(s.system_title)}${s.credit ? " · " + h(s.credit) : ""}</footer>
   </div>
 </div>`;
@@ -390,7 +390,7 @@
   function board(b, big) {
     return `${(b.alerts || []).map(([k, t]) => `<div class="alert ${k} balance-alert" role="status">⚠ ${h(t)}</div>`).join("")}<section class="board${big ? " big" : ""}">
   <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="المتاح للطلب ${daysAr(b.bookable)}">
-    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</div></div>
+    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small title="ساعات لا تكفي ليوم كامل">+ ${hoursAr(b.hAvailRem)}</small>` : ""}</div></div>
   <div class="board-cards">
     <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span><span class="s book">${b.bookable ? `يمكن طلب <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}` : "لا توجد أيام قابلة للطلب حالياً"}</span></div></div>
     <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</b>` : ""}</span></div></div>
@@ -608,7 +608,7 @@
     const y = pickYear(q), b = balance(e.id, y);
     const recs = DB.recs.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.date.localeCompare(a.date));
     const reqs = DB.leaves.filter((r) => r.emp === e.id && r.year === y.id).sort((a, c) => c.created.localeCompare(a.created));
-    const yEnd = (() => { const t = todayISO(); return Number(t.slice(5, 7)) >= 10 && y.start <= t && t <= y.end && b.bookable > 0 ? `<div class="alert warn" role="status">${ico("calendar", "sm-ico")} لديك <b>${daysAr(b.bookable)}</b> متاحة للطلب تسقط في <bdi class="d">${y.end}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.${y.empCanRequest ? ' <a href="#/requests/new">قدّم طلباً الآن</a>.' : ""}</div>` : ""; })();
+    const yEnd = (() => { const t = todayISO(); return Number(t.slice(5, 7)) >= 10 && y.start <= t && t <= y.end && b.bookable > 0 ? `<div class="alert warn" role="status">${ico("calendar", "sm-ico")}<span>لديك <b>${daysAr(b.bookable)}</b> متاحة للطلب تسقط في <bdi class="d">${y.end}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.${y.empCanRequest ? ' <a href="#/requests/new">قدّم طلباً الآن</a>.' : ""}</span></div>` : ""; })();
     return layout(u, "رصيدي", `${u.role === "employee" ? welcomeBanner(u) : ""}<div class="page-head"><div><h1>${ico("pie", "h-ico")} رصيدي</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a></div></div>
       ${yEnd}${board(b, true)}
@@ -2043,7 +2043,7 @@
     return layout(u, "رفع توصية ممنوحة لي", `<div class="page-head"><div><h1>${ico("upload", "h-ico")} رفع توصية ممنوحة لي</h1><p>ارفع خطاب التوصية الذي مُنحت فيه بدل راحة (بالأيام أو بالساعات)، فيصل إلى ${h(mgrName(e) || "مدير النظام")} لاعتماده، وتُضاف القيمة إلى رصيدك بعد الاعتماد.</p></div>
       <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="#/recs/submit?kind=days" class="${isD ? "on" : ""}">بالأيام</a><a href="#/recs/submit?kind=hours" class="${isD ? "" : "on"}">بالساعات</a></div></div>
       <form class="card form-narrow" data-form="rec-submit" data-kind="${kind}">
-        <div class="alert info" role="note">${ico("hourglass", "sm-ico")} تبقى التوصية «بانتظار الاعتماد» ولا تُحتسب في رصيدك حتى يعتمدها مسؤول شؤون الموظفين بعد مراجعة الخطاب. الحد الأقصى السنوي ${daysAr(y.cap)}، والمتاح للمنح حالياً ${isD ? n(b.capLeftHours / b.hpd) + " يوم" : n(b.capLeftHours) + " ساعة"}.</div>
+        <div class="alert info" role="note">${ico("hourglass", "sm-ico")}<span>تبقى التوصية «بانتظار الاعتماد» ولا تُحتسب في رصيدك حتى يعتمدها مسؤول شؤون الموظفين بعد مراجعة الخطاب. الحد الأقصى السنوي ${daysAr(y.cap)}، والمتاح للمنح حالياً ${isD ? n(b.capLeftHours / b.hpd) + " يوم" : n(b.capLeftHours) + " ساعة"}.</span></div>
         <div class="form-grid"><div class="field"><label for="am">${isD ? "عدد الأيام الممنوحة" : "عدد الساعات الممنوحة"} *</label><input id="am" name="amount" type="number" required min="${isD ? 1 : 0.25}" step="${isD ? 1 : 0.25}" inputmode="decimal"></div>
           <div class="field"><label for="dt">تاريخ التوصية (الخطاب) *</label><input id="dt" name="date" type="date" required></div>
           <div class="field"><label for="rf">رقم الخطاب</label><input id="rf" name="ref" maxlength="64"></div></div>

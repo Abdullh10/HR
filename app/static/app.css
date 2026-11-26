@@ -1222,3 +1222,8 @@ td[data-label="تحديد"] label, th label.chk { display: inline-grid; place-it
 .page-head .year-pick { display: flex; flex-direction: column; gap: .25rem; }
 .page-head .year-pick label { font-size: .85rem; }
 .year-pick .clear-link { display: none; }
+/* نص حلقة الرصيد يبقى داخل الدائرة */
+.gauge-in { max-width: calc(var(--size) - 46px); }
+.gauge-in span { line-height: 1.3; }
+.gauge-in small { font-size: .72rem; line-height: 1.3; }
+.gauge-in small { white-space: normal; }

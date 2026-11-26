@@ -33,7 +33,7 @@
     <div class="gauge-in">
       <b class="num">{{ info.bookable_days }}</b>{% set bd = info.bookable_days %}<span>{{ 'يوم متاح للطلب' if bd == 1 else 'يومان متاحان للطلب' if bd == 2 else 'يوماً متاحاً للطلب' if bd > 10 else 'أيام متاحة للطلب' }}</span>
       {% if info.pending_days or info.pending_hours %}<small>معلّق: {{ days_ar(info.pending_days) if info.pending_days else '' }}{% if info.pending_days and info.pending_hours %} و{% endif %}{{ hours_ar(info.pending_hours) if info.pending_hours else '' }}</small>{% endif %}
-      {% if info.hours_avail_rem %}<small>+ {{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}
+      {% if info.hours_avail_rem %}<small title="ساعات لا تكفي ليوم كامل">+ {{ hours_ar(info.hours_avail_rem) }}</small>{% endif %}
     </div>
   </div>
   <div class="board-cards">

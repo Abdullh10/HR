@@ -127,7 +127,7 @@
     </header>
     <main id="main" class="content" tabindex="-1">
       {% if delegated_teams and (path.startswith('/dashboard') or path.startswith('/approvals') or path.startswith('/requests') or path.startswith('/employees')) %}
-      <div class="alert info deleg-banner" role="note">{{ ico('swap', 'sm-ico') }} تعمل بالتفويض عن {% for name, end in delegated_teams %}فريق <b>{{ name }}</b> حتى <bdi class="d">{{ end|d }}</bdi>{{ '، ' if not loop.last }}{% endfor %}؛ تظهر طلباتهم وموظفوهم معك مع علامة «بالتفويض». <a href="/delegation">التفاصيل</a></div>
+      <div class="alert info deleg-banner" role="note">{{ ico('swap', 'sm-ico') }}<span>تعمل بالتفويض عن {% for name, end in delegated_teams %}فريق <b>{{ name }}</b> حتى <bdi class="d">{{ end|d }}</bdi>{{ '، ' if not loop.last }}{% endfor %}؛ تظهر طلباتهم وموظفوهم معك مع علامة «بالتفويض». <a href="/delegation">التفاصيل</a></span></div>
       {% endif %}
       {% for kind, msg in flashes %}<div class="alert {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
       {% block content %}{% endblock %}
