@@ -115,8 +115,16 @@ def oversight_data(db: Session, user: User, year, dept: int | None, sort: str = 
     lapse_n, lapse_days = 0, 0.0
     today = date.today()
     lapse_window = year.start_date <= today <= year.end_date and (year.end_date - today).days <= 90
+    people: dict[str, list] = defaultdict(list)  # أسماء موظفي كل قسم مع أرصدتهم (للاطلاع من ترتيب الأقسام)
+    pend_by_emp: dict[int, int] = defaultdict(int)
+    for r in pend_reqs:
+        pend_by_emp[r.employee_id] += 1
     for e in active:
         b = compute_balance(db, e.id, year)
+        people[e.department.name if e.department else NO_DEPT].append(dict(
+            id=e.id, name=e.full_name, no=e.employee_no, officer=e.manager.full_name if e.manager else "—",
+            days_left=b.days_left, hours_left=b.hours_left, granted=round(b.granted_equiv_days, 1),
+            used=round(b.used_equiv_days, 1), pending=pend_by_emp.get(e.id, 0)))
         if b.cap_left_hours <= 0:
             at_cap += 1
         elif b.cap_pct >= 80:
@@ -155,7 +163,8 @@ def oversight_data(db: Session, user: User, year, dept: int | None, sort: str = 
         rank.append(dict(id=did, name=name, cls=slots.get(did, "sv-c-other"), emp=d["count"], pending=d["n_pending"],
                          late=late_by.get(name, 0), small=small_g,
                          granted=None if small_g else round(d["granted"], 1), used=None if small_g else round(d["used"], 1),
-                         rate=None if small_g else d["util"], avg_lead=d["avg_lead"]))
+                         rate=None if small_g else d["util"], avg_lead=d["avg_lead"],
+                         people=sorted(people.get(name, []), key=lambda x: x["name"])))
     keyf = {"emp": lambda r: -r["emp"], "pending": lambda r: -r["pending"], "granted": lambda r: -(r["granted"] or -1),
             "used": lambda r: -(r["used"] or -1), "rate": lambda r: -(r["rate"] if r["rate"] is not None else -1)}
     rank.sort(key=lambda r: (-r["late"], -r["pending"], r["name"]))

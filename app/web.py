@@ -46,7 +46,7 @@ from .welcome import welcome_info  # noqa: E402
 templates.env.globals["welcome_info"] = welcome_info
 
 # رقم إصدار الأصول الثابتة لإجبار المتصفحات (خاصة الجوال) على جلب النسخ الجديدة
-ASSET_V = "61"
+ASSET_V = "62"
 templates.env.globals["ASSET_V"] = ASSET_V
 
 _STATIC = Path(__file__).parent / "static"

@@ -68,7 +68,10 @@
         {{ sort_th('granted', 'الممنوح (يوم)', sort, qs) }}{{ sort_th('used', 'المستخدم', sort, qs) }}{{ sort_th('rate', 'نسبة الاستخدام', sort, qs, 'sv-rate-h') }}</tr></thead><tbody>
       {% for r in rank %}<tr{% if sel_dept and r.id == sel_dept.id %} class="sv-sel" aria-current="true"{% endif %}>
         <td class="n" data-label="الترتيب"><b class="sv-rk">{{ loop.index }}</b></td>
-        <td data-label="القسم" class="sv-dcell"><span class="sv-dname"><b class="sv-rk sv-rk-m" aria-hidden="true">{{ loop.index }}</b><i class="sv-sw sm {{ r.cls }}{{ ' hatch' if r.cls == 'sv-c-other' }}" aria-hidden="true"></i>{% if r.id and not locked %}<a href="?year_id={{ sel_year.id }}&amp;dept={{ r.id }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</span></td>
+        <td data-label="القسم" class="sv-dcell"><span class="sv-dname"><b class="sv-rk sv-rk-m" aria-hidden="true">{{ loop.index }}</b><i class="sv-sw sm {{ r.cls }}{{ ' hatch' if r.cls == 'sv-c-other' }}" aria-hidden="true"></i>{% if r.id and not locked %}<a href="?year_id={{ sel_year.id }}&amp;dept={{ r.id }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</span>
+          {% if r.people %}<details class="sv-people"><summary>أسماء الموظفين ({{ r.people|length }})</summary>
+            <ul>{% for p in r.people %}<li><a href="/employees/{{ p.id }}?year_id={{ sel_year.id }}">{{ p.name }}</a> <small class="muted num">{{ p.no }}</small>
+              <span class="sv-pb"><span title="رصيد الأيام">{{ p.days_left|n }} يوم</span>{% if p.hours_left %} · <span title="رصيد الساعات">{{ p.hours_left|n }} ساعة</span>{% endif %}{% if p.pending %} · <span class="badge warn">{{ p.pending }} معلّق</span>{% endif %}</span></li>{% endfor %}</ul></details>{% endif %}</td>
         <td class="n" data-label="الموظفون">{{ r.emp }}</td>
         <td class="n" data-label="معلّقة">{{ r.pending or '—' }}</td>
         <td class="n" data-label="متأخرة">{% if r.late %}<span class="badge err late">{{ r.late }}</span>{% else %}—{% endif %}</td>

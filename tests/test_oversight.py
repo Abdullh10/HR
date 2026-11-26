@@ -39,6 +39,7 @@ def test_supervisor_lands_on_oversight_with_names(world):
     assert "لوحة المتابعة الإدارية" in r.text and "قراءة فقط" in r.text
     assert "REQ-2027-00001" in r.text and "موظف أول" in r.text  # المتأخر باسمه ورابطه
     assert "الإداري المسؤول" in r.text
+    assert "أسماء الموظفين (3)" in r.text and "موظف آخر" in r.text  # أسماء موظفي كل قسم في ترتيب الأقسام
     assert c.get("/oversight/export.xlsx").status_code == 200
 
 

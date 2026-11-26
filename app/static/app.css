@@ -1372,3 +1372,10 @@ a.kpi .s { text-decoration: underline; text-underline-offset: 3px; }
 .sv-late-list .who b { font-weight: 700; direction: ltr; unicode-bidi: isolate; }
 
 table tr[hidden] { display: none !important; }
+.sv-people { margin-top: .35rem; font-size: .84rem; }
+.sv-people summary { cursor: pointer; color: var(--brand-2); font-weight: 600; width: max-content; }
+.sv-people ul { list-style: none; margin: .4rem 0 0; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); max-height: 280px; overflow: auto; min-width: min(420px, 100%); }
+.sv-people li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .45rem; padding: .3rem .1rem; border-bottom: 1px dashed var(--border); }
+.sv-people li:last-child { border-bottom: 0; }
+.sv-people .sv-pb { margin-inline-start: auto; color: var(--muted); font-size: .8rem; }
+.sv-rank td.sv-dcell { vertical-align: top; }
