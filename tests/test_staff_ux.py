@@ -93,3 +93,14 @@ def test_leave_requests_are_days_only(world):
     leave(emp, world["e"], "use", "hours", MON, hours=3)  # الخادم يتجاهل «بالساعات» ويعامل الطلب بالأيام
     with SessionLocal() as db:
         assert db.query(LeaveRequest).filter_by(unit="hours").count() == 0
+
+
+def test_faq_hides_non_employee_questions_for_employee(world):
+    hidden = ("من يستطيع الدخول إلى النظام؟", "ما حساب «المتابع الإداري»؟", "من يعتمد طلبي إذا كان مسؤولي في إجازة؟",
+              "هل بياناتي آمنة؟", "هل تُراقب العمليات في النظام؟", "أين تُحفظ البيانات؟", "هل تُؤخذ نسخ احتياطية؟",
+              "هل يمكن تصدير البيانات؟")
+    emp = login("emp").get("/faq").text
+    assert "كيف يُحسب رصيدي؟" in emp
+    assert not any(q in emp for q in hidden)
+    officer = login("mgr").get("/faq").text
+    assert all(q in officer for q in hidden)
