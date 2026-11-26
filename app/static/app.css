@@ -957,6 +957,7 @@ th { background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, va
 .check-list { max-height: 260px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .15rem .9rem; padding: .25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .check-list .check { margin: 0; padding: .35rem .3rem; border-radius: 8px; align-items: flex-start; }
 .check-list .check:hover { background: var(--brand-soft); }
+.check-list .check[hidden] { display: none !important; }
 .check-list .check small { display: block; font-size: .76rem; }
 .steps { margin: 0 0 1rem; padding-inline-start: 1.2rem; line-height: 1.9; }
 .steps li { margin-bottom: .35rem; }

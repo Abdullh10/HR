@@ -377,10 +377,8 @@ def employee_save(request: Request, emp_id: str = Form(""), employee_no: str = F
         dupn = db.scalar(select(Employee).where(Employee.full_name == full_name, Employee.id != (emp_id or 0)))
         if not err and dupn:
             err = "يوجد موظف مسجل بنفس الاسم. أضف ما يميّزه (مثل الاسم الرباعي)."
-        if not err and emp_id and manager_id == emp_id:
-            err = "لا يمكن إسناد الموظف إلى نفسه."
         if not err and emp_id and emp.is_active and not is_active:
-            team = db.scalar(select(func.count(Employee.id)).where(Employee.manager_id == emp_id, Employee.is_active.is_(True))) or 0
+            team = db.scalar(select(func.count(Employee.id)).where(Employee.manager_id == emp_id, Employee.id != emp_id, Employee.is_active.is_(True))) or 0
             if team:
                 err = (f"لا يمكن إيقاف «{emp.full_name}»: يوجد {team} موظف نشط مسند إلى هذا السجل بصفته مسؤول شؤون موظفين؛ "
                        "انقل الفريق كاملاً لمسؤول آخر أولاً من «المستخدمون والصلاحيات ‹ الفرق والتفويض».")

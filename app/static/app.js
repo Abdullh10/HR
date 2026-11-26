@@ -259,8 +259,8 @@
   document.addEventListener("input", function (ev) {
     var f = ev.target.closest("[data-assign-filter]");
     if (!f) return;
-    var q = f.value.trim();
-    f.closest(".assign-box").querySelectorAll(".check-list .check").forEach(function (l) { l.hidden = q && l.getAttribute("data-text").indexOf(q) === -1; });
+    var q = normAr(f.value);
+    f.closest(".assign-box").querySelectorAll(".check-list .check").forEach(function (l) { l.hidden = !!q && normAr(l.getAttribute("data-text")).indexOf(q) === -1; });
   });
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-assign-all]");

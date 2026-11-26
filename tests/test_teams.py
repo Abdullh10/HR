@@ -114,3 +114,29 @@ def test_reports_breakdowns_and_summary_export(world):
     page = mgr.get("/reports").text
     assert "حسب القسم" in page and "حسب مسؤول شؤون الموظفين" not in page
     assert mgr.get("/export/summary.xlsx").status_code == 200
+
+
+def test_officer_can_be_assigned_to_himself_and_admin_approves(world):
+    """يضيف المدير المسؤولَ نفسه إلى قائمته؛ ولا يعتمد المسؤول طلبه بنفسه، بل يصل لمدير النظام."""
+    a = login("admin")
+    with SessionLocal() as db:
+        uid = db.query(User).filter_by(username="mgr").one().id
+    r = post(a, "/admin/users/save", {"user_id": uid, "username": "mgr", "role": "officer", "employee_id": world["m"],
+                                       "is_active": "1", "assign_present": "1", "assign": [world["e"], world["m"]]})
+    assert r.status_code == 303
+    with SessionLocal() as db:
+        assert db.get(Employee, world["m"]).manager_id == world["m"]
+        admin_id = db.query(User).filter_by(username="admin").one().id
+        before = db.query(Message).filter_by(recipient_id=admin_id).count()
+    rec(a, world["m"], "days", 3)
+    m = login("mgr")
+    r = leave(m, world["m"], "use", "days", MON.isoformat())
+    with SessionLocal() as db:
+        req = db.query(LeaveRequest).filter_by(employee_id=world["m"]).one()
+        assert db.query(Message).filter_by(recipient_id=admin_id).count() > before  # وصل الإشعار لمدير النظام
+    assert post(m, f"/requests/{req.id}/decide", {"action": "approve"}).status_code in (403, 303)
+    with SessionLocal() as db:
+        assert db.get(LeaveRequest, req.id).status == "pending"
+    post(a, f"/requests/{req.id}/decide", {"action": "approve"})
+    with SessionLocal() as db:
+        assert db.get(LeaveRequest, req.id).status == "approved"

@@ -319,7 +319,7 @@ def notify_reassignment(db: Session, emp: Employee, new_officer_emp_id: int | No
     """عند نقل موظف لمسؤول شؤون موظفين آخر: إشعار مسؤول شؤون الموظفين الجديد بطلباته المعلّقة. يعيد عددها."""
     pend = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.employee_id == emp.id,
                                                               LeaveRequest.status == "pending")) or 0
-    if not new_officer_emp_id:
+    if not new_officer_emp_id or new_officer_emp_id == emp.id:  # إضافة المسؤول نفسه إلى قائمته: لا إشعار
         return pend
     for u in db.scalars(select(User).where(User.employee_id == new_officer_emp_id, User.is_active.is_(True))):
         notify(db, u, f"أُسند إليك الموظف {emp.full_name}",
@@ -486,8 +486,8 @@ def officer_users_for(db: Session, emp: Employee) -> list[User]:
     if not emp.manager_id:
         return []
     owners = [emp.manager_id, *delegates_of(db, emp.manager_id)]
-    return list(db.scalars(select(User).where(User.employee_id.in_(owners), User.is_active.is_(True),
-                                              User.role.in_(("officer", "admin")))))
+    return list(db.scalars(select(User).where(User.employee_id.in_(owners), User.employee_id != emp.id,
+                                              User.is_active.is_(True), User.role.in_(("officer", "admin")))))
 
 
 def employee_user(db: Session, emp: Employee) -> User | None:

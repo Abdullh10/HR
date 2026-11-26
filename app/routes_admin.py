@@ -94,7 +94,7 @@ def user_save(request: Request, user_id: str = Form(""), username: str = Form(..
         moved = db.execute(update(Employee).where(Employee.manager_id == prev_emp).values(manager_id=None)).rowcount
     assigned = None
     if role == "officer" and u.employee_id and assign_present:
-        wanted = {i for i in assign if i != u.employee_id}
+        wanted = set(assign)  # يجوز أن يضيف المسؤول نفسه إلى قائمته؛ وطلباته يعتمدها مدير النظام (لا أحد يبتّ في طلب يخصّه)
         db.execute(update(Employee).where(Employee.manager_id == u.employee_id, Employee.id.not_in(wanted or {0}))
                    .values(manager_id=None))
         if wanted:

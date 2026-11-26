@@ -9,12 +9,12 @@
     <input type="search" class="assign-filter" placeholder="بحث بالاسم أو الرقم أو القسم" data-assign-filter aria-label="بحث في الموظفين">
     <div class="assign-actions"><button type="button" class="btn sm" data-assign-all="1">تحديد الظاهر</button><button type="button" class="btn sm" data-assign-all="0">إلغاء التحديد</button></div>
     <div class="check-list">
-      {% for e in emps if e.id != officer_emp %}
+      {% for e in emps %}
       <label class="check" data-text="{{ e.full_name }} {{ e.employee_no }} {{ e.department.name if e.department else '' }}"><input type="checkbox" name="assign" value="{{ e.id }}" {% if officer_emp and e.manager_id == officer_emp %}checked{% endif %}>
-        <span>{{ e.full_name }} <small class="muted">({{ e.employee_no }}){% if e.department %} · {{ e.department.name }}{% endif %}{% if e.manager and e.manager_id != officer_emp %} · حالياً لدى: {{ e.manager.full_name }}{% endif %}</small></span></label>
+        <span>{{ e.full_name }} <small class="muted">({{ e.employee_no }}){% if e.department %} · {{ e.department.name }}{% endif %}{% if officer_emp and e.id == officer_emp %} · <b>المسؤول نفسه</b> (طلباته يعتمدها مدير النظام){% endif %}{% if e.manager and e.manager_id != officer_emp %} · حالياً لدى: {{ e.manager.full_name }}{% endif %}</small></span></label>
       {% else %}<p class="hint">لا يوجد موظفون. أضفهم من «استيراد الموظفين».</p>{% endfor %}
     </div>
-    <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول.</span>
+    <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول. ويمكن إضافة المسؤول نفسه إلى قائمته، وتُعتمد طلباته من مدير النظام.</span>
   </div>
 {% endmacro %}
 {% macro scope_box(u) %}
