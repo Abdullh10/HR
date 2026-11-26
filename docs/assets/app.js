@@ -1064,28 +1064,25 @@
   }
   function addHolidayRange(name, sd, ed) { let c = 0; for (let d = sd; d <= ed; d = addDays(d, 1)) { if (!DB.holidays.some((x) => x.day === d)) { DB.holidays.push({ id: nid(), day: d, name }); c++; } } return c; }
   A.holidays = (u, q) => {
-    const yrs = Object.keys(HIJRI_ANCHORS).map(Number), now = new Date(), cy = now.getFullYear();
-    const sel = yrs.includes(Number(q.get("year"))) ? Number(q.get("year")) : (now.getMonth() >= 9 && yrs.includes(cy + 1) ? cy + 1 : (yrs.includes(cy) ? cy : yrs[yrs.length - 1]));
-    const have = new Set(DB.holidays.map((x) => x.day)), pre = saPresets(sel).map((p0) => { let n0 = 0, hv = 0; for (let d = p0.start; d <= p0.end; d = addDays(d, 1)) { n0++; if (have.has(d)) hv++; } return { ...p0, days: n0, have: hv }; });
-    const groups = holidayGroups();
-    return layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>${ico("holiday", "h-ico")} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div></div>
-    <section class="card" id="official"><div class="sec-head"><h2>${ico("calendar-plus", "sm-ico")} العطل الرسمية في المملكة العربية السعودية</h2>
-      <form class="inline year-pick" data-form="filter" data-route="admin/holidays"><label for="py" class="sr-only">السنة</label><select id="py" name="year" data-autosubmit>${yrs.map((y) => `<option value="${y}" ${y === sel ? "selected" : ""}>${y}</option>`).join("")}</select></form></div>
-      <p class="hint">التواريخ مقترحة: يوم التأسيس واليوم الوطني ثابتان، وتاريخا العيدين بحسب تقويم أم القرى وقد يتغيران بيوم وفق الرؤية الشرعية. <b>راجع الفترات وعدّلها حسب تعميم وزارة الموارد البشرية أو تقويم الجهة</b> ثم احفظ؛ ويمكنك تعديلها أو حذفها لاحقاً من القائمة أدناه.</p>
-      <form data-form="holiday-presets"><div class="table-wrap"><table class="responsive preset-table"><caption class="sr-only">العطل الرسمية المقترحة لسنة ${sel}</caption><thead><tr><th>إضافة</th><th>العطلة</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead><tbody>
-      ${pre.map((p0) => `<tr><td data-label="إضافة"><label class="chk"><input type="checkbox" name="use_${p0.key}" value="1" ${p0.have < p0.days ? "checked" : ""} aria-label="إضافة ${p0.name}"></label>${p0.have === p0.days ? ' <span class="badge ok">مضافة</span>' : p0.have ? ' <span class="badge warn">مضافة جزئياً</span>' : ""}</td>
-        <td data-label="العطلة"><input name="name_${p0.key}" value="${h(p0.name)}" class="cell-input" aria-label="اسم العطلة"></td><td data-label="من"><input type="date" name="start_${p0.key}" value="${p0.start}" class="cell-input" aria-label="من تاريخ ${p0.name}"></td>
-        <td data-label="إلى"><input type="date" name="end_${p0.key}" value="${p0.end}" class="cell-input" aria-label="إلى تاريخ ${p0.name}"></td><td data-label="ملاحظة"><small class="muted">${p0.note}</small></td></tr>`).join("")}</tbody></table></div>
-      <div class="actions"><button class="btn primary">${ico("calendar-plus", "sm-ico")}إضافة المحدد لسنة ${sel}</button></div></form></section>
-    <section class="card"><h2>إضافة عطلة أخرى</h2><form class="filters" data-form="holiday"><div class="field grow"><label for="hn">اسم العطلة</label><input id="hn" name="name" required placeholder="مثال: إجازة منتصف الفصل"></div>
-      <div class="field"><label for="hs">من</label><input id="hs" type="date" name="start" required></div><div class="field"><label for="he">إلى <span class="hint">(اختياري)</span></label><input id="he" type="date" name="end"></div><button class="btn primary">إضافة</button></form></section>
-    <section class="card flush"><h2>العطل المسجلة ${groups.length ? `<span class="badge muted">${groups.length}</span>` : ""}</h2><div class="table-wrap"><table class="responsive"><caption class="sr-only">العطل المسجلة</caption><thead><tr><th>العطلة</th><th>الفترة</th><th class="n">الأيام</th><th></th></tr></thead><tbody>
-    ${groups.map((g0) => `<tr><td data-label="العطلة"><b>${h(g0.name)}</b></td><td data-label="الفترة"><span class="d-range"><bdi class="d">${g0.start}</bdi>${g0.end !== g0.start ? `<span aria-hidden="true">←</span><bdi class="d">${g0.end}</bdi>` : ""}</span> <small class="muted">(${WD[weekday(g0.start)]}${g0.end !== g0.start ? " – " + WD[weekday(g0.end)] : ""})</small></td><td class="n" data-label="الأيام">${daysAr(g0.days)}</td>
-      <td class="actions-cell"><details class="row-edit"><summary class="btn sm">تعديل</summary><form class="filters" data-form="holiday-edit" data-name="${h(g0.name)}" data-start="${g0.start}" data-end="${g0.end}">
-        <div class="field"><label>الاسم</label><input name="name" value="${h(g0.name)}" required></div><div class="field"><label>من</label><input type="date" name="start" value="${g0.start}" required></div><div class="field"><label>إلى</label><input type="date" name="end" value="${g0.end}"></div><button class="btn sm primary">حفظ التعديل</button></form></details>
-        <button class="btn sm danger" type="button" data-act="del-holiday-group" data-name="${h(g0.name)}" data-start="${g0.start}" data-end="${g0.end}">حذف</button></td></tr>`).join("") || '<tr><td colspan="4" class="empty">لا توجد عطل مسجلة. أضف العطل الرسمية من الأعلى.</td></tr>'}
-    </tbody></table></div></section>`);
+    const now = new Date(), sel = Number(q.get("year")) || (now.getMonth() >= 10 ? now.getFullYear() + 1 : now.getFullYear());
+    const groups = holidayGroups().filter((g0) => g0.start.slice(0, 4) === String(sel)).sort((x, y) => x.start.localeCompare(y.start));
+    const savedNames = new Set(groups.map((g0) => g0.name));
+    const lines = groups.map((g0) => ({ ...g0, saved: true })).concat(saPresets(sel).filter((p0) => !savedNames.has(p0.name)).map((p0) => { let n0 = 0; for (let d = p0.start; d <= p0.end; d = addDays(d, 1)) n0++; return { ...p0, days: n0, saved: false }; })).sort((x, y) => x.start.localeCompare(y.start));
+    const yrs = [...new Set([...DB.holidays.map((x) => Number(x.day.slice(0, 4))), now.getFullYear(), now.getFullYear() + 1, sel])].sort();
+    const unsaved = lines.filter((x) => !x.saved).length, mm = `min="${sel}-01-01" max="${sel}-12-31"`;
+    return layout(u, "الإعدادات", `${settingsTabs("holidays")}<div class="page-head"><div><h1>${ico("holiday", "h-ico")} العطل الرسمية</h1><p>تُستبعد هذه الأيام من مدة طلبات معالجة الغياب.</p></div>
+      <form class="inline year-pick" data-form="filter" data-route="admin/holidays"><label for="py">السنة الميلادية</label><select id="py" name="year" data-autosubmit>${yrs.map((y) => `<option value="${y}" ${y === sel ? "selected" : ""}>${y}</option>`).join("")}</select></form></div>
+    <form class="card flush hol-form" data-form="holidays-save" data-year="${sel}" data-count="${lines.length + 3}"><h2>عطل سنة ${sel}${unsaved ? ` <span class="badge warn">${unsaved} مقترحة لم تُحفظ بعد</span>` : ""}</h2>
+      <p class="hint pad">عدّل الاسم أو التاريخ مباشرة في الجدول، أو أضف عطلة في الأسطر الفارغة، ثم اضغط «حفظ». لكل عطلة سطر واحد بفترتها كاملة؛ ولا يُقبل اسم مكرر أو فترتان متداخلتان. تاريخا العيدين المقترحان بحسب تقويم أم القرى، فعدّلهما حسب تعميم وزارة الموارد البشرية أو تقويم الجهة.</p>
+      <div class="table-wrap"><table class="responsive hol-table"><caption class="sr-only">عطل سنة ${sel}</caption><thead><tr><th>العطلة</th><th>من</th><th>إلى</th><th class="n">الأيام</th><th>الحالة</th><th>حذف</th></tr></thead><tbody>
+      ${lines.map((x, i) => `<tr class="${x.saved ? "" : "is-suggested"}"><td data-label="العطلة"><input name="name_${i}" value="${h(x.name)}" class="cell-input" aria-label="اسم العطلة"></td>
+        <td data-label="من"><input type="date" name="start_${i}" value="${x.start}" ${mm} class="cell-input" aria-label="من تاريخ ${h(x.name)}"></td><td data-label="إلى"><input type="date" name="end_${i}" value="${x.end}" ${mm} class="cell-input" aria-label="إلى تاريخ ${h(x.name)}"></td>
+        <td class="n" data-label="الأيام">${daysAr(x.days)}</td><td data-label="الحالة">${x.saved ? '<span class="badge ok">محفوظة</span>' : `<span class="badge warn" title="${h(x.note || "")}">مقترحة</span>`}</td>
+        <td data-label="حذف"><label class="chk"><input type="checkbox" name="del_${i}" value="1" aria-label="حذف ${h(x.name)}"></label></td></tr>`).join("")}
+      ${[0, 1, 2].map((k) => { const i = lines.length + k; return `<tr class="is-new"><td data-label="عطلة جديدة"><input name="name_${i}" placeholder="عطلة جديدة (اختياري)" class="cell-input" aria-label="اسم عطلة جديدة"></td><td data-label="من"><input type="date" name="start_${i}" ${mm} class="cell-input" aria-label="من تاريخ"></td><td data-label="إلى"><input type="date" name="end_${i}" ${mm} class="cell-input" aria-label="إلى تاريخ"></td><td class="n" data-label="الأيام">—</td><td data-label="الحالة"><span class="muted">جديدة</span></td><td></td></tr>`; }).join("")}
+      </tbody></table></div><div class="actions pad"><button class="btn primary">${ico("holiday", "sm-ico")}حفظ عطل ${sel}</button><a class="btn" href="#/admin/holidays?year=${sel}">تراجع عن التعديلات</a></div></form>`);
   };
+
   A.mail = (u) => layout(u, "الإعدادات", `${settingsTabs("mail")}<div class="page-head"><div><h1>${ico("mail", "h-ico")} البريد الإلكتروني</h1>
       <p>إشعارات البريد تصل للمستخدمين عند الرسائل الجديدة، واعتماد الطلبات أو رفضها أو إلغائها، ورفع التوصيات، وتنبيهات الرصيد.</p></div></div>
       <div class="alert info">في نسخة العرض لا يُرسل أي بريد فعلي. في النظام الفعلي تعرض هذه الصفحة حالة البريد، وخادم الإرسال والمرسِل، وآخر إرسال ناجح وآخر خطأ، مع زر «إرسال رسالة تجريبية» ومعاينة شكل الرسالة.</div>
@@ -2106,25 +2103,26 @@
     removeEmp(e); flash("حُذف الموظف «" + e.name + "» (" + e.no + ") وحسابه."); render();
   };
 
-  F["holiday-presets"] = (form) => {
-    const d = fd(form), names = [], spans = []; let c = 0;
-    ["founding", "fitr", "adha", "national"].forEach((k) => { if (!d.get("use_" + k)) return; const nm = String(d.get("name_" + k) || "").trim(), sd = String(d.get("start_" + k) || ""), ed = String(d.get("end_" + k) || "") || sd;
-      if (!nm || !parseISO(sd) || !parseISO(ed) || ed < sd) throw new RuleError("تواريخ «" + (nm || k) + "» غير صحيحة.");
-      c += addHolidayRange(nm, sd, ed); names.push(nm); spans.push([sd, ed]); });
-    if (!names.length) throw new RuleError("لم تُختر أي عطلة.");
-    audit("holiday_added", "holiday", null, { name: names.join("، "), count: c }); save();
-    flash("أُضيفت العطل الرسمية (" + names.join("، ") + "): " + c + " يوم جديد."); spans.forEach(([a0, b0]) => warnHolidayOverlap(a0, b0, true)); render();
-  };
-  F["holiday-edit"] = (form) => {
-    const d = fd(form), on = form.dataset.name, os = form.dataset.start, oe = form.dataset.end, nm = String(d.get("name") || "").trim(), sd = String(d.get("start") || ""), ed = String(d.get("end") || "") || sd;
-    if (!nm || !parseISO(sd) || !parseISO(ed) || ed < sd) throw new RuleError("بيانات التعديل غير صحيحة.");
-    DB.holidays = DB.holidays.filter((x) => !(x.name === on && x.day >= os && x.day <= oe)); addHolidayRange(nm, sd, ed);
-    audit("holiday_updated", "holiday", null, { name: nm, before: os + " – " + oe, after: sd + " – " + ed }); save(); flash("عُدّلت العطلة «" + nm + "»."); warnHolidayOverlap(sd < os ? sd : os, ed > oe ? ed : oe, true); render();
-  };
-  ACT["del-holiday-group"] = async (b) => {
-    const nm = b.dataset.name, sd = b.dataset.start, ed = b.dataset.end, n0 = DB.holidays.filter((x) => x.name === nm && x.day >= sd && x.day <= ed).length;
-    if (!await confirmDlg("حذف «" + nm + "» (" + daysAr(n0) + ")؟")) return;
-    DB.holidays = DB.holidays.filter((x) => !(x.name === nm && x.day >= sd && x.day <= ed)); audit("holiday_deleted", "holiday", null, { name: nm, count: n0 }); save(); flash("حُذفت العطلة «" + nm + "» (" + daysAr(n0) + ")."); warnHolidayOverlap(sd, ed, false); render();
+  F["holidays-save"] = (form) => {
+    const d = fd(form), year = Number(form.dataset.year), count = Number(form.dataset.count), items = [], errs = [];
+    for (let i = 0; i < count; i++) {
+      if (d.get("del_" + i)) continue;
+      const nm = String(d.get("name_" + i) || "").trim().replace(/\s+/g, " "), sd = String(d.get("start_" + i) || ""), ed = String(d.get("end_" + i) || "") || sd;
+      if (!nm && !sd) continue;
+      if (!nm || !parseISO(sd)) { errs.push("السطر " + (i + 1) + ": أكمل اسم العطلة وتاريخ بدايتها."); continue; }
+      if (!parseISO(ed) || ed < sd) { errs.push("«" + nm + "»: الفترة غير صحيحة."); continue; }
+      if (sd.slice(0, 4) !== String(year) || ed.slice(0, 4) !== String(year)) { errs.push("«" + nm + "»: يجب أن تقع الفترة داخل سنة " + year + "."); continue; }
+      items.push([nm, sd, ed]);
+    }
+    const nms = items.map((x) => x[0]); [...new Set(nms.filter((x, i) => nms.indexOf(x) !== i))].forEach((x) => errs.push("اسم العطلة «" + x + "» مكرر؛ اجعل لكل عطلة سطراً واحداً بفترتها كاملة."));
+    items.forEach((x, i) => items.slice(i + 1).forEach((y) => { if (x[1] <= y[2] && y[1] <= x[2]) errs.push("«" + x[0] + "» و«" + y[0] + "» تتداخلان في التاريخ."); }));
+    if (errs.length) throw new RuleError(errs.slice(0, 4).join(" | ") + " — لم يُحفظ شيء.");
+    const before = DB.holidays.filter((x) => x.day.slice(0, 4) === String(year)).map((x) => x.day + x.name).sort().join();
+    DB.holidays = DB.holidays.filter((x) => x.day.slice(0, 4) !== String(year)); let c = 0; items.forEach(([nm, sd, ed]) => (c += addHolidayRange(nm, sd, ed)));
+    const after = DB.holidays.filter((x) => x.day.slice(0, 4) === String(year)).map((x) => x.day + x.name).sort().join();
+    if (before === after) { flash("لا توجد تغييرات للحفظ.", "warn"); render(); return; }
+    audit("holiday_updated", "holiday", null, { year, count: c, name: nms.join("، ") }); save();
+    flash("حُفظت عطل سنة " + year + ": " + daysAr(c) + " (عدد العطل: " + items.length + ")."); warnHolidayOverlap(year + "-01-01", year + "-12-31", true); render();
   };
 
   document.addEventListener("submit", async (ev) => {

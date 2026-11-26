@@ -1217,3 +1217,8 @@ td[data-label="تحديد"] label, th label.chk { display: inline-grid; place-it
 .row-edit > summary::-webkit-details-marker { display: none; }
 .row-edit[open] { display: block; flex-basis: 100%; }
 .row-edit[open] form { margin-top: .5rem; padding: .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.hol-table tr.is-suggested td { background: color-mix(in srgb, var(--warn-soft) 45%, transparent); }
+.hol-table tr.is-new .cell-input { border-style: dashed; }
+.page-head .year-pick { display: flex; flex-direction: column; gap: .25rem; }
+.page-head .year-pick label { font-size: .85rem; }
+.year-pick .clear-link { display: none; }

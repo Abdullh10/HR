@@ -95,31 +95,38 @@ def test_audit_log_clear(world):
         assert [a.action for a in rows if a.action != "login"] == ["audit_cleared"]
 
 
-def test_saudi_official_holidays_presets_edit_delete(world):
+def test_holidays_year_table(world):
     from datetime import date
     from app.models import Holiday
     adm = login("admin")
     page = adm.get("/admin/holidays?year=2027").text
-    assert "يوم التأسيس" in page and "اليوم الوطني" in page and "عيد الفطر" in page and "عيد الأضحى" in page
-    assert 'value="2027-02-22"' in page and 'value="2027-09-23"' in page and 'value="2027-03-09"' in page
-    # تعديل فترة عيد الفطر قبل الحفظ، وعدم إضافة اليوم الوطني
-    r = post(adm, "/admin/holidays/presets", {
-        "use_founding": "1", "name_founding": "يوم التأسيس", "start_founding": "2027-02-22", "end_founding": "2027-02-22",
-        "use_fitr": "1", "name_fitr": "عيد الفطر", "start_fitr": "2027-03-04", "end_fitr": "2027-03-14",
-        "use_adha": "1", "name_adha": "عيد الأضحى", "start_adha": "2027-05-15", "end_adha": "2027-05-18",
-        "name_national": "اليوم الوطني", "start_national": "2027-09-23", "end_national": "2027-09-23"})
-    assert "أُضيفت العطل الرسمية" in adm.get(r.headers["location"]).text
+    for n in ("يوم التأسيس", "عيد الفطر", "عيد الأضحى", "اليوم الوطني"):
+        assert n in page
+    assert "مقترحة" in page and 'value="2027-03-09"' in page
+    base = {"year": "2027", "count": "6",
+            "name_0": "يوم التأسيس", "start_0": "2027-02-22", "end_0": "2027-02-22",
+            "name_1": "عيد الفطر", "start_1": "2027-03-04", "end_1": "2027-03-14",
+            "name_2": "عيد الأضحى", "start_2": "2027-05-15", "end_2": "2027-05-18",
+            "name_3": "اليوم الوطني", "start_3": "2027-09-23", "end_3": "2027-09-23", "del_3": "1",
+            "name_4": "إجازة منتصف الفصل", "start_4": "2027-10-10", "end_4": "2027-10-11"}
+    r = post(adm, "/admin/holidays/save", base)
+    assert "حُفظت عطل سنة 2027" in adm.get(r.headers["location"]).text
     with SessionLocal() as db:
         assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 11
         assert db.query(Holiday).filter_by(day=date(2027, 9, 23)).count() == 0
-    html = adm.get("/admin/holidays?year=2027").text
-    assert "مضافة" in html and "11 يوماً" in html
-    # تعديل العطلة المسجلة (تقصير الفترة)
-    post(adm, "/admin/holidays/group/update", {"old_name": "عيد الفطر", "old_start": "2027-03-04", "old_end": "2027-03-14",
-                                               "name": "إجازة عيد الفطر", "start": "2027-03-08", "end": "2027-03-13"})
+        assert db.query(Holiday).filter_by(name="إجازة منتصف الفصل").count() == 2
+    # الحفظ مرة أخرى لا يكرر شيئاً، وتعديل التاريخ مباشرة يستبدل الفترة
+    post(adm, "/admin/holidays/save", {**base, "start_1": "2027-03-08", "end_1": "2027-03-13"})
     with SessionLocal() as db:
-        assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 0
-        assert db.query(Holiday).filter_by(name="إجازة عيد الفطر").count() == 6
-    post(adm, "/admin/holidays/group/delete", {"name": "عيد الأضحى", "start": "2027-05-15", "end": "2027-05-18"})
+        assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 6
+        assert db.query(Holiday).count() == 1 + 6 + 4 + 2
+    # اسم مكرر أو تداخل: يُرفض ولا يتغير شيء
+    r = post(adm, "/admin/holidays/save", {**base, "name_4": "عيد الفطر", "start_4": "2027-03-20", "end_4": "2027-03-21"})
+    assert "مكرر" in adm.get(r.headers["location"]).text
+    r = post(adm, "/admin/holidays/save", {**base, "start_4": "2027-05-16", "end_4": "2027-05-17"})
+    assert "تتداخلان" in adm.get(r.headers["location"]).text
     with SessionLocal() as db:
-        assert db.query(Holiday).filter_by(name="عيد الأضحى").count() == 0
+        assert db.query(Holiday).filter_by(name="عيد الفطر").count() == 6
+    # فترة خارج السنة
+    r = post(adm, "/admin/holidays/save", {**base, "start_4": "2028-01-01", "end_4": "2028-01-02"})
+    assert "داخل سنة 2027" in adm.get(r.headers["location"]).text
