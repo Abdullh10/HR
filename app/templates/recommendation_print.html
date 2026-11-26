@@ -12,5 +12,5 @@
     <tr><th>إجمالي المتاح</th><td colspan="3">{{ days_ar(info.total_left_days) }}{% if info.total_left_rem %} و{{ hours_ar(info.total_left_rem) }}{% endif %} — الممنوح خلال السنة {{ info.granted_equiv_days|n }} من {{ info.cap_days|n }} يوماً</td></tr>
   </tbody></table>
   <p>وتقبلوا خالص التحية والتقدير،</p>
-  <div class="sign"><div>مسؤول شؤون الموظفين<br><b class="sign-name">{{ rec.enterer.display_name if rec.enterer else '' }}</b></div><div>الموظف<br><b class="sign-name">{{ rec.employee.full_name }}</b></div></div>
+  <div class="sign"><div>مسؤول شؤون الموظفين<br><b class="sign-name">{{ rec.enterer.display_name if rec.enterer else '' }}</b></div><div>الموظف<br><b class="sign-name">{{ rec.employee.full_name }}</b></div><div>الرئيس المباشر</div></div>
 {% endblock %}
