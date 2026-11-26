@@ -75,9 +75,6 @@
         <li class="sep">السجلات (اطلاع فقط)</li>
         {{ item('/recommendations', 'سجل التوصيات', 'cal-check', prefix='/recommendations') }}
         {{ item('/requests', 'طلبات معالجة الغياب', 'inbox', prefix='/requests') }}
-        <li class="sep">التقارير والأرشيف</li>
-        {{ item('/reports', 'التقارير', 'reports') }}
-        {{ item('/archive', 'الأرشيف', 'archive') }}
         {% if not user.employee_id %}<li class="sep">حسابي</li>{{ item('/profile', 'الملف الشخصي', 'idcard') }}{% endif %}
       {% endif %}
       {% if user.role == 'officer' %}

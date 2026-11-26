@@ -19,7 +19,7 @@
 <form method="get" class="card filters" data-autofilter>
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
   <div class="field"><label for="dp">القسم</label><select id="dp" name="dept"><option value="">كل الأقسام</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
-  {% if user.role in ('admin', 'supervisor') %}<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officer_list %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  {% if user.role == 'admin' %}<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officer_list %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <button class="btn primary btn-apply">عرض</button>{% if dept or officer %}<a class="clear-link" href="/reports?year_id={{ sel_year.id }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="grid kpis">
@@ -50,7 +50,7 @@
 </section>
 </div>
 <section class="card flush"><h2>حسب القسم</h2>{{ agg_table(by_dept, 'القسم') }}</section>
-{% if user.role in ('admin', 'supervisor') %}<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2>{{ agg_table(by_officer, 'مسؤول شؤون الموظفين', show_lead=True) }}</section>{% endif %}
+{% if user.role == 'admin' %}<section class="card flush"><h2>حسب مسؤول شؤون الموظفين</h2>{{ agg_table(by_officer, 'مسؤول شؤون الموظفين', show_lead=True) }}</section>{% endif %}
 <section class="card"><h2>التصدير إلى Excel</h2>
   <div class="actions">
     <a class="btn" href="/export/summary.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}ملخص التقارير</a>

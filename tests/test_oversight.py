@@ -55,7 +55,7 @@ def test_supervisor_reads_employees_records_and_balances(world):
     r = c.get(f"/employees/{world['e']}")
     assert r.status_code == 200 and "رفع توصية" not in r.text and "/decide" not in r.text
     for url in ("/recommendations", "/requests", f"/requests/{req.id}", f"/recommendations/{rid}/print",
-                "/reports", "/archive", "/export/balances.xlsx", "/export/summary.xlsx"):
+                "/export/balances.xlsx"):
         assert c.get(url, follow_redirects=False).status_code == 200, url
     page = c.get(f"/requests/{req.id}").text
     assert "/decide" not in page and "/cancel" not in page
@@ -76,7 +76,7 @@ def test_supervisor_is_forbidden_everywhere_else(world):
     c = _sup(world)
     with SessionLocal() as db:
         req = db.query(LeaveRequest).one()
-    for url in ("/approvals", "/admin/users", "/admin/audit", "/recommendations/new", "/requests/new",
+    for url in ("/reports", "/archive", "/archive/export.zip", "/approvals", "/admin/users", "/admin/audit", "/recommendations/new", "/requests/new",
                 "/delegation", f"/employees/{world['e']}/edit", "/employees/new/form"):
         assert c.get(url, follow_redirects=False).status_code in (403, 404), url
     for url, data in ((f"/requests/{req.id}/decide", {"decision": "approve"}), ("/approvals/bulk", {"ids": req.id, "decision": "approve"}),

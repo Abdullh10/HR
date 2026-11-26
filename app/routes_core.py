@@ -1251,12 +1251,12 @@ def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, of
 
 @router.get("/reports")
 def reports(request: Request, year_id: int | None = None, dept: int | None = None, officer: int | None = None,
-            user: User = Depends(require(*READERS)), db: Session = Depends(get_db)):
+            user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     data = _report_data(db, user, year, dept, officer)
     depts = list(db.scalars(select(Department).order_by(Department.name)))
     return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), depts=depts, dept=dept,
-                  officer=officer, officer_list=officers(db) if user.role in ("admin", "supervisor") else [], **data)
+                  officer=officer, officer_list=officers(db) if user.role == "admin" else [], **data)
 
 
 def _xlsx_response(wb, filename: str) -> StreamingResponse:
@@ -1395,7 +1395,7 @@ def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, ki
 
 @router.get("/archive")
 def archive(request: Request, year_id: int | None = None, emp: int | None = None, kind: str = "", q: str = "",
-            status: str = "", user: User = Depends(require(*READERS)), db: Session = Depends(get_db)):
+            status: str = "", user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     ids, recs, reqs = _archive_rows(db, user, year, emp, kind, q, status)
     msgs = [] if kind else list(db.scalars(select(Message).where(
@@ -1409,7 +1409,7 @@ def archive(request: Request, year_id: int | None = None, emp: int | None = None
 
 
 @router.get("/archive/export.zip")
-def archive_export(request: Request, year_id: int | None = None, user: User = Depends(require(*READERS)),
+def archive_export(request: Request, year_id: int | None = None, user: User = Depends(require(*STAFF)),
                    db: Session = Depends(get_db)):
     """حزمة أرشيف للسنة: ملف Excel فهرس (التوصيات، الطلبات، الأرصدة) + ملفات PDF المرفقة."""
     import zipfile
