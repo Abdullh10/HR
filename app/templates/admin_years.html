@@ -21,7 +21,8 @@
     {% macro chk(name, label, default=False) %}<label class="check"><input type="checkbox" name="{{ name }}" value="1" {% if (y[name] if y else default) %}checked{% endif %}> {{ label }}</label>{% endmacro %}
     {{ chk('require_task_attachment', 'إرفاق ملف التوصية (PDF) إلزامي عند رفع التوصية', True) }}
     {{ chk('require_request_attachment', 'إرفاق مستند مؤيد (PDF) إلزامي لطلبات الموظف') }}
-    {{ chk('employee_can_request', 'السماح للموظف بتقديم طلباته بنفسه', True) }}
+    {{ chk('employee_can_request', 'السماح للموظف بتقديم طلبات معالجة الغياب بنفسه', True) }}
+    {{ chk('employee_can_submit_rec', 'السماح للموظف برفع التوصيات الممنوحة له (بالأيام أو الساعات) لاعتمادها', True) }}
     {{ chk('block_weekends', 'استبعاد أيام عطلة نهاية الأسبوع من مدة الطلب', True) }}
     <div class="actions" style="margin:-.2rem 0 .6rem 1.6rem">{% for i in range(7) %}<label class="check" style="margin:0"><input type="checkbox" name="weekend_days" value="{{ i }}" {% if i in (y.weekend_set if y else [4,5]) %}checked{% endif %}> {{ WEEKDAYS_AR[i] }}</label>{% endfor %}</div>
   </fieldset>

@@ -56,7 +56,7 @@
       years: [], depts: [], emps: [], users: [], recs: [], leaves: [], msgs: [], holidays: [], audit: [] };
     DB = db;
     db.years.push({ id: nid(), name: String(Y), start: Y + "-01-01", end: Y + "-12-31", active: true, locked: false, cap: 20, hpd: 7,
-      reqRecAtt: false, reqReqAtt: false, weekend: [5, 6], blockWeekends: true, allowLateCancel: false, empCanRequest: true });
+      reqRecAtt: false, reqReqAtt: false, weekend: [5, 6], blockWeekends: true, allowLateCancel: false, empCanRequest: true, empCanSubmitRec: true });
     const depts = ["وحدة الشؤون الإدارية", "وحدة المعامل", "العلاقات العامة", "وكالة الشؤون الأكاديمية"];
     depts.forEach((name) => db.depts.push({ id: nid(), name, active: true }));
     const D = (i) => db.depts[i].id;
@@ -333,7 +333,7 @@
     const nav = u.role === "admin" ? adminNav : [
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}<li><a href="#/approvals" title="طلبات الموظفين" ${sg[0] === "approvals" || (sg[0] === "requests" && sg[1] !== "new") ? 'aria-current="page"' : ""}>${ico("stamp")}<span class="lbl">طلبات الموظفين</span>${pend ? `<span class="badge count">${pend}</span>` : ""}</a></li>${u.role === "officer" ? item("#/delegation", "التفويض", "swap", delegatedFrom(u).length ? "مفوَّض" : 0) : ""}
         <li class="sep">التوصيات</li><li><a href="#/recs/new" title="توصية جديدة" ${sg[0] === "recs" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">توصية جديدة</span></a></li><li><a href="#/recs" title="سجل التوصيات" ${sg[0] === "recs" && sg[1] !== "new" ? 'aria-current="page"' : ""}>${ico("cal-check")}<span class="lbl">سجل التوصيات</span></a></li>` : "",
-      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "inbox") : ""}<li><a href="#/recs/submit" title="رفع توصية ممنوحة لي" ${sg[0] === "recs" && sg[1] === "submit" ? 'aria-current="page"' : ""}>${ico("upload")}<span class="lbl">رفع توصية ممنوحة لي</span></a></li>${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("request")}<span class="lbl">${u.role === "employee" ? "طلب معالجة غياب" : "طلب معالجة غياب لي"}</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
+      u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "inbox") : ""}${y.empCanSubmitRec !== false ? `<li><a href="#/recs/submit" title="رفع توصية ممنوحة لي" ${sg[0] === "recs" && sg[1] === "submit" ? 'aria-current="page"' : ""}>${ico("upload")}<span class="lbl">رفع توصية ممنوحة لي</span></a></li>` : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("request")}<span class="lbl">${u.role === "employee" ? "طلب معالجة غياب" : "طلب معالجة غياب لي"}</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
       `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}${u.role === "employee" ? item("#/faq", "الأسئلة الشائعة", "shield") : ""}`,
       u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}${item("#/faq", "الأسئلة الشائعة", "shield")}` : "",
     ].join("");
@@ -612,7 +612,7 @@
     return layout(u, "رصيدي", `${u.role === "employee" ? welcomeBanner(u) : ""}<div class="page-head"><div><h1>${ico("pie", "h-ico")} رصيدي</h1><p>رصيد بدل الراحة للسنة ${h(y.name)}${e.mgr ? " · مسؤول شؤون الموظفين: " + h(mgrName(e)) : ""}</p></div>
       <div class="actions no-print">${yearSelect(y)}<a class="btn" href="#/print/stmt/${e.id}?year=${y.id}">طباعة تقرير</a></div></div>
       ${yEnd}${board(b, true)}
-      ${tiles([...(y.empCanRequest ? [["days", "#/requests/new", "request", "طلب معالجة غياب", "استخدام رصيد بدل الراحة في تاريخ تختاره"]] : []), ["hours", "#/recs/submit", "upload", "رفع توصية ممنوحة لي", "بالأيام أو بالساعات مع خطابها، للاعتماد"], ["msg", "#/messages/new", "send", "مراسلة شؤون الموظفين", "استفسار أو متابعة"]])}
+      ${tiles([...(y.empCanRequest ? [["days", "#/requests/new", "request", "طلب معالجة غياب", "استخدام رصيد بدل الراحة في تاريخ تختاره"]] : []), ...(y.empCanSubmitRec !== false ? [["hours", "#/recs/submit", "upload", "رفع توصية ممنوحة لي", "بالأيام أو بالساعات مع خطابها، للاعتماد"]] : []), ["msg", "#/messages/new", "send", "مراسلة شؤون الموظفين", "استفسار أو متابعة"]])}
       <section class="card flush"><div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية عن تكليف أنجزته، فزاد رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${recHead(false)}<tbody>${recRows(u, recs, false, false) || '<tr><td colspan="7" class="empty">لا توجد توصيات بعد.</td></tr>'}</tbody></table></div></section>
         <section class="card flush"><div class="ledger-head"><span class="ledger-sign minus" aria-hidden="true">−</span><div><h2>ما استخدمته من رصيدك (طلباتي)</h2><p class="hint">طلبات معالجة الغياب التي قدّمتها؛ يُخصم المعتمد منها من رصيدك.</p></div></div><div class="table-wrap"><table class="responsive">${leaveHead(false)}<tbody>${leaveRows(u, reqs.slice(0, 5), false) || '<tr><td colspan="6" class="empty">لا توجد طلبات.</td></tr>'}</tbody></table></div>${reqs.length > 5 ? `<p class="pad"><a href="#/requests?year=${y.id}">عرض كل طلباتي (${cnt(reqs.length, "req")})</a></p>` : ""}</section>`);
   };
@@ -923,7 +923,7 @@
           <div class="field"><label for="${p}h">عدد الساعات التي تعادل يوماً</label><input id="${p}h" type="number" step="0.25" min="0.25" name="hpd" value="${y ? y.hpd : 7}"></div></div></fieldset>
         <fieldset ${dis}><legend>المرفقات والقواعد</legend>
           ${chk("reqRecAtt", "إرفاق ملف التوصية (PDF) إلزامي عند رفع التوصية")}${chk("reqReqAtt", "إرفاق مستند مؤيد (PDF) إلزامي لطلبات الموظف")}
-          ${chk("empCanRequest", "السماح للموظف بتقديم طلباته بنفسه", true)}${chk("blockWeekends", "استبعاد أيام عطلة نهاية الأسبوع من مدة الطلب", true)}
+          ${chk("empCanRequest", "السماح للموظف بتقديم طلبات معالجة الغياب بنفسه", true)}${chk("empCanSubmitRec", "السماح للموظف برفع التوصيات الممنوحة له (بالأيام أو الساعات) لاعتمادها", true)}${chk("blockWeekends", "استبعاد أيام عطلة نهاية الأسبوع من مدة الطلب", true)}
           <div class="actions" style="margin:-.2rem 1.6rem .6rem 0">${[1, 2, 3, 4, 5, 6, 0].map((i) => `<label class="check" style="margin:0"><input type="checkbox" name="weekend" value="${i}" ${(y ? y.weekend : [5, 6]).includes(i) ? "checked" : ""}> ${WD[i]}</label>`).join("")}</div></fieldset>
         ${y && (DB.recs.some((x) => x.year === y.id) || DB.leaves.some((x) => x.year === y.id)) ? `<label class="check confirm-impact"><input type="checkbox" name="confirmImpact" value="1"> أؤكد تطبيق التغيير بأثر رجعي على أرصدة السنة — مطلوب فقط عند تغيير ساعات اليوم أو الحد السنوي</label>` : ""}
         ${y && y.locked ? "" : `<button class="btn primary">${y ? "حفظ الإعدادات" : "إنشاء السنة"}</button>`}</form>`; };
@@ -1377,7 +1377,7 @@
       throw new RuleError("تنبيه: في السنة " + y.name + " " + moves + " حركة، والتغيير سيعيد حساب أرصدة " + empsAff.length + " موظف بأثر رجعي" + (over ? "، و" + over + " موظف سيتجاوزون الحد الجديد" : "") + ". لم يُحفظ شيء: ضع علامة على «أؤكد تطبيق التغيير بأثر رجعي» ثم احفظ.");
     }
     Object.assign(y, { name, start, end, cap: Math.trunc(cap), hpd, weekend: d.getAll("weekend").map(Number) });
-    ["reqRecAtt", "reqReqAtt", "empCanRequest", "blockWeekends", "allowLateCancel"].forEach((k) => (y[k] = !!d.get(k)));
+    ["reqRecAtt", "reqReqAtt", "empCanRequest", "empCanSubmitRec", "blockWeekends", "allowLateCancel"].forEach((k) => (y[k] = !!d.get(k)));
     if (!y.weekend.length) y.weekend = [5, 6];
     audit("year_saved", "fiscal_year", y.id, { cap: y.cap, hpd }); save(); flash("تم حفظ إعدادات السنة " + name + "."); render();
   };
@@ -2007,6 +2007,7 @@
   // رفع الموظف توصية ممنوحة له للاعتماد
   function recSubmitForm(u, q) {
     const e = empOf(u); if (!e) throw new Forbidden("حسابك غير مرتبط بسجل موظف.");
+    if (activeYear().empCanSubmitRec === false) throw new Forbidden("رفع التوصيات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.");
     const kind = q.get("kind") === "hours" ? "hours" : "days", isD = kind === "days", y = activeYear(), b = balance(e.id, y);
     return layout(u, "رفع توصية ممنوحة لي", `<div class="page-head"><div><h1>${ico("upload", "h-ico")} رفع توصية ممنوحة لي</h1><p>ارفع خطاب التوصية الذي مُنحت فيه بدل راحة (بالأيام أو بالساعات)، فيصل إلى ${h(mgrName(e) || "مدير النظام")} لاعتماده، وتُضاف القيمة إلى رصيدك بعد الاعتماد.</p></div>
       <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="#/recs/submit?kind=days" class="${isD ? "on" : ""}">بالأيام</a><a href="#/recs/submit?kind=hours" class="${isD ? "" : "on"}">بالساعات</a></div></div>
@@ -2023,6 +2024,7 @@
   }
   F["rec-submit"] = async (form, u) => {
     const e = empOf(u); if (!e) throw new RuleError("حسابك غير مرتبط بسجل موظف.");
+    if (activeYear().empCanSubmitRec === false) throw new RuleError("رفع التوصيات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.");
     const d = fd(form), kind = form.dataset.kind, amount = toNum(d.get("amount")), date = String(d.get("date") || ""), refNo = String(d.get("ref") || "").trim(), subject = String(d.get("subject") || "").trim();
     if (!parseISO(date)) throw new RuleError("أدخل تاريخ التوصية كما في الخطاب.");
     if (!subject) throw new RuleError("اكتب موضوع التكليف كما في الخطاب.");

@@ -173,3 +173,21 @@ def test_delete_from_users_page(world):
     assert r.headers["location"] == "/admin/users"
     with SessionLocal() as db:
         assert db.get(Employee, eid) is None
+
+
+def test_submit_rec_setting_toggle(world):
+    from app.models import FiscalYear
+    emp = login("emp")
+    assert "رفع توصية ممنوحة لي" in emp.get("/me").text
+    assert "السماح للموظف برفع التوصيات الممنوحة له" in login("admin").get("/admin/years").text
+    with SessionLocal() as db:
+        db.get(FiscalYear, world["year"]).employee_can_submit_rec = False
+        db.commit()
+    html = emp.get("/me").text
+    assert "رفع توصية ممنوحة لي" not in html
+    r = emp.get("/recommendations/submit", follow_redirects=False)
+    assert r.status_code == 303
+    r = post(emp, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "x"}, files=_pdf())
+    assert "غير مفعّل حالياً" in emp.get(r.headers["location"]).text
+    with SessionLocal() as db:
+        assert db.query(Recommendation).count() == 0

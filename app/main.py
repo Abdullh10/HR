@@ -125,6 +125,7 @@ _NEW_COLUMNS = [
     ("recommendations", "batch", "VARCHAR(40) DEFAULT ''"),
     ("recommendations", "approved_by", "INTEGER"),
     ("recommendations", "approved_at", "TIMESTAMP"),
+    ("fiscal_years", "employee_can_submit_rec", "BOOLEAN DEFAULT TRUE"),
 ]
 
 

@@ -229,7 +229,7 @@ async def year_save(request: Request, user: User = Depends(admin_only), db: Sess
     y.name, y.start_date, y.end_date = name, sd, ed
     y.base_days, y.hours_per_day = int(base), hpd
     for flag in ("require_task_attachment", "require_request_attachment", "block_weekends",
-                 "allow_late_cancel", "employee_can_request"):
+                 "allow_late_cancel", "employee_can_request", "employee_can_submit_rec"):
         setattr(y, flag, bool(f.get(flag)))
     y.weekend_days = ",".join(str(x) for x in f.getlist("weekend_days")) or "4,5"
     if not y.id:

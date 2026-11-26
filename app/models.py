@@ -86,6 +86,7 @@ class FiscalYear(Base):
     allow_future_tasks: Mapped[bool] = mapped_column(Boolean, default=False)
     allow_late_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
     employee_can_request: Mapped[bool] = mapped_column(Boolean, default=True)
+    employee_can_submit_rec: Mapped[bool] = mapped_column(Boolean, default=True)  # رفع الموظف توصياته للاعتماد
 
     __table_args__ = (
         CheckConstraint("hours_per_day > 0", name="ck_hpd_positive"),

@@ -591,8 +591,11 @@ def recommendation_submit_form(request: Request, kind: str = "days", user: User 
                                db: Session = Depends(get_db)):
     if not user.employee_id:
         raise HTTPException(404, "حسابك غير مرتبط بسجل موظف.")
-    emp = db.get(Employee, user.employee_id)
     year = pick_year(db, None)
+    if not year.employee_can_submit_rec:
+        flash(request, "رفع التوصيات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.", "warn")
+        return redirect("/me")
+    emp = db.get(Employee, user.employee_id)
     return render(request, db, "recommendation_submit.html", user=user, kind=kind if kind in REC_KINDS else "days", emp=emp,
                   sel_year=year, info=compute_balance(db, emp.id, year))
 
@@ -607,6 +610,9 @@ async def recommendation_submit(request: Request, user: User = Depends(current_u
         emp = db.get(Employee, user.employee_id or 0)
         if not emp:
             raise RuleError("حسابك غير مرتبط بسجل موظف.")
+        ay = active_year(db)
+        if ay and not ay.employee_can_submit_rec:
+            raise RuleError("رفع التوصيات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.")
         amount = parse_float(str(form.get("amount") or ""))
         rec_date = parse_date(str(form.get("rec_date") or ""))
         if not rec_date:
