@@ -88,6 +88,17 @@ def test_supervisor_is_forbidden_everywhere_else(world):
         assert db.get(LeaveRequest, req.id).status == "pending"
 
 
+def test_linked_supervisor_cannot_submit_recommendation(world):
+    with SessionLocal() as db:
+        db.add(User(username="sup3", role="supervisor", employee_id=world["o"], password_hash=hash_password(PW),
+                    must_change_password=False))
+        db.commit()
+    c = login("sup3")
+    assert "رفع توصية ممنوحة لي" not in c.get("/me").text
+    assert c.get("/recommendations/submit").status_code == 403
+    assert post(c, "/recommendations/submit", {"kind": "days"}).status_code == 403
+
+
 def test_department_scope(world):
     with SessionLocal() as db:
         d2 = Department(name="قسم صغير")

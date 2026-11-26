@@ -592,6 +592,8 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
 @router.get("/recommendations/submit")
 def recommendation_submit_form(request: Request, kind: str = "days", user: User = Depends(current_user),
                                db: Session = Depends(get_db)):
+    if user.role == "supervisor":
+        raise HTTPException(403, "حساب المتابع الإداري للاطلاع فقط.")
     if not user.employee_id:
         raise HTTPException(404, "حسابك غير مرتبط بسجل موظف.")
     year = pick_year(db, None)
@@ -606,6 +608,8 @@ def recommendation_submit_form(request: Request, kind: str = "days", user: User 
 @router.post("/recommendations/submit")
 async def recommendation_submit(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """يرفع الموظف توصية ممنوحة له (بالأيام أو الساعات) مع خطابها، فتبقى بانتظار اعتماد مسؤول شؤون الموظفين."""
+    if user.role == "supervisor":
+        raise HTTPException(403, "حساب المتابع الإداري للاطلاع فقط.")
     form = await request.form()
     kind = str(form.get("kind") or "days")
     back_url = f"/recommendations/submit?kind={kind}"

@@ -92,7 +92,7 @@
         <li class="sep">{{ 'حسابي' if user.role != 'employee' else 'رصيدي وطلباتي' }}</li>
         {{ item('/me', 'رصيدي', 'pie') }}
         {% if user.role == 'employee' %}{{ item('/requests', 'طلباتي', 'inbox') }}{% endif %}
-        {% if year and year.employee_can_submit_rec %}{{ item('/recommendations/submit', 'رفع توصية ممنوحة لي', 'upload', prefix='/recommendations/submit') }}{% endif %}
+        {% if year and year.employee_can_submit_rec and user.role != 'supervisor' %}{{ item('/recommendations/submit', 'رفع توصية ممنوحة لي', 'upload', prefix='/recommendations/submit') }}{% endif %}
         {% if year and year.employee_can_request %}
           {{ item('/requests/new', 'طلب معالجة غياب' if user.role == 'employee' else 'طلب معالجة غياب لي', 'request', prefix='/requests/new') }}
         {% endif %}

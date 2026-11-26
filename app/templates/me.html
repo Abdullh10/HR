@@ -18,7 +18,7 @@
 {{ balance_board(info, big=True) }}
 <nav class="action-tiles" aria-label="طلبات">
   {% if sel_year.employee_can_request %}<a class="tile days" href="/requests/new">{{ ico('request') }}<span><b>طلب معالجة غياب</b><small>استخدام رصيد بدل الراحة في تاريخ تختاره</small></span></a>{% endif %}
-  {% if sel_year.employee_can_submit_rec %}<a class="tile hours" href="/recommendations/submit">{{ ico('upload') }}<span><b>رفع توصية ممنوحة لي</b><small>بالأيام أو بالساعات مع خطابها، للاعتماد</small></span></a>{% endif %}
+  {% if sel_year.employee_can_submit_rec and user.role != 'supervisor' %}<a class="tile hours" href="/recommendations/submit">{{ ico('upload') }}<span><b>رفع توصية ممنوحة لي</b><small>بالأيام أو بالساعات مع خطابها، للاعتماد</small></span></a>{% endif %}
   <a class="tile msg" href="/messages/new">{{ ico('send') }}<span><b>مراسلة شؤون الموظفين</b><small>استفسار أو متابعة</small></span></a>
 </nav>
 <section class="card flush">
