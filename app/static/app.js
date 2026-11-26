@@ -296,7 +296,7 @@
       inp.addEventListener("input", function () {
         var q = normAr(inp.value), cur = sel.value, n = 0;
         all.forEach(function (o) {
-          var keep = !o.value || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent).indexOf(q) !== -1;
+          var keep = !o.value || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent + " " + (o.getAttribute("data-no") || "")).indexOf(q) !== -1;
           if (keep && o.value) n++;
           if (keep && o.parentNode !== sel) sel.appendChild(o);
           if (!keep && o.parentNode === sel) sel.removeChild(o);
@@ -305,7 +305,11 @@
         cnt.textContent = q ? n + " نتيجة" : "";
         var real = all.filter(function (o) { return o.value && o.parentNode === sel; });
         if (sel.dataset.auto && sel.value === "" ) sel.dataset.auto = "";
-        if (q && real.length === 1 && (!sel.value || sel.dataset.auto) && !sel.hasAttribute("data-reqemp") && !sel.hasAttribute("data-autosubmit-get")) { sel.value = real[0].value; sel.dataset.auto = sel.value; }
+        if (q && real.length === 1 && (!sel.value || sel.dataset.auto) && !sel.hasAttribute("data-reqemp") && !sel.hasAttribute("data-autosubmit-get")) {
+          sel.value = real[0].value; sel.dataset.auto = sel.value;
+          // في نماذج التصفية: تُطبَّق النتيجة تلقائياً عند تطابق موظف واحد (بالاسم أو الرقم الوظيفي)
+          if (sel.closest("form[data-autofilter]")) { clearTimeout(sel._ft); sel._ft = setTimeout(function () { if (sel.value === real[0].value) sel.dispatchEvent(new Event("change", { bubbles: true })); }, 700); }
+        }
         else if (sel.dataset.auto && real.indexOf(sel.selectedOptions[0]) === -1) { sel.value = ""; sel.dataset.auto = ""; }
       });
       inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); sel.focus(); } });

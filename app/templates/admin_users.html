@@ -67,7 +67,7 @@
       <form method="post" action="/admin/users/save" class="filters">
         <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="user_id" value="{{ u.id }}"><input type="hidden" name="username" value="{{ u.username }}">
         <div class="field"><label class="sr-only" for="r{{ u.id }}">الدور</label><select id="r{{ u.id }}" name="role" data-role-select>{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if k == u.role %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
-        <div class="field grow"><label class="sr-only" for="e{{ u.id }}">الموظف</label><select id="e{{ u.id }}" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked or e.id == u.employee_id %}<option value="{{ e.id }}" {% if e.id == u.employee_id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>
+        <div class="field grow"><label class="sr-only" for="e{{ u.id }}">الموظف</label><select id="e{{ u.id }}" name="employee_id"><option value="">—</option>{% for e in emps if e.id not in linked or e.id == u.employee_id %}<option value="{{ e.id }}" data-no="{{ e.employee_no }}" {% if e.id == u.employee_id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>
         <label class="check" style="margin:0"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> نشط</label>
         <span class="hint">{{ u.last_login|d if u.last_login else 'لم يدخل' }}{% if u.must_change_password %} · بانتظار تغيير كلمة المرور{% endif %}</span>
         <button class="btn sm">حفظ</button>

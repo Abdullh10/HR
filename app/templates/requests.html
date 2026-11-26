@@ -13,7 +13,7 @@
 </div>
 <form method="get" class="card filters" data-autofilter>
   <div class="field"><label for="s">الحالة</label><select id="s" name="status"><option value="">الكل</option>{% for k, v in {'pending':'بانتظار الاعتماد','approved':'معتمد','rejected':'مرفوض','cancelled':'ملغى'}.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
-  {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  {% if employees|length > 1 %}<div class="field grow"><label for="e">الموظف</label><select id="e" name="emp"><option value="">الكل</option>{% for e in employees %}<option value="{{ e.id }}" data-no="{{ e.employee_no }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="y">السنة</label><select id="y" name="year_id">{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
   <button class="btn primary btn-apply">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
