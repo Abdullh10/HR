@@ -199,7 +199,7 @@ class BalanceInfo:
 
     @property
     def hours_avail_rem(self) -> float:
-        """ساعات متاحة لا تكفي ليوم كامل؛ تُستخدم في طلبات الساعات أو تكتمل يوماً بتوصيات لاحقة."""
+        """ساعات متاحة لا تكفي ليوم كامل، فلا يمكن استخدامها حتى تكتمل بتوصيات لاحقة."""
         return compute_earned(max(self.hours_available, 0), self.hours_per_day)[1]
 
     @property
@@ -216,7 +216,7 @@ class BalanceInfo:
             out.append(("info", f"اقتربت من الحد الأقصى السنوي: مُنحت {self.granted_equiv_days:g} من {self.cap_days:g} يوماً."))
         granted = self.granted_days * self.hours_per_day + self.granted_hours
         bd, rem = self.bookable_days, self.hours_avail_rem
-        tail = f" (تبقّت {hours_ar(rem)} لا تكفي ليوم كامل، ويمكن طلبها بالساعات)" if rem else ""
+        tail = f" (تبقّت {hours_ar(rem)} لا تكفي ليوم كامل)" if rem else ""
         if granted > 0 and bd <= 0:
             out.append(("warn", "استنفدت رصيدك المتاح من بدل الراحة" + tail + "."))
         elif granted > 0 and bd <= 2:
@@ -574,6 +574,8 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
         raise RuleError("الموظف غير نشط.")
     if kind not in ("use", "compensation") or unit not in ("days", "hours"):
         raise RuleError("نوع الطلب غير صحيح.")
+    if unit != "days":
+        raise RuleError("تُعالج الطلبات بالأيام فقط؛ تُحوَّل ساعات التوصيات إلى أيام تلقائياً.")
     if start is None:
         raise RuleError("أدخل التاريخ.")
     year = ensure_year_open(year_for_date(db, start))

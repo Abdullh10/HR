@@ -30,7 +30,7 @@
     <td data-label="الرقم" class="num">{{ e.employee_no }}</td>
     {% if user.role == 'admin' %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
     <td class="n" data-label="رصيد الأيام">{{ b.days_left|n }}</td><td class="n" data-label="رصيد الساعات">{{ b.hours_left|n }}</td>
-    <td class="n" data-label="المتاح للطلب"><b>{{ days_ar(b.bookable_days) }}</b>{% if b.hours_avail_rem %}<small class="muted d-block">و{{ hours_ar(b.hours_avail_rem) }} تُطلب بالساعات</small>{% endif %}</td>
+    <td class="n" data-label="المتاح للطلب"><b>{{ days_ar(b.bookable_days) }}</b>{% if b.hours_avail_rem %}<small class="muted d-block">و{{ hours_ar(b.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}</td>
     <td class="n" data-label="طلبات معلّقة">{% if pend.get(e.id) %}<a class="badge warn" href="/requests?emp={{ e.id }}&status=pending">{{ pend[e.id] }}</a>{% else %}—{% endif %}</td>
     <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width: {{ b.cap_pct }}%"></span></div><span class="num">{{ b.granted_equiv_days|n }}/{{ b.cap_days|n }}</span></div></td>
     <td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام" aria-label="توصية بالأيام لـ{{ e.full_name }}">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات" aria-label="توصية بالساعات لـ{{ e.full_name }}">+ ساعات</a></td></tr>

@@ -162,7 +162,7 @@
     b.alerts = [];
     if (b.cap > 0 && b.grantedEq >= b.cap - 1e-9) b.alerts.push(["warn", "بلغت الحد الأقصى السنوي (" + b.cap + " يوماً)، فلا تُقبل توصيات جديدة هذه السنة."]);
     else if (b.cap > 0 && b.capPct >= 80) b.alerts.push(["info", "اقتربت من الحد الأقصى السنوي: مُنحت " + n(b.grantedEq) + " من " + b.cap + " يوماً."]);
-    const tail = b.hAvailRem ? " (تبقّت " + hoursAr(b.hAvailRem) + " لا تكفي ليوم كامل، ويمكن طلبها بالساعات)" : "";
+    const tail = b.hAvailRem ? " (تبقّت " + hoursAr(b.hAvailRem) + " لا تكفي ليوم كامل)" : "";
     if (granted > 0 && b.bookable <= 0) b.alerts.push(["warn", "استنفدت رصيدك المتاح من بدل الراحة" + tail + "."]);
     else if (granted > 0 && b.bookable <= 2) b.alerts.push(["warn", "رصيدك المتاح قارب على النفاد: بقي " + daysAr(b.bookable) + tail + "."]);
     return b;
@@ -219,6 +219,7 @@
   function validateLeave(e, kind, unit, start, end, hours, hasAtt) {
     if (!e.active) throw new RuleError("الموظف غير نشط.");
     if (!LEAVE_KINDS[kind] || !["days", "hours"].includes(unit)) throw new RuleError("نوع الطلب غير صحيح.");
+    if (unit !== "days") throw new RuleError("تُعالج الطلبات بالأيام فقط؛ تُحوَّل ساعات التوصيات إلى أيام تلقائياً.");
     if (!parseISO(start)) throw new RuleError("أدخل التاريخ.");
     const y = openYear(yearFor(start));
     if (kind === "compensation" && start > todayISO()) throw new RuleError("طلب التعويض يكون عن غياب حدث فعلاً (تاريخ اليوم أو قبله).");
@@ -382,17 +383,17 @@
   const LATE_DAYS = 3; // معيار الخدمة: يُعدّ الطلب متأخراً إذا بقي بلا قرار 3 أيام فأكثر
   const COUNT_FORMS = { emp: ["لا يوجد موظفون", "موظف واحد", "موظفان", "موظفين", "موظفاً"], req: ["لا توجد طلبات", "طلب واحد", "طلبان", "طلبات", "طلباً"], rec: ["لا توجد توصيات", "توصية واحدة", "توصيتان", "توصيات", "توصية"], msg: ["لا توجد رسائل", "رسالة واحدة", "رسالتان", "رسائل", "رسالة"], acc: ["لا توجد حسابات", "حساب واحد", "حسابان", "حسابات", "حساباً"] };
   const cnt = (v, k) => { const x = Math.trunc(Number(v) || 0), f = COUNT_FORMS[k]; return x === 0 ? f[0] : x === 1 ? f[1] : x === 2 ? f[2] : x <= 10 ? x + " " + f[3] : x + " " + f[4]; };
-  const balanceLine = (b) => `<div class="bal-line" role="status">${ico("pie", "sm-ico")}<span>المتاح للطلب: <b class="big">${daysAr(b.bookable)}</b></span>${b.pDays ? `<span class="muted">معلّق بانتظار الاعتماد: ${daysAr(b.pDays)}</span>` : ""}${b.hAvailRem ? `<span class="muted">${hoursAr(b.hAvailRem)} لا تكفي ليوم، ويمكن طلبها بالساعات</span>` : ""}</div>`;
+  const balanceLine = (b) => `<div class="bal-line" role="status">${ico("pie", "sm-ico")}<span>المتاح للطلب: <b class="big">${daysAr(b.bookable)}</b></span>${b.pDays ? `<span class="muted">معلّق بانتظار الاعتماد: ${daysAr(b.pDays)}</span>` : ""}${b.hAvailRem ? `<span class="muted">${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</span>` : ""}</div>`;
   const pdfChip = (name) => (name ? `<span class="badge muted" title="نسخة العرض لا تحفظ محتوى الملفات">📎 ${h(name)}</span>` : "");
   const months = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "يول", "أغس", "سبت", "أكت", "نوف", "ديس"];
 
   function board(b, big) {
     return `${(b.alerts || []).map(([k, t]) => `<div class="alert ${k} balance-alert" role="status">⚠ ${h(t)}</div>`).join("")}<section class="board${big ? " big" : ""}">
   <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="المتاح للطلب ${daysAr(b.bookable)}">
-    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} تُطلب بالساعات</small>` : ""}</div></div>
+    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</div></div>
   <div class="board-cards">
     <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span><span class="s book">${b.bookable ? `يمكن طلب <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}` : "لا توجد أيام قابلة للطلب حالياً"}</span></div></div>
-    <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم، ويمكن طلبها بالساعات</b>` : ""}</span></div></div>
+    <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</b>` : ""}</span></div></div>
     <div class="bcard cap">${ico("pie")}<div><span class="l">من الحد الأقصى السنوي</span><b class="v num">${n(b.grantedEq)} <small class="of">من ${n(b.cap)} يوماً</small></b>
       <div class="progress" role="progressbar" aria-label="الممنوح من الحد الأقصى السنوي" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
   </div></section>`;
@@ -732,7 +733,7 @@
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>${admin ? "<th>مسؤول شؤون الموظفين</th>" : ""}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th class="n">معلّقة</th><th>من الحد الأقصى</th><th></th></tr></thead><tbody>
       ${rows.map(([e, b], i) => `<tr><td data-label="م">${i + 1}</td><td data-label="الاسم"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a>${isDelegated(u, e) ? ` <span class="badge muted" title="فريق ${h(mgrName(e))}">بالتفويض</span>` : ""}${deptName(e) ? `<small class="muted d-block">${h(deptName(e))}</small>` : ""}</td><td data-label="الرقم" class="num">${h(e.no)}</td>
         ${admin ? `<td data-label="مسؤول شؤون الموظفين">${h(mgrName(e) || "—")}</td>` : ""}<td class="n" data-label="رصيد الأيام">${n(b.daysLeft)}</td><td class="n" data-label="رصيد الساعات">${n(b.hoursLeft)}</td>
-        <td class="n" data-label="المتاح للطلب"><b>${daysAr(b.bookable)}</b>${b.hAvailRem ? `<small class="muted d-block">و${hoursAr(b.hAvailRem)} تُطلب بالساعات</small>` : ""}</td>
+        <td class="n" data-label="المتاح للطلب"><b>${daysAr(b.bookable)}</b>${b.hAvailRem ? `<small class="muted d-block">و${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</td>
         <td class="n" data-label="طلبات معلّقة">${(() => { const c = DB.leaves.filter((r) => r.emp === e.id && r.status === "pending").length; return c ? `<a class="badge warn" href="#/requests?emp=${e.id}&status=pending">${c}</a>` : "—"; })()}</td>
         <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width:${b.capPct}%"></span></div><span class="num">${n(b.grantedEq)}/${n(b.cap)}</span></div></td>
         <td class="actions-cell"><a class="btn sm" href="#/recs/new?kind=days&emp=${e.id}" aria-label="توصية بالأيام لـ${h(e.name)}">+ أيام</a> <a class="btn sm" href="#/recs/new?kind=hours&emp=${e.id}" aria-label="توصية بالساعات لـ${h(e.name)}">+ ساعات</a></td></tr>`).join("") || `<tr><td colspan="10" class="empty">لا توجد نتيجة.${u.role === "officer" ? " لم يُسند إليك موظفون بعد — تواصل مع مدير النظام." : ""}</td></tr>`}
@@ -811,20 +812,15 @@
     if (self && !managed.length && !y.empCanRequest) throw new Forbidden("تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.");
     const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "";
     return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("request", "h-ico")} طلب معالجة غياب</h1>
-      <p>حدّد مدة الغياب المراد معالجتها بالأيام أو بالساعات، وتُخصم من رصيدك بعد اعتماد مسؤول شؤون الموظفين.</p></div></div>
+      <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد مسؤول شؤون الموظفين.</p></div></div>
       ${b ? balanceLine(b) : ""}
       <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form data-days-preview>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
-        <fieldset class="field unit-pick"><legend>نوع الطلب *</legend><div class="seg" role="radiogroup" aria-label="نوع الطلب">
-          <label class="seg-opt"><input type="radio" name="unit" value="days" data-unit checked><span>بالأيام</span></label>
-          <label class="seg-opt"><input type="radio" name="unit" value="hours" data-unit><span>بالساعات</span></label></div></fieldset>
-        <div class="alert info days-only" data-for-unit="days">${ico("calendar")}<div><b>طلب بالأيام:</b> يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة (كل ${n(y.hpd)} ساعات = يوم). تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</div></div>
-        <div class="alert info days-only" data-for-unit="hours" hidden>${ico("clock")}<div><b>طلب بالساعات:</b> لغياب جزئي في يوم عمل واحد، بحد أقصى ${hoursAr(y.hpd)}، ويُخصم من رصيد الساعات الممنوحة بتوصيات الساعات${b ? ` (المتاح: <b>${hoursAr(Math.max(b.hoursAvail, 0))}</b>)` : ""}.</div></div>
+        <div class="alert info days-only">${ico("calendar")}<div><b>تُعالج الطلبات بالأيام فقط.</b> تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل ${n(y.hpd)} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.</div></div>
         <div class="form-grid">
-          <div class="field"><label for="sd"><span data-for-unit="days">من تاريخ *</span><span data-for-unit="hours" hidden>التاريخ *</span></label><input id="sd" name="start" type="date" required></div>
-          <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">اختياري؛ لطلب يوم واحد اتركه فارغاً.</span></div>
-          <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.5" max="${n(y.hpd)}" step="0.5" inputmode="decimal"></div>
-        </div>
+          <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start" type="date" required></div>
+          <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
+</div>
         <p class="days-preview" data-days-out role="status" aria-live="polite"></p>
         <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
         <div class="field"><label for="fl">مستند مؤيد (PDF)${y.reqReqAtt ? " *" : ""}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" ${y.reqReqAtt ? "required" : ""}></div>
@@ -1337,7 +1333,7 @@
     else { flash("تم رفع التوصية بخطاب واحد، وأُضيف " + recAmount(last) + " إلى رصيد كل موظف (عدد الموظفين: " + cnt(emps.length, "emp") + ")."); go("#/recs"); }
   };
   F.leave = async (form, u) => {
-    const d = fd(form), kind = form.dataset.kind, unit = d.get("unit") === "hours" ? "hours" : "days", y0 = activeYear();
+    const d = fd(form), kind = form.dataset.kind, unit = "days", y0 = activeYear();
     const e = byId("emps", d.get("emp") || u.emp); if (!e) throw new RuleError("اختر الموظف.");
     const own = e.id === u.emp; if (!own && !canManage(u, e)) throw new RuleError("ليست لديك صلاحية لتقديم طلب لهذا الموظف.");
     if (own && u.role === "employee" && !y0.empCanRequest) throw new RuleError("تقديم الطلبات من الموظفين غير مفعّل حالياً.");
@@ -1638,9 +1634,9 @@
   <details class="faq-item"><summary>كيف أحصل على اسم المستخدم وكلمة المرور؟</summary><p>يسلّمك مدير النظام بطاقة دخول فيها اسم المستخدم (غالباً رقمك الوظيفي) وكلمة المرور. يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي».</p></details>
   <details class="faq-item"><summary>نسيت كلمة المرور، ماذا أفعل؟</summary><p>تواصل مع مدير النظام في الجهة، فيعيد تعيينها ويسلّمك بطاقة دخول جديدة. لا يستطيع أحد — حتى مدير النظام — الاطلاع على كلمة المرور التي اخترتها بنفسك.</p></details>
   <h3>الرصيد والطلبات</h3>
-  <details class="faq-item"><summary>كيف يُحسب رصيدي؟</summary><p>يُمنح الرصيد بالتوصيات التي يرفعها مسؤول شؤون الموظفين (أياماً أو ساعات)، ويُخصم منه ما اعتُمد من طلبات معالجة الغياب. تُحوَّل الساعات إلى أيام وفق عدد ساعات اليوم المعتمد في السنة، والساعات المتبقية التي لا تكمل يوماً يمكن استخدامها بطلب بالساعات.</p></details>
+  <details class="faq-item"><summary>كيف يُحسب رصيدي؟</summary><p>يُمنح الرصيد بالتوصيات التي يرفعها مسؤول شؤون الموظفين (أياماً أو ساعات)، ويُخصم منه ما اعتُمد من طلبات معالجة الغياب. تُحوَّل الساعات إلى أيام وفق عدد ساعات اليوم المعتمد في السنة، والساعات المتبقية التي لا تكمل يوماً لا يمكن طلبها.</p></details>
   <details class="faq-item"><summary>هل يُرحَّل الرصيد غير المستخدم إلى السنة التالية؟</summary><p>لا؛ الرصيد مرتبط بسنته، فاحرص على استخدامه قبل نهايتها، ويُنبَّه مدير النظام قبل نهاية السنة إلى الأرصدة غير المستخدمة.</p></details>
-  <details class="faq-item"><summary>كيف أقدّم طلب معالجة غياب؟</summary><p>من «طلب معالجة غياب» تختار «بالأيام» وتحدد التاريخ أو الفترة، فيحسب النظام أيام العمل تلقائياً مستبعداً عطلة نهاية الأسبوع والعطل الرسمية؛ أو «بالساعات» لغياب جزئي في يوم عمل واحد فيُخصم من رصيد الساعات. ثم يصل الطلب إلى مسؤول شؤون الموظفين لاعتماده، ويصلك إشعار بالقرار.</p></details>
+  <details class="faq-item"><summary>كيف أقدّم طلب معالجة غياب؟</summary><p>من «طلب معالجة غياب» تختار التاريخ أو الفترة، فيحسب النظام أيام العمل تلقائياً مستبعداً عطلة نهاية الأسبوع والعطل الرسمية، ثم يصل الطلب إلى مسؤول شؤون الموظفين لاعتماده، ويصلك إشعار بالقرار.</p></details>
   <details class="faq-item"><summary>هل يمكن إلغاء طلب بعد اعتماده؟</summary><p>نعم، يستطيع مسؤول شؤون الموظفين أو مدير النظام إلغاء الاعتماد عند الحاجة (كخطأ في التاريخ) مع ذكر السبب، فيعود الرصيد إليك ويصلك إشعار بذلك. ويمكنك إلغاء طلبك بنفسك ما دام بانتظار الاعتماد.</p></details>
   <details class="faq-item"><summary>من يعتمد طلبي إذا كان مسؤولي في إجازة؟</summary><p>يمكن تفويض مسؤول آخر بمتابعة الفريق خلال فترة الغياب، فيعتمد الطلبات بدلاً منه، ويُوثَّق كل قرار «بالتفويض» ويُشعَر به المسؤول الأصلي.</p></details>
   <h3>الأمان وسرية المعلومات</h3>

@@ -84,35 +84,12 @@ def test_year_end_reminder_once_in_december(world, monkeypatch):
         assert db.query(Message).filter(Message.recipient_id == u.id, Message.subject.like("تذكير: رصيدك%")).count() == 1
 
 
-def test_hour_requests(world):
-    """طلب بالساعات: يوم عمل واحد، لا يتجاوز ساعات اليوم، ويُخصم من رصيد الساعات فقط (ومنه الساعات المتبقية دون يوم)."""
-    from .test_flows import balance
-    mgr, emp = login("mgr"), login("emp")
-    rec(mgr, world["e"], "hours", 10)  # يوم (7) + 3 ساعات متبقية
-    assert 'value="hours"' in emp.get("/requests/new").text
-    r = leave(emp, world["e"], "use", "hours", MON, hours=8)  # أكثر من ساعات اليوم
-    assert "لا يتجاوز ساعات اليوم" in emp.get(r.headers["location"]).text
-    leave(emp, world["e"], "use", "hours", MON, hours=3)
-    b = balance(world["e"], world["year"])
-    assert b.pending_hours == 3 and b.hours_available == 7
-    leave(emp, world["e"], "use", "hours", MON, hours=5)  # مجموع اليوم 8 > 7
-    r = leave(emp, world["e"], "use", "days", MON, MON)  # طلب أيام يشمل يوم طلب الساعات: يُرفض
-    assert "يتداخل" in emp.get(r.headers["location"]).text
-    with SessionLocal() as db:
-        assert db.query(LeaveRequest).count() == 1
-        hours_reqs = db.query(LeaveRequest).filter_by(unit="hours").all()
-        assert len(hours_reqs) == 1 and hours_reqs[0].hours == 3
-        rid = hours_reqs[0].id
-    post(mgr, f"/requests/{rid}/decide", {"action": "approve"})
-    assert balance(world["e"], world["year"]).used_hours == 3
-    d = emp.get(f"/requests/preview?start={MON + timedelta(days=1)}&unit=hours&hours=9").json()
-    assert d["unit"] == "hours" and d["over"] is True
 
-
-def test_hour_request_needs_hours_balance(world):
+def test_leave_requests_are_days_only(world):
+    """طلب معالجة الغياب بالأيام فقط (أُعيدت القاعدة)."""
     mgr, emp = login("mgr"), login("emp")
-    rec(mgr, world["e"], "days", 3)  # أيام فقط، بلا ساعات
-    r = leave(emp, world["e"], "use", "hours", MON, hours=2)
-    assert "رصيد الساعات المتاح" in emp.get(r.headers["location"]).text
+    rec(mgr, world["e"], "hours", 10)
+    assert 'value="hours"' not in emp.get("/requests/new").text
+    leave(emp, world["e"], "use", "hours", MON, hours=3)  # الخادم يتجاهل «بالساعات» ويعامل الطلب بالأيام
     with SessionLocal() as db:
-        assert db.query(LeaveRequest).count() == 0
+        assert db.query(LeaveRequest).filter_by(unit="hours").count() == 0
