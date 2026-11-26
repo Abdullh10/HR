@@ -112,56 +112,6 @@ def _pdf():
     return {"file": ("letter.pdf", b"%PDF-1.4\n%test\n", "application/pdf")}
 
 
-def test_employee_submits_recommendation_for_approval(world):
-    from .test_flows import balance
-    emp, mgr = login("emp"), login("mgr")
-    assert "رفع توصية ممنوحة لي" in emp.get("/me").text
-    r = post(emp, "/recommendations/submit", {"kind": "hours", "amount": "5", "rec_date": str(MON), "ref_no": "T-5",
-                                              "subject": "لجنة الجودة", "assigned_by": "وكالة الكلية"}, files=_pdf())
-    assert r.headers["location"] == "/me"
-    with SessionLocal() as db:
-        rec_ = db.query(Recommendation).one()
-        assert rec_.status == "pending" and rec_.attachment_id and not rec_.ref_code
-        rid = rec_.id
-        mu = db.query(User).filter_by(username="mgr").one()
-        assert db.query(Message).filter(Message.recipient_id == mu.id, Message.subject.like("توصية مرفوعة من%")).count() == 1
-    assert balance(world["e"], world["year"]).granted_hours == 0  # لا تُحتسب قبل الاعتماد
-    assert "بانتظار الاعتماد" in emp.get("/me").text
-    ap = mgr.get("/approvals").text
-    assert "توصيات مرفوعة من الموظفين" in ap and "لجنة الجودة" in ap
-    assert mgr.get(f"/recommendations/{rid}/print").status_code == 404  # لا خطاب منح قبل الاعتماد
-    post(mgr, f"/recommendations/{rid}/decide", {"action": "approve"})
-    with SessionLocal() as db:
-        x = db.get(Recommendation, rid)
-        assert x.status == "active" and x.ref_code and x.approved_by
-    assert balance(world["e"], world["year"]).granted_hours == 5
-
-
-def test_submitted_recommendation_reject_withdraw_and_rules(world):
-    emp, mgr = login("emp"), login("mgr")
-    r = post(emp, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "مهمة"})
-    assert "أرفق خطاب التوصية" in emp.get(r.headers["location"]).text  # الخطاب إلزامي
-    post(emp, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "مهمة", "ref_no": "A1"}, files=_pdf())
-    r = post(emp, "/recommendations/submit", {"kind": "days", "amount": "2", "rec_date": str(MON), "subject": "أخرى", "ref_no": "a1"}, files=_pdf())
-    assert "مرفوع سابقاً" in emp.get(r.headers["location"]).text
-    with SessionLocal() as db:
-        rid = db.query(Recommendation).one().id
-    assert post(login("emp2"), f"/recommendations/{rid}/decide", {"action": "approve"}).status_code == 403
-    post(mgr, f"/recommendations/{rid}/decide", {"action": "reject"})  # بلا سبب
-    with SessionLocal() as db:
-        assert db.get(Recommendation, rid).status == "pending"
-    post(mgr, f"/recommendations/{rid}/decide", {"action": "reject", "note": "الخطاب غير واضح"})
-    with SessionLocal() as db:
-        assert db.get(Recommendation, rid).status == "rejected"
-    assert "الخطاب غير واضح" in emp.get("/me").text
-    post(emp, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "ثالثة", "ref_no": "A2"}, files=_pdf())
-    with SessionLocal() as db:
-        rid2 = db.query(Recommendation).filter_by(ref_no="A2").one().id
-    post(emp, f"/recommendations/{rid2}/withdraw")
-    with SessionLocal() as db:
-        assert db.get(Recommendation, rid2).status == "cancelled"
-
-
 def test_delete_from_users_page(world):
     adm = login("admin")
     post(adm, "/employees/save", {"employee_no": "8801", "full_name": "حساب تجريبي", "create_account": "1"})
@@ -175,19 +125,13 @@ def test_delete_from_users_page(world):
         assert db.get(Employee, eid) is None
 
 
-def test_submit_rec_setting_toggle(world):
-    from app.models import FiscalYear
-    emp = login("emp")
-    assert "رفع توصية ممنوحة لي" in emp.get("/me").text
-    assert "السماح للموظف برفع التوصيات الممنوحة له" in login("admin").get("/admin/years").text
-    with SessionLocal() as db:
-        db.get(FiscalYear, world["year"]).employee_can_submit_rec = False
-        db.commit()
-    html = emp.get("/me").text
-    assert "رفع توصية ممنوحة لي" not in html
-    r = emp.get("/recommendations/submit", follow_redirects=False)
-    assert r.status_code == 303
-    r = post(emp, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "x"}, files=_pdf())
-    assert "غير مفعّل حالياً" in emp.get(r.headers["location"]).text
+def test_self_submit_recommendation_removed_for_all(world):
+    """أُلغيت «رفع توصية ممنوحة لي» من كل الحسابات."""
+    for u in ("emp", "mgr"):
+        c = login(u)
+        assert "رفع توصية ممنوحة لي" not in c.get("/me").text
+        assert c.get("/recommendations/submit").status_code == 404
+        assert post(c, "/recommendations/submit", {"kind": "days", "amount": "1", "rec_date": str(MON), "subject": "x"}).status_code == 404
+    assert "السماح للموظف برفع التوصيات الممنوحة له" not in login("admin").get("/admin/years").text
     with SessionLocal() as db:
         assert db.query(Recommendation).count() == 0

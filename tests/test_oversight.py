@@ -95,8 +95,8 @@ def test_linked_supervisor_cannot_submit_recommendation(world):
         db.commit()
     c = login("sup3")
     assert "رفع توصية ممنوحة لي" not in c.get("/me").text
-    assert c.get("/recommendations/submit").status_code == 403
-    assert post(c, "/recommendations/submit", {"kind": "days"}).status_code == 403
+    assert c.get("/recommendations/submit").status_code == 404
+    assert post(c, "/recommendations/submit", {"kind": "days"}).status_code == 404
 
 
 def test_department_scope(world):
