@@ -740,19 +740,21 @@ def employee_delete_blockers(db: Session, emp: Employee) -> list[str]:
 
 
 def delete_employee(db: Session, emp: Employee) -> None:
-    """حذف موظف أُدخل بالخطأ مع حسابه ورسائله وبطاقات دخوله (بعد التحقق من خلوّه من السجلات)."""
+    """حذف موظف أُدخل بالخطأ مع كل بياناته: حسابه ورسائله وبطاقة دخوله واشتراكات أجهزته (بعد التحقق من خلوّه من السجلات)."""
     from .models import AuditLog, Balance, Delegation, LoginCard, PushSubscription
     from sqlalchemy import delete, update
     for u in list(db.scalars(select(User).where(User.employee_id == emp.id))):
         db.execute(delete(Message).where(or_(Message.recipient_id == u.id, Message.sender_id == u.id)))
         db.execute(delete(PushSubscription).where(PushSubscription.user_id == u.id))
-        db.execute(update(LoginCard).where(LoginCard.user_id == u.id).values(user_id=None))
+        db.execute(delete(LoginCard).where(LoginCard.user_id == u.id))  # بطاقة الدخول تُحذف مع الحساب
         db.execute(update(LoginCard).where(LoginCard.created_by == u.id).values(created_by=None))
         db.execute(update(AuditLog).where(AuditLog.user_id == u.id).values(user_id=None))
         db.execute(update(Attachment).where(Attachment.uploaded_by == u.id).values(uploaded_by=None))
         db.execute(update(Delegation).where(Delegation.created_by == u.id).values(created_by=None))
         db.execute(update(Delegation).where(Delegation.cancelled_by == u.id).values(cancelled_by=None))
         db.delete(u)
+    # بطاقات بقيت بلا حساب مرتبط (من حذف سابق) تحمل الرقم الوظيفي نفسه
+    db.execute(delete(LoginCard).where(LoginCard.user_id.is_(None), LoginCard.employee_no == emp.employee_no))
     db.execute(delete(Delegation).where(or_(Delegation.from_emp_id == emp.id, Delegation.to_emp_id == emp.id)))
     db.execute(delete(Balance).where(Balance.employee_id == emp.id))
     db.flush()

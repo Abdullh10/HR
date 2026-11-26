@@ -2021,7 +2021,7 @@
   function removeEmp(e) {
     const uids = DB.users.filter((x) => x.emp === e.id).map((x) => x.id);
     DB.msgs = DB.msgs.filter((m) => !uids.includes(m.to) && !uids.includes(m.from));
-    (DB.cards || []).forEach((c) => { if (uids.includes(c.user)) c.user = null; });
+    DB.cards = (DB.cards || []).filter((c) => !uids.includes(c.user) && !(c.user == null && c.no === e.no)); // بطاقة الدخول تُحذف مع الحساب
     DB.users = DB.users.filter((x) => !uids.includes(x.id));
     DB.delegations = (DB.delegations || []).filter((d) => d.from !== e.id && d.to !== e.id);
     DB.emps = DB.emps.filter((x) => x.id !== e.id);
@@ -2281,6 +2281,7 @@
     try { localStorage.removeItem("hr_demo_v1"); localStorage.removeItem("hr_demo_v2"); localStorage.removeItem("hr_demo_v3"); } catch (e) {}
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     DB.delegations = DB.delegations || [];
+    { const names = new Set(DB.users.map((x) => String(x.username).toLowerCase())); DB.cards = (DB.cards || []).filter((c) => c.user != null || names.has(String(c.username || "").toLowerCase())); } // بطاقات بلا حساب
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null || DB.settings.tagline === "إدارة أيام بدل الراحة بكفاءة واحتراف") DB.settings.tagline = TAGLINE;
     if (!DB.settings.credit || DB.settings.credit === "تطوير مريم حمدي") DB.settings.credit = CREDIT;

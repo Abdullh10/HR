@@ -77,8 +77,10 @@ def test_delete_mistaken_employee(world):
     r = post(adm, f"/employees/{eid}/delete", {"confirm_no": "7701"})
     assert r.headers["location"] == "/employees"
     with SessionLocal() as db:
+        from app.models import LoginCard
         assert db.get(Employee, eid) is None and db.query(User).filter_by(employee_id=eid).count() == 0
         assert db.query(AuditLog).filter_by(action="employee_deleted").count() == 1
+        assert db.query(LoginCard).filter_by(employee_no="7701").count() == 0  # بطاقة الدخول حُذفت معه
     # موظف له توصية: يُرفض الحذف
     rec(login("mgr"), world["e"], "days", 1)
     r = post(adm, f"/employees/{world['e']}/delete", {"confirm_no": "1002"})
@@ -95,3 +97,17 @@ def test_all_pages_not_cached(world):
     for url in ("/dashboard", "/employees", "/approvals", "/recommendations", "/reports", "/admin/users", "/messages", "/login"):
         assert adm.get(url).headers.get("cache-control") == "no-store", url
     assert "no-store" not in (adm.get("/static/app.css").headers.get("cache-control") or "")
+
+
+def test_orphan_login_cards_cleaned_on_startup(world):
+    from app.db import SessionLocal
+    from app.main import init_db
+    from app.models import LoginCard
+    with SessionLocal() as db:
+        db.add(LoginCard(user_id=None, username="ghost99", full_name="محذوف سابقاً", employee_no="9999", temp_password="x", batch="قديمة"))
+        db.add(LoginCard(user_id=None, username="emp", full_name="موظف أول", employee_no="1002", temp_password="y", batch="قديمة"))
+        db.commit()
+    init_db()
+    with SessionLocal() as db:
+        assert db.query(LoginCard).filter_by(username="ghost99").count() == 0  # لا حساب له
+        assert db.query(LoginCard).filter_by(username="emp").count() == 1  # حسابه موجود

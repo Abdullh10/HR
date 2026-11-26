@@ -165,6 +165,12 @@ def init_db() -> None:
         credit = db.get(AppSetting, "credit")
         if credit and credit.value in ("", "تطوير مريم حمدي"):
             credit.value = "تصميم وتطوير: مريم حمدي"
+        # بطاقات دخول بقيت بعد حذف حساباتها (قبل أن يحذفها الحذف تلقائياً): لا حساب لها فتُحذف
+        from .models import LoginCard
+        existing = {u.lower() for u in db.scalars(select(User.username))}
+        for c in db.scalars(select(LoginCard).where(LoginCard.user_id.is_(None))):
+            if (c.username or "").lower() not in existing:
+                db.delete(c)
         if not db.scalar(select(FiscalYear)):
             y0 = date.today().year  # السنة الميلادية الحالية (كانت مثبتة على 2027)
             db.add(FiscalYear(name=str(y0), start_date=date(y0, 1, 1), end_date=date(y0, 12, 31),
