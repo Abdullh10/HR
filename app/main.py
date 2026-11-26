@@ -77,7 +77,10 @@ async def security_headers(request: Request, call_next):
         "font-src 'self' https://fonts.gstatic.com; script-src 'self'; "
         "frame-ancestors 'none'; form-action 'self'"
     )
-    if request.url.path.startswith(("/me", "/employees", "/requests", "/tasks", "/admin", "/files")):
+    # كل صفحات النظام وبياناته تُجلب من الخادم في كل مرة (لا نسخة قديمة من المتصفح عند الدخول من أجهزة متعددة)
+    ctype = resp.headers.get("content-type", "")
+    if not request.url.path.startswith("/static/") and request.url.path != "/sw.js" and (
+            ctype.startswith(("text/html", "application/json")) or request.url.path.startswith(("/files", "/export", "/admin"))):
         resp.headers["Cache-Control"] = "no-store"
     return resp
 

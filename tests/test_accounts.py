@@ -86,3 +86,12 @@ def test_delete_mistaken_employee(world):
     # مسؤول له فريق: يُرفض الحذف
     r = post(adm, f"/employees/{world['m']}/delete", {"confirm_no": "1001"})
     assert "بصفته مسؤول شؤون موظفين" in adm.get(r.headers["location"]).text
+
+
+def test_all_pages_not_cached(world):
+    """كل صفحات النظام تُجلب طازجة من الخادم (لا يعرض المتصفح نسخة قديمة بعد تحديث البيانات من جهاز آخر)."""
+    from .conftest import login
+    adm = login("admin")
+    for url in ("/dashboard", "/employees", "/approvals", "/recommendations", "/reports", "/admin/users", "/messages", "/login"):
+        assert adm.get(url).headers.get("cache-control") == "no-store", url
+    assert "no-store" not in (adm.get("/static/app.css").headers.get("cache-control") or "")
