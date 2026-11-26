@@ -8,7 +8,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="field"><label for="to">إلى *</label>
     <select id="to" name="to" required {% if recipients|length > 1 %}multiple size="{{ [recipients|length, 6]|min }}"{% endif %}>
-      {% for u in recipients %}<option value="{{ u.id }}" {% if to == u.id or recipients|length == 1 %}selected{% endif %}>{{ u.display_name }} — {{ u.role_label }}{% if u.employee and u.employee.email %} ✉{% endif %}</option>{% endfor %}
+      {% for u in recipients %}<option value="{{ u.id }}" data-no="{{ u.employee.employee_no if u.employee else u.username }}" {% if to == u.id or recipients|length == 1 %}selected{% endif %}>{{ u.display_name }} — {{ u.role_label }}{% if u.employee and u.employee.email %} ✉{% endif %}</option>{% endfor %}
     </select>{% if recipients|length > 1 %}<span class="hint">يمكن اختيار أكثر من مستلم (Ctrl/⌘).</span>{% endif %}</div>
   <div class="field"><label for="sb">الموضوع *</label><input id="sb" name="subject" type="text" required maxlength="200" value="{{ subject }}"></div>
   <div class="field"><label for="bd">نص الرسالة *</label><textarea id="bd" name="body" rows="8" required>{{ body }}</textarea></div>

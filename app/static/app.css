@@ -1370,3 +1370,5 @@ a.kpi .s { text-decoration: underline; text-underline-offset: 3px; }
 .sv-facts li b { font-size: 1.2rem; color: var(--text); }
 .sv-facts li small { grid-column: 2 / -1; color: var(--muted); font-size: .76rem; }
 .sv-late-list .who b { font-weight: 700; direction: ltr; unicode-bidi: isolate; }
+
+table tr[hidden] { display: none !important; }

@@ -58,11 +58,12 @@
   </form>
 </section>
 </div>
-<div class="card flush"><div class="table-wrap"><table class="responsive">
+<div class="card flush"><div class="filters pad"><div class="field grow"><label for="uq">بحث في الحسابات</label><input id="uq" type="search" placeholder="اسم المستخدم أو اسم الموظف أو الرقم الوظيفي" data-row-filter="#users-t" autocomplete="off"></div><span class="hint" data-row-count></span></div>
+<div class="table-wrap"><table class="responsive" id="users-t">
   <thead><tr><th>اسم المستخدم</th><th>الدور</th><th>الموظف</th><th>الحالة</th><th>آخر دخول</th><th>تعديل</th><th></th></tr></thead>
   <tbody>
   {% for u in rows %}
-  <tr><td data-label="المستخدم"><b>{{ u.username }}</b></td>
+  <tr data-text="{{ u.username }} {{ u.display_name }} {{ u.employee.employee_no if u.employee else '' }} {{ u.role_label }}"><td data-label="المستخدم"><b>{{ u.username }}</b></td>
     <td colspan="4" data-label="تعديل">
       <form method="post" action="/admin/users/save" class="filters">
         <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="user_id" value="{{ u.id }}"><input type="hidden" name="username" value="{{ u.username }}">

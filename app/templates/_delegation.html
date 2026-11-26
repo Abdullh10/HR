@@ -4,8 +4,8 @@
 {%- endmacro %}
 {% macro delegation_form(officers, admin=False, max_days=180) %}
 <form method="post" action="/delegations/new" class="filters" data-delegation-form><input type="hidden" name="csrf_token" value="{{ csrf }}">
-  {% if admin %}<div class="field"><label for="df">الفريق (المفوِّض)</label><select id="df" name="from_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
-  <div class="field"><label for="dt">المفوَّض بالمتابعة</label><select id="dt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>
+  {% if admin %}<div class="field"><label for="df">الفريق (المفوِّض)</label><select id="df" name="from_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}" data-no="{{ o.employee_no }}">{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="field"><label for="dt">المفوَّض بالمتابعة</label><select id="dt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}" data-no="{{ o.employee_no }}">{{ o.full_name }}</option>{% endfor %}</select></div>
   <div class="field"><label for="ds">من</label><input id="ds" type="date" name="start_date" value="{{ today.isoformat() }}" required></div>
   <div class="field"><label for="de">إلى</label><input id="de" type="date" name="end_date" required></div>
   <div class="field grow"><label for="dn">ملاحظة <span class="hint">(اختياري، مثل: إجازة سنوية)</span></label><input id="dn" name="note" maxlength="300"></div>

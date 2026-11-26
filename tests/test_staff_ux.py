@@ -104,3 +104,20 @@ def test_faq_hides_non_employee_questions_for_employee(world):
     assert not any(q in emp for q in hidden)
     officer = login("mgr").get("/faq").text
     assert all(q in officer for q in hidden)
+
+
+def test_employee_search_by_name_variants_and_number(world):
+    adm = login("admin")
+    from app.models import Employee
+    with SessionLocal() as db:
+        db.add(Employee(employee_no="77001", full_name="أحمد إبراهيم آل سالم"))
+        db.commit()
+    for q in ("احمد", "ابراهيم", "77001", "سالم احمد", "7700"):
+        assert "أحمد إبراهيم آل سالم" in adm.get("/employees", params={"q": q}).text, q
+    assert "أحمد إبراهيم آل سالم" not in adm.get("/employees", params={"q": "خالد"}).text
+    # سجل التدقيق: البحث بالرقم الوظيفي يجد عمليات الموظف المسجلة باسمه
+    post(adm, "/recommendations/new", {"emp": str(world["e"]), "kind": "days", "amount": "1", "rec_date": "2027-02-10"})
+    assert "موظف أول" in adm.get("/admin/audit", params={"q": "1002"}).text
+    # قوائم اختيار الموظف تحمل الرقم الوظيفي للبحث
+    assert 'data-no="1002"' in adm.get("/recommendations").text
+    assert 'data-row-filter' in adm.get("/admin/users").text

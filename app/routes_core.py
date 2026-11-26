@@ -47,6 +47,7 @@ from .services import (
     is_delegated,
     alert_keys,
     assign_ref,
+    norm_ar,
     notify_balance_alerts,
     validate_leave,
     validate_recommendation,
@@ -309,9 +310,6 @@ def employees(request: Request, q: str = "", dept: int | None = None, officer: i
     stmt = scoped_employees(db, user, include_inactive=(state == "inactive"), managed_only=True)
     if state == "inactive":
         stmt = stmt.where(Employee.is_active.is_(False))
-    if q.strip():
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Employee.full_name.like(like), Employee.employee_no.like(like)))
     if dept:
         stmt = stmt.where(Employee.department_id == dept)
     if officer == -1:
@@ -319,7 +317,10 @@ def employees(request: Request, q: str = "", dept: int | None = None, officer: i
     elif officer:
         stmt = stmt.where(Employee.manager_id == officer)
     rows = []
+    words = norm_ar(q).lower().split()  # بالاسم أو الرقم الوظيفي، دون أثر للهمزات والتاء المربوطة، وبأي ترتيب للكلمات
     for e in db.scalars(stmt):
+        if words and not all(w in norm_ar(f"{e.full_name} {e.employee_no}").lower() for w in words):
+            continue
         b = compute_balance(db, e.id, year)
         if state == "cap" and b.cap_left_hours > 0:
             continue

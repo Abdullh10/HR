@@ -272,7 +272,7 @@
   document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("form").forEach(function (f) { if (f.querySelector("[data-role-select]")) assignSync(f); }); });
 
   // بحث وتصفية داخل قوائم اختيار الموظف (بالاسم أو الرقم الوظيفي)
-  var EMP_SELECTS = 'select[name="emp"]:not([multiple]), select[name="employee_id"]:not([multiple]), select[name="mgr"]:not([multiple]), select[name="manager_id"]:not([multiple])';
+  var EMP_SELECTS = 'select[name="emp"]:not([multiple]), select[name="employee_id"]:not([multiple]), select[name="mgr"]:not([multiple]), select[name="manager_id"]:not([multiple]), select[name="from_emp_id"], select[name="to_emp_id"], select[name="to"]';
   function normAr(s) {
     return String(s || "").replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
       .replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }).replace(/\s+/g, " ").trim().toLowerCase();
@@ -296,7 +296,7 @@
       inp.addEventListener("input", function () {
         var q = normAr(inp.value), cur = sel.value, n = 0;
         all.forEach(function (o) {
-          var keep = !o.value || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent + " " + (o.getAttribute("data-no") || "")).indexOf(q) !== -1;
+          var keep = !o.value || (sel.multiple && o.selected) || (o.value === cur && sel.dataset.auto !== cur) || !q || normAr(o.textContent + " " + (o.getAttribute("data-no") || "")).indexOf(q) !== -1;
           if (keep && o.value) n++;
           if (keep && o.parentNode !== sel) sel.appendChild(o);
           if (!keep && o.parentNode === sel) sel.removeChild(o);
@@ -305,6 +305,7 @@
         cnt.textContent = q ? n + " نتيجة" : "";
         var real = all.filter(function (o) { return o.value && o.parentNode === sel; });
         if (sel.dataset.auto && sel.value === "" ) sel.dataset.auto = "";
+        if (sel.multiple) return; // المستلمون: تصفية فقط، والاختيار يبقى للمستخدم
         if (q && real.length === 1 && (!sel.value || sel.dataset.auto) && !sel.hasAttribute("data-reqemp") && !sel.hasAttribute("data-autosubmit-get")) {
           sel.value = real[0].value; sel.dataset.auto = sel.value;
           // في نماذج التصفية: تُطبَّق النتيجة تلقائياً عند تطابق موظف واحد (بالاسم أو الرقم الوظيفي)
@@ -656,3 +657,16 @@ document.addEventListener("DOMContentLoaded", function () {
     show(pinned);
   });
 });
+
+// بحث فوري في صفوف جدول (data-row-filter="#id"): بالاسم أو الرقم الوظيفي، دون أثر للهمزات والتاء المربوطة
+document.addEventListener("input", function (ev) {
+  var inp = ev.target.closest && ev.target.closest("[data-row-filter]");
+  if (!inp) return;
+  var t = document.querySelector(inp.getAttribute("data-row-filter")); if (!t) return;
+  var norm = function (x) { return String(x || "").replace(/[\u064B-\u0652\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); }).toLowerCase(); };
+  var words = norm(inp.value).split(/\s+/).filter(Boolean), n = 0, rows = t.querySelectorAll("tbody tr[data-text]");
+  rows.forEach(function (r) { var ok = words.every(function (w) { return norm(r.getAttribute("data-text")).indexOf(w) !== -1; }); r.hidden = !ok; if (ok) n++; });
+  var c = inp.closest(".filters") && inp.closest(".filters").querySelector("[data-row-count]");
+  if (c) c.textContent = words.length ? n + " من " + rows.length : "";
+});
+

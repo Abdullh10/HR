@@ -27,8 +27,8 @@
   <h2>نقل فريق كامل</h2>
   <p class="hint">ينقل جميع الموظفين المسندين إلى المسؤول الأول إلى الثاني نقلاً دائماً (مثل انتقال المسؤول أو تقاعده)، ومعهم طلباتهم المعلّقة. لنقل موظفين محددين استخدم «الحسابات والصلاحيات».</p>
   <form method="post" action="/admin/teams/transfer" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <div class="field"><label for="tf">من</label><select id="tf" name="from_emp_id" required><option value="">— اختر —</option>{% for s in stats %}<option value="{{ s.emp.id }}"{% if not s.count %} disabled{% endif %}>{{ s.emp.full_name }} ({{ s.count }} موظف)</option>{% endfor %}</select></div>
-    <div class="field"><label for="tt">إلى</label><select id="tt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="tf">من</label><select id="tf" name="from_emp_id" required><option value="">— اختر —</option>{% for s in stats %}<option value="{{ s.emp.id }}" data-no="{{ s.emp.employee_no }}"{% if not s.count %} disabled{% endif %}>{{ s.emp.full_name }} ({{ s.count }} موظف)</option>{% endfor %}</select></div>
+    <div class="field"><label for="tt">إلى</label><select id="tt" name="to_emp_id" required><option value="">— اختر —</option>{% for o in officers %}<option value="{{ o.id }}" data-no="{{ o.employee_no }}">{{ o.full_name }}</option>{% endfor %}</select></div>
     <label class="check"><input type="checkbox" name="notify_employees" value="1" checked><span>إشعار الموظفين المنقولين باسم مسؤولهم الجديد</span></label>
     <div><button class="btn primary" data-confirm="نقل الفريق كاملاً إلى المسؤول المختار؟ يمكن إعادة توزيعه لاحقاً من «الحسابات والصلاحيات».">{{ ico('swap', 'sm-ico') }}نقل الفريق</button></div>
   </form>

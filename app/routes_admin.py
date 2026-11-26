@@ -541,6 +541,18 @@ def _audit_stmt(q: str, who: str, action: str, date_from: str, date_to: str):
         like = f"%{q.strip()}%"
         codes = [k for k, v in ACTIONS.items() if q.strip() in v]  # البحث بالوصف العربي أيضاً
         cond = (AuditLog.username.like(like)) | (AuditLog.action.like(like)) | (AuditLog.entity.like(like)) | (AuditLog.details.like(like))
+        # البحث بالرقم الوظيفي أو بالاسم دون أثر للهمزات: يُضاف اسم الموظف كما هو مخزَّن في التفاصيل، واسم مستخدمه
+        from .db import SessionLocal
+        from .services import norm_ar
+        k = norm_ar(q).lower()
+        with SessionLocal() as s2:
+            hits = [e for e in s2.scalars(select(Employee)) if k in norm_ar(f"{e.full_name} {e.employee_no}").lower()][:30]
+            names = [e.full_name for e in hits]
+            unames = list(s2.scalars(select(User.username).where(User.employee_id.in_([e.id for e in hits] or [0]))))
+        for nm in names:
+            cond = cond | AuditLog.details.like(f"%{nm}%")
+        if unames:
+            cond = cond | AuditLog.username.in_(unames)
         if codes:
             cond = cond | AuditLog.action.in_(codes)
         stmt = stmt.where(cond)
