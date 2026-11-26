@@ -57,3 +57,32 @@ def test_employee_save_with_blank_optional_selects(world):
         assert e.department_id is None and e.manager_id is None
     r = post(adm, "/admin/departments/save", {"dept_id": "", "name": "قسم جديد", "is_active": "1"})
     assert r.status_code == 303
+
+
+def test_delete_mistaken_employee(world):
+    """حذف موظف أُدخل بالخطأ (مدير النظام فقط، وبلا سجلات)؛ من له سجلات يُرفض حذفه."""
+    from app.db import SessionLocal
+    from app.models import AuditLog, Employee, User
+    from .conftest import login, post
+    from .test_flows import rec
+    adm = login("admin")
+    post(adm, "/employees/save", {"employee_no": "7701", "full_name": "أُدخل بالخطأ", "create_account": "1"})
+    with SessionLocal() as db:
+        eid = db.query(Employee).filter_by(employee_no="7701").one().id
+        assert db.query(User).filter_by(employee_id=eid).count() == 1
+    assert "حذف الموظف" in adm.get(f"/employees/{eid}/edit").text
+    assert post(login("mgr"), f"/employees/{eid}/delete", {"confirm_no": "7701"}).status_code == 403
+    r = post(adm, f"/employees/{eid}/delete", {"confirm_no": "خطأ"})
+    assert "اكتب رقمه الوظيفي" in adm.get(r.headers["location"]).text
+    r = post(adm, f"/employees/{eid}/delete", {"confirm_no": "7701"})
+    assert r.headers["location"] == "/employees"
+    with SessionLocal() as db:
+        assert db.get(Employee, eid) is None and db.query(User).filter_by(employee_id=eid).count() == 0
+        assert db.query(AuditLog).filter_by(action="employee_deleted").count() == 1
+    # موظف له توصية: يُرفض الحذف
+    rec(login("mgr"), world["e"], "days", 1)
+    r = post(adm, f"/employees/{world['e']}/delete", {"confirm_no": "1002"})
+    assert "لا يمكن حذف" in adm.get(r.headers["location"]).text
+    # مسؤول له فريق: يُرفض الحذف
+    r = post(adm, f"/employees/{world['m']}/delete", {"confirm_no": "1001"})
+    assert "بصفته مسؤول شؤون موظفين" in adm.get(r.headers["location"]).text

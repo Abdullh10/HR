@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ico %}
 {% block title %}{{ 'تعديل موظف' if emp else 'إضافة موظف' }}{% endblock %}
 {% block heading %}{{ 'تعديل بيانات موظف' if emp else 'إضافة موظف' }}{% endblock %}
 {% block content %}
@@ -20,4 +21,18 @@
   {% else %}<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور أولية تُحفظ في «بطاقات الدخول»)</span></label>{% endif %}
   <div class="actions"><button class="btn primary" type="submit">حفظ</button><a class="btn" href="{{ '/employees/%d'|format(emp.id) if emp else '/employees' }}">إلغاء</a></div>
 </form>
+{% if emp and user.employee_id != emp.id %}
+<details class="card danger-zone form-narrow" id="delete">
+  <summary><b>{{ ico('audit', 'sm-ico') }} حذف الموظف</b> <span class="hint">لمن أُدخل بالخطأ فقط</span></summary>
+  {% if delete_blockers %}
+  <div class="alert warn" role="note">لا يمكن حذف هذا الموظف: {{ delete_blockers|join('، و') }}. للحفاظ على السجلات والمراجعة أوقفه بإلغاء «على رأس العمل (نشط)» أعلاه بدلاً من حذفه.</div>
+  {% else %}
+  <p class="hint">يُحذف سجل الموظف نهائياً مع حسابه وبطاقة دخوله ورسائله، ويُسجَّل الحذف في سجل التدقيق. لا يمكن التراجع إلا باستعادة نسخة احتياطية.</p>
+  <form method="post" action="/employees/{{ emp.id }}/delete" class="filters"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="field"><label for="cn">اكتب الرقم الوظيفي «{{ emp.employee_no }}» للتأكيد</label><input id="cn" name="confirm_no" autocomplete="off" required dir="ltr"></div>
+    <button class="btn danger" data-confirm="حذف «{{ emp.full_name }}» نهائياً؟">حذف الموظف</button>
+  </form>
+  {% endif %}
+</details>
+{% endif %}
 {% endblock %}

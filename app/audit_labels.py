@@ -15,6 +15,7 @@ ACTIONS = {
     "login_cards_printed": "طباعة بطاقات الدخول",
     "employee_created": "إضافة موظف",
     "employee_updated": "تعديل بيانات موظف",
+    "employee_deleted": "حذف موظف أُدخل بالخطأ",
     "employees_imported": "استيراد موظفين",
     "recommendation_added": "رفع توصية",
     "recommendation_cancelled": "إلغاء توصية",

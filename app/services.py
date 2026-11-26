@@ -7,10 +7,11 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .models import (
+    Attachment,
     AuditLog,
     Employee,
     FiscalYear,
@@ -706,3 +707,51 @@ def escalate_overdue(db: Session) -> int:
     for r in fresh:
         audit(db, None, "leave_escalated", "leave_request", r.id, employee=r.employee.full_name)
     return len(fresh)
+
+
+def employee_delete_blockers(db: Session, emp: Employee) -> list[str]:
+    """أسباب منع حذف موظف (الحذف لمن أُدخل بالخطأ فقط؛ من له سجلات يُوقف بدلاً من حذفه حفاظاً على التاريخ)."""
+    from .models import RestDayRequest, Task
+    out = []
+    n_rec = db.scalar(select(func.count(Recommendation.id)).where(Recommendation.employee_id == emp.id)) or 0
+    n_req = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.employee_id == emp.id)) or 0
+    n_old = (db.scalar(select(func.count(Task.id)).where(Task.employee_id == emp.id)) or 0) + \
+            (db.scalar(select(func.count(RestDayRequest.id)).where(RestDayRequest.employee_id == emp.id)) or 0)
+    if n_rec:
+        out.append(f"له {count_ar(n_rec, 'rec')}")
+    if n_req:
+        out.append(f"له {count_ar(n_req, 'req')}")
+    if n_old:
+        out.append("له سجلات من النظام السابق")
+    team = db.scalar(select(func.count(Employee.id)).where(Employee.manager_id == emp.id)) or 0
+    if team:
+        out.append(f"مسند إليه {count_ar(team, 'emp')} بصفته مسؤول شؤون موظفين")
+    for u in db.scalars(select(User).where(User.employee_id == emp.id)):
+        if u.role == "admin":
+            out.append("مرتبط بحساب مدير النظام")
+        acted = db.scalar(select(func.count(Recommendation.id)).where(or_(Recommendation.entered_by == u.id, Recommendation.cancelled_by == u.id))) or 0
+        acted += db.scalar(select(func.count(LeaveRequest.id)).where(or_(LeaveRequest.decided_by == u.id, LeaveRequest.cancelled_by == u.id,
+                                                                         LeaveRequest.requested_by == u.id))) or 0
+        if acted:
+            out.append("حسابه اتخذ إجراءات مسجّلة على موظفين آخرين")
+    return out
+
+
+def delete_employee(db: Session, emp: Employee) -> None:
+    """حذف موظف أُدخل بالخطأ مع حسابه ورسائله وبطاقات دخوله (بعد التحقق من خلوّه من السجلات)."""
+    from .models import AuditLog, Balance, Delegation, LoginCard, PushSubscription
+    from sqlalchemy import delete, update
+    for u in list(db.scalars(select(User).where(User.employee_id == emp.id))):
+        db.execute(delete(Message).where(or_(Message.recipient_id == u.id, Message.sender_id == u.id)))
+        db.execute(delete(PushSubscription).where(PushSubscription.user_id == u.id))
+        db.execute(update(LoginCard).where(LoginCard.user_id == u.id).values(user_id=None))
+        db.execute(update(LoginCard).where(LoginCard.created_by == u.id).values(created_by=None))
+        db.execute(update(AuditLog).where(AuditLog.user_id == u.id).values(user_id=None))
+        db.execute(update(Attachment).where(Attachment.uploaded_by == u.id).values(uploaded_by=None))
+        db.execute(update(Delegation).where(Delegation.created_by == u.id).values(created_by=None))
+        db.execute(update(Delegation).where(Delegation.cancelled_by == u.id).values(cancelled_by=None))
+        db.delete(u)
+    db.execute(delete(Delegation).where(or_(Delegation.from_emp_id == emp.id, Delegation.to_emp_id == emp.id)))
+    db.execute(delete(Balance).where(Balance.employee_id == emp.id))
+    db.flush()
+    db.delete(emp)

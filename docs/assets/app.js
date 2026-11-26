@@ -219,7 +219,6 @@
   function validateLeave(e, kind, unit, start, end, hours, hasAtt) {
     if (!e.active) throw new RuleError("الموظف غير نشط.");
     if (!LEAVE_KINDS[kind] || !["days", "hours"].includes(unit)) throw new RuleError("نوع الطلب غير صحيح.");
-    if (unit !== "days") throw new RuleError("تُعالج الطلبات بالأيام فقط؛ تُحوَّل ساعات التوصيات إلى أيام تلقائياً.");
     if (!parseISO(start)) throw new RuleError("أدخل التاريخ.");
     const y = openYear(yearFor(start));
     if (kind === "compensation" && start > todayISO()) throw new RuleError("طلب التعويض يكون عن غياب حدث فعلاً (تاريخ اليوم أو قبله).");
@@ -229,13 +228,18 @@
       end = end || start; if (!parseISO(end)) throw new RuleError("تاريخ النهاية غير صالح."); if (end < start) throw new RuleError("تاريخ النهاية قبل تاريخ البداية.");
       if (yearFor(end) !== y) throw new RuleError("يجب أن تقع مدة الطلب ضمن سنة واحدة.");
       const wd = workingDays(y, start, end); if (!wd.length) throw new RuleError("المدة المختارة لا تتضمن أيام عمل (عطلة نهاية أسبوع أو عطلة رسمية).");
-      if (DB.leaves.some((r) => r.emp === e.id && r.unit === "days" && ["pending", "approved"].includes(r.status) && r.start <= end && r.end >= start)) throw new RuleError("يوجد طلب فعّال يتداخل مع هذه المدة.");
+      if (DB.leaves.some((r) => r.emp === e.id && ["pending", "approved"].includes(r.status) && r.start <= end && r.end >= start)) throw new RuleError("يوجد طلب فعّال يتداخل مع هذه المدة.");
       if (wd.length > b.bookable) throw new RuleError("الرصيد المتاح للحجز بالأيام (" + daysAr(b.bookable) + "، شاملاً تحويل الساعات: كل " + n(y.hpd) + " ساعات = يوم) لا يكفي لمدة " + daysAr(wd.length) + ".");
       return { y, days: wd.length, hours: 0, end };
     }
+    // طلب بالساعات: ليوم عمل واحد، لا يتجاوز ساعات اليوم، ويُخصم من رصيد الساعات (توصيات الساعات)
     if (hours == null || hours <= 0) throw new RuleError("أدخل عدد ساعات أكبر من صفر.");
-    if (hours > y.hpd * 5) throw new RuleError("عدد الساعات كبير جداً لطلب واحد.");
-    if (hours > b.hoursAvail + 1e-9) throw new RuleError("رصيد الساعات المتاح (" + hoursAr(Math.max(b.hoursAvail, 0)) + ") لا يكفي.");
+    if (hours > y.hpd + 1e-9) throw new RuleError("طلب الساعات ليوم واحد لا يتجاوز ساعات اليوم (" + hoursAr(y.hpd) + ")؛ للمدد الأطول اختر «بالأيام».");
+    if (!workingDays(y, start, start).length) throw new RuleError("التاريخ المختار ليس يوم عمل (عطلة نهاية أسبوع أو عطلة رسمية).");
+    const sameDay = DB.leaves.filter((r) => r.emp === e.id && ["pending", "approved"].includes(r.status) && r.start <= start && r.end >= start);
+    if (sameDay.some((r) => r.unit === "days")) throw new RuleError("يوجد طلب فعّال بالأيام يشمل هذا التاريخ.");
+    if (sameDay.reduce((t, r) => t + (r.hours || 0), 0) + hours > y.hpd + 1e-9) throw new RuleError("مجموع ساعات الطلبات في هذا اليوم يتجاوز ساعات اليوم (" + hoursAr(y.hpd) + ").");
+    if (hours > b.hoursAvail + 1e-9) throw new RuleError("رصيد الساعات المتاح (" + hoursAr(Math.max(b.hoursAvail, 0)) + ") لا يكفي. تُخصم طلبات الساعات من الساعات الممنوحة بتوصيات الساعات؛ للأيام الممنوحة اختر «بالأيام».");
     return { y, days: 0, hours: round2(hours), end: start };
   }
   const noteText = (r) => [r.note, r.status === "cancelled" && r.cancelNote ? "سبب الإلغاء: " + r.cancelNote : ""].filter(Boolean).join(" · ");
@@ -748,7 +752,10 @@
         <div class="field"><label for="ph">رقم الجوال</label><input id="ph" type="tel" name="phone" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" value="${e ? h(e.phone || "") : ""}"></div>
         <div class="field"><label for="ex">التحويلة</label><input id="ex" name="ext" dir="ltr" inputmode="numeric" value="${e ? h(e.ext || "") : ""}"></div></div>
         ${e ? `<label class="check"><input type="checkbox" name="active" value="1" ${e.active ? "checked" : ""}> على رأس العمل (نشط)</label>` : `<label class="check"><input type="checkbox" name="create_account" value="1" checked> إنشاء حساب دخول للموظف تلقائياً <span class="hint">(اسم المستخدم = الرقم الوظيفي، وكلمة مرور أولية تُحفظ في «بطاقات الدخول»)</span></label>`}
-        <div class="actions"><button class="btn primary">حفظ</button><a class="btn" href="${e ? "#/employee/" + e.id : "#/employees"}">إلغاء</a></div></form>`);
+        <div class="actions"><button class="btn primary">حفظ</button><a class="btn" href="${e ? "#/employee/" + e.id : "#/employees"}">إلغاء</a></div></form>
+      ${e && u.emp !== e.id ? (() => { const bl = empDeleteBlockers(e); return `<details class="card danger-zone form-narrow" id="delete"><summary><b>${ico("audit", "sm-ico")} حذف الموظف</b> <span class="hint">لمن أُدخل بالخطأ فقط</span></summary>
+        ${bl.length ? `<div class="alert warn" role="note">لا يمكن حذف هذا الموظف: ${h(bl.join("، و"))}. للحفاظ على السجلات والمراجعة أوقفه بإلغاء «على رأس العمل (نشط)» أعلاه بدلاً من حذفه.</div>`
+          : `<p class="hint">يُحذف سجل الموظف نهائياً مع حسابه وبطاقة دخوله ورسائله، ويُسجَّل الحذف في سجل التدقيق.</p><form class="filters" data-form="del-emp" data-id="${e.id}"><div class="field"><label for="cn">اكتب الرقم الوظيفي «${h(e.no)}» للتأكيد</label><input id="cn" name="confirm_no" autocomplete="off" required dir="ltr"></div><button class="btn danger">حذف الموظف</button></form>`}</details>`; })() : ""}`);
   }
 
   V.recs = (u, q, seg) => {
@@ -804,15 +811,20 @@
     if (self && !managed.length && !y.empCanRequest) throw new Forbidden("تقديم الطلبات من الموظفين غير مفعّل حالياً. تواصل مع مسؤول شؤون الموظفين.");
     const emp = Number(q.get("emp") || 0) || (self && !managed.length ? self.id : 0), b = emp ? balance(emp, y) : null, eq = emp ? "&emp=" + emp : "";
     return layout(u, "طلب معالجة غياب", `<div class="page-head"><div><h1>${ico("request", "h-ico")} طلب معالجة غياب</h1>
-      <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد مسؤول شؤون الموظفين.</p></div></div>
+      <p>حدّد مدة الغياب المراد معالجتها بالأيام أو بالساعات، وتُخصم من رصيدك بعد اعتماد مسؤول شؤون الموظفين.</p></div></div>
       ${b ? balanceLine(b) : ""}
       <form class="card form-narrow" data-form="leave" data-kind="${kind}" data-leave-form data-days-preview>
         ${managed.length ? `<div class="field"><label for="emp">الموظف *</label><select id="emp" name="emp" required data-reqemp="${kind}"><option value="">— اختر —</option>${self ? `<option value="${self.id}" ${emp === self.id ? "selected" : ""}>${h(self.name)} (أنا)</option>` : ""}${managed.map((e) => `<option value="${e.id}" ${emp === e.id ? "selected" : ""}>${h(e.name)} — ${h(e.no)}</option>`).join("")}</select></div>` : `<input type="hidden" name="emp" value="${emp}">`}
-        <div class="alert info days-only">${ico("calendar")}<div><b>تُعالج الطلبات بالأيام فقط.</b> تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل ${n(y.hpd)} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.</div></div>
+        <fieldset class="field unit-pick"><legend>نوع الطلب *</legend><div class="seg" role="radiogroup" aria-label="نوع الطلب">
+          <label class="seg-opt"><input type="radio" name="unit" value="days" data-unit checked><span>بالأيام</span></label>
+          <label class="seg-opt"><input type="radio" name="unit" value="hours" data-unit><span>بالساعات</span></label></div></fieldset>
+        <div class="alert info days-only" data-for-unit="days">${ico("calendar")}<div><b>طلب بالأيام:</b> يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة (كل ${n(y.hpd)} ساعات = يوم). تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</div></div>
+        <div class="alert info days-only" data-for-unit="hours" hidden>${ico("clock")}<div><b>طلب بالساعات:</b> لغياب جزئي في يوم عمل واحد، بحد أقصى ${hoursAr(y.hpd)}، ويُخصم من رصيد الساعات الممنوحة بتوصيات الساعات${b ? ` (المتاح: <b>${hoursAr(Math.max(b.hoursAvail, 0))}</b>)` : ""}.</div></div>
         <div class="form-grid">
-          <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start" type="date" required></div>
-          <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
-</div>
+          <div class="field"><label for="sd"><span data-for-unit="days">من تاريخ *</span><span data-for-unit="hours" hidden>التاريخ *</span></label><input id="sd" name="start" type="date" required></div>
+          <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end" type="date"><span class="hint">اختياري؛ لطلب يوم واحد اتركه فارغاً.</span></div>
+          <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.5" max="${n(y.hpd)}" step="0.5" inputmode="decimal"></div>
+        </div>
         <p class="days-preview" data-days-out role="status" aria-live="polite"></p>
         <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>
         <div class="field"><label for="fl">مستند مؤيد (PDF)${y.reqReqAtt ? " *" : ""}</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" ${y.reqReqAtt ? "required" : ""}></div>
@@ -1091,7 +1103,7 @@
       </tbody></table></div></div>`);
   };
 
-  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق", "team_transferred": "نقل فريق بين المسؤولين", "delegation_created": "إنشاء تفويض", "delegation_cancelled": "إلغاء تفويض", "audit_cleared": "حذف من سجل التدقيق", "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)"};
+  const AUDIT_ACTIONS = {"login": "تسجيل دخول", "login_failed": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "password_changed": "تغيير كلمة المرور", "password_reset": "إعادة تعيين كلمة المرور", "profile_updated": "تحديث الملف الشخصي", "user_saved": "إنشاء/تعديل حساب", "users_bulk_created": "إنشاء حسابات دفعة واحدة", "login_cards_printed": "طباعة بطاقات الدخول", "employee_created": "إضافة موظف", "employee_updated": "تعديل بيانات موظف", "employee_deleted": "حذف موظف أُدخل بالخطأ", "employees_imported": "استيراد موظفين", "recommendation_added": "رفع توصية", "recommendation_cancelled": "إلغاء توصية", "leave_requested": "تقديم طلب معالجة غياب", "leave_approved": "اعتماد طلب", "leave_rejected": "رفض طلب", "leave_cancelled": "إلغاء طلب", "message_sent": "إرسال رسالة", "department_saved": "حفظ قسم", "department_merged": "دمج أقسام", "holiday_added": "إضافة عطلة رسمية", "holiday_deleted": "حذف عطلة رسمية", "year_saved": "حفظ إعدادات السنة", "year_activated": "تفعيل سنة", "year_locked": "إقفال سنة", "year_unlocked": "فتح سنة", "settings_saved": "حفظ هوية الجهة", "mail_test": "إرسال بريد تجريبي", "backup_downloaded": "تنزيل نسخة احتياطية", "auto_backup": "نسخة احتياطية تلقائية", "backup_restored": "استعادة نسخة احتياطية", "restore_denied": "رفض استعادة (كلمة مرور خاطئة)", "all_data_wiped": "حذف جميع البيانات", "wipe_denied": "رفض حذف البيانات (كلمة مرور خاطئة)", "archive_exported": "تصدير أرشيف السنة", "data_exported": "تصدير بيانات إلى Excel", "audit_exported": "تصدير سجل التدقيق", "team_transferred": "نقل فريق بين المسؤولين", "delegation_created": "إنشاء تفويض", "delegation_cancelled": "إلغاء تفويض", "audit_cleared": "حذف من سجل التدقيق", "audit_clear_denied": "رفض حذف سجل التدقيق (كلمة مرور خاطئة)"};
   const AUDIT_ENTITIES = {"user": "حساب", "employee": "موظف", "recommendation": "توصية", "leave_request": "طلب", "message": "رسالة", "department": "قسم", "holiday": "عطلة", "fiscal_year": "سنة", "settings": "الإعدادات", "system": "النظام", "archive": "الأرشيف", "login_card": "بطاقة دخول", "export": "تصدير", "delegation": "تفويض", "team": "فريق"};
   const AUDIT_FIELDS = {"employee": "الموظف", "employee_id": "رقم سجل الموظف", "kind": "النوع", "unit": "الوحدة", "days": "أيام", "hours": "ساعات", "amount": "المقدار", "note": "الملاحظة", "reason": "السبب", "username": "اسم المستخدم", "role": "الدور", "count": "العدد", "file": "الملف", "batch": "الدفعة", "prev": "الحالة السابقة", "previous": "الحالة السابقة", "on_behalf": "بالنيابة", "to": "إلى", "ok": "النتيجة", "error": "الخطأ", "fields": "الحقول", "active": "نشط", "assigned": "عدد المسندين", "unassigned": "أُلغي إسنادهم", "by": "بواسطة", "auto_backup": "النسخة التلقائية", "year": "السنة", "rows": "عدد الصفوف", "created": "أُنشئ", "updated": "حُدّث", "before": "قبل", "after": "بعد", "auto": "تلقائي", "name": "الاسم", "subject": "الموضوع", "filters": "عوامل التصفية", "delegated": "بالتفويض", "from": "من", "start": "من تاريخ", "end": "إلى تاريخ", "moved": "عدد المنقولين", "pending_requests": "طلبات معلّقة انتقلت", "notify_employees": "إشعار الموظفين", "scope": "النطاق"};
   const auditVal = (v) => Array.isArray(v) ? v.map(auditVal).join("، ") : v === true ? "نعم" : v === false ? "لا" : v && typeof v === "object" ? Object.entries(v).map(([k, x]) => (AUDIT_FIELDS[k] || k) + ": " + auditVal(x)).join("، ") : ({ approved: "معتمد", pending: "بانتظار الاعتماد", rejected: "مرفوض", cancelled: "ملغى", days: "أيام", hours: "ساعات", use: "معالجة غياب", employee: "موظف", officer: "شؤون الموظفين", admin: "مدير النظام", wrong_password: "كلمة مرور خاطئة" })[v] || String(v);
@@ -1325,12 +1337,12 @@
     else { flash("تم رفع التوصية بخطاب واحد، وأُضيف " + recAmount(last) + " إلى رصيد كل موظف (عدد الموظفين: " + cnt(emps.length, "emp") + ")."); go("#/recs"); }
   };
   F.leave = async (form, u) => {
-    const d = fd(form), kind = form.dataset.kind, unit = "days", y0 = activeYear();
+    const d = fd(form), kind = form.dataset.kind, unit = d.get("unit") === "hours" ? "hours" : "days", y0 = activeYear();
     const e = byId("emps", d.get("emp") || u.emp); if (!e) throw new RuleError("اختر الموظف.");
     const own = e.id === u.emp; if (!own && !canManage(u, e)) throw new RuleError("ليست لديك صلاحية لتقديم طلب لهذا الموظف.");
     if (own && u.role === "employee" && !y0.empCanRequest) throw new RuleError("تقديم الطلبات من الموظفين غير مفعّل حالياً.");
     const att = await pdfCheck(d.get("file"));
-    const v = validateLeave(e, kind, unit, String(d.get("start") || ""), String(d.get("end") || "") || null, unit === "hours" ? toNum(d.get("hours")) : null, !!att);
+    const v = validateLeave(e, kind, unit, String(d.get("start") || ""), unit === "hours" ? null : String(d.get("end") || "") || null, unit === "hours" ? toNum(d.get("hours")) : null, !!att);
     const r = { id: nid(), emp: e.id, year: v.y.id, kind, unit, start: String(d.get("start")), end: v.end, days: v.days, hours: v.hours, reason: String(d.get("reason") || "").trim(), status: "pending", att, by: u.id, decidedBy: null, decidedAt: null, note: "", created: nowStr() };
     assignRef(r, "REQ"); DB.leaves.push(r); audit("leave_requested", "leave_request", r.id, { employee: e.no, kind, unit, days: v.days, hours: v.hours });
     if (own) (officerUsersFor(e).length ? officerUsersFor(e) : DB.users.filter((x) => x.role === "admin")).forEach((o) => notify(o, "طلب " + LEAVE_KINDS[kind] + " جديد من " + e.name, LEAVE_KINDS[kind] + " — " + leaveAmount(r) + " بتاريخ " + r.start + ". " + r.reason, "#/approvals", u));
@@ -1918,14 +1930,21 @@
   function daysPreview(form) {
     const out = form.querySelector("[data-days-out]"); if (!out) return;
     const sd = form.querySelector('[name="start"]').value, ed = form.querySelector('[name="end"]').value || sd, emp = Number((form.querySelector('[name="emp"]') || {}).value || 0);
+    const unitSel = form.querySelector('[name="unit"]:checked'), isH = unitSel && unitSel.value === "hours", hv = toNum((form.querySelector('[name="hours"]') || {}).value);
     if (!sd) { out.textContent = ""; return; }
     const y = yearFor(sd); if (!y) { out.textContent = "التاريخ لا يقع ضمن سنة معرّفة في النظام."; out.classList.add("err"); return; }
+    if (isH) {
+      if (!workingDays(y, sd, sd).length) { out.textContent = "التاريخ المختار ليس يوم عمل."; out.classList.add("err"); return; }
+      const av = emp ? Math.max(balance(emp, y).hoursAvail, 0) : null, overH = av != null && hv > av + 1e-9;
+      out.classList.toggle("err", overH); out.textContent = hv ? "سيُخصم من رصيد الساعات: " + hoursAr(hv) + (overH ? " — يتجاوز المتاح (" + hoursAr(av) + ")" : "") : "أدخل عدد الساعات"; return;
+    }
     if (ed < sd) { out.textContent = ""; return; }
     const nd = workingDays(y, sd, ed).length, avail = emp ? balance(emp, y).bookable : null, over = avail != null && nd > avail;
     out.classList.toggle("err", over);
     out.textContent = nd ? "سيُخصم من الرصيد: " + daysAr(nd) + (over ? " — يتجاوز المتاح (" + avail + ")" : "") : "لا توجد أيام عمل في هذه الفترة";
   }
-  document.addEventListener("change", (ev) => { const f = ev.target.closest && ev.target.closest("form[data-days-preview]"); if (f && ["start", "end"].includes(ev.target.name)) daysPreview(f); });
+  document.addEventListener("change", (ev) => { const f = ev.target.closest && ev.target.closest("form[data-days-preview]"); if (f && ["start", "end", "unit"].includes(ev.target.name)) daysPreview(f); });
+  document.addEventListener("input", (ev) => { const f = ev.target.closest && ev.target.closest("form[data-days-preview]"); if (f && ev.target.name === "hours") daysPreview(f); });
 
   ACT["remind-yearend"] = async (b, u) => {
     need(u, STAFF); const y = byId("years", b.dataset.year) || activeYear();
@@ -1954,6 +1973,30 @@
   }
   document.addEventListener("change", (ev) => { const bx = ev.target.closest && ev.target.closest("[data-pick-box]"); if (bx) pickSync(bx); });
   document.addEventListener("submit", (ev) => { const bx = ev.target.querySelector && ev.target.querySelector("[data-pick-box]"); if (bx && !bx.querySelector('input[name="emps"]:checked')) { ev.preventDefault(); ev.stopImmediatePropagation(); const o = bx.querySelector("[data-pick-count]"); if (o) { o.textContent = "اختر موظفاً واحداً على الأقل"; o.classList.add("err-text"); } bx.scrollIntoView({ block: "center" }); } }, true);
+
+  // حذف موظف أُدخل بالخطأ: يُمنع لمن له سجلات أو فريق أو حساب مدير نظام
+  function empDeleteBlockers(e) {
+    const out = [], nr = DB.recs.filter((r) => r.emp === e.id).length, nq = DB.leaves.filter((r) => r.emp === e.id).length, team = DB.emps.filter((x) => x.mgr === e.id).length;
+    if (nr) out.push("له " + cnt(nr, "rec")); if (nq) out.push("له " + cnt(nq, "req"));
+    if (team) out.push("مسند إليه " + cnt(team, "emp") + " بصفته مسؤول شؤون موظفين");
+    DB.users.filter((x) => x.emp === e.id).forEach((x) => { if (x.role === "admin") out.push("مرتبط بحساب مدير النظام");
+      if (DB.recs.some((r) => r.by === x.id || r.cancelledBy === x.id) || DB.leaves.some((r) => r.decidedBy === x.id || r.cancelledBy === x.id || (r.by === x.id && r.emp !== e.id))) out.push("حسابه اتخذ إجراءات مسجّلة على موظفين آخرين"); });
+    return out;
+  }
+  F["del-emp"] = async (form, u) => {
+    need(u, ["admin"]); const e = byId("emps", form.dataset.id); if (!e) return;
+    const bl = empDeleteBlockers(e); if (bl.length) throw new RuleError("لا يمكن حذف «" + e.name + "»: " + bl.join("، و") + ".");
+    if (String(fd(form).get("confirm_no") || "").trim() !== e.no) throw new RuleError("لم يُحذف الموظف: للتأكيد اكتب رقمه الوظيفي كما هو.");
+    if (!await confirmDlg("حذف «" + e.name + "» نهائياً؟")) return;
+    const uids = DB.users.filter((x) => x.emp === e.id).map((x) => x.id);
+    DB.msgs = DB.msgs.filter((m) => !uids.includes(m.to) && !uids.includes(m.from));
+    (DB.cards || []).forEach((c) => { if (uids.includes(c.user)) c.user = null; });
+    DB.users = DB.users.filter((x) => !uids.includes(x.id));
+    DB.delegations = (DB.delegations || []).filter((d) => d.from !== e.id && d.to !== e.id);
+    DB.emps = DB.emps.filter((x) => x.id !== e.id);
+    audit("employee_deleted", "employee", e.id, { name: e.name, employee: e.no }); save();
+    flash("حُذف الموظف «" + e.name + "» (" + e.no + ") وحسابه."); go("#/employees");
+  };
 
   document.addEventListener("submit", async (ev) => {
     const form = ev.target.closest("form[data-form]"); if (!form) return;

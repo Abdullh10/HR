@@ -349,7 +349,9 @@ def employee_edit(request: Request, emp_id: int, user: User = Depends(require("a
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(404, "الموظف غير موجود.")
-    return render(request, db, "employee_form.html", user=user, emp=emp, **employee_form_ctx(db))
+    from .services import employee_delete_blockers
+    return render(request, db, "employee_form.html", user=user, emp=emp, delete_blockers=employee_delete_blockers(db, emp),
+                  **employee_form_ctx(db))
 
 
 @router.post("/employees/save")
@@ -431,6 +433,32 @@ def employee_save(request: Request, emp_id: str = Form(""), employee_no: str = F
     if acct_msg:
         flash(request, *acct_msg)
     return redirect(f"/employees/{emp.id}")
+
+
+@router.post("/employees/{emp_id}/delete")
+def employee_delete(request: Request, emp_id: int, confirm_no: str = Form(""), user: User = Depends(require("admin")),
+                    db: Session = Depends(get_db)):
+    """حذف موظف أُدخل بالخطأ (لمدير النظام فقط، ولمن لا سجلات له). من له سجلات يُوقف بدلاً من حذفه."""
+    from .services import delete_employee, employee_delete_blockers
+    emp = db.get(Employee, emp_id)
+    if not emp:
+        raise HTTPException(404, "الموظف غير موجود.")
+    if user.employee_id == emp.id:
+        flash(request, "لا يمكنك حذف سجلك المرتبط بحسابك.", "error")
+        return redirect(f"/employees/{emp_id}/edit")
+    blockers = employee_delete_blockers(db, emp)
+    if blockers:
+        flash(request, f"لا يمكن حذف «{emp.full_name}»: {'، و'.join(blockers)}. للحفاظ على السجلات أوقفه بإلغاء «على رأس العمل (نشط)» بدلاً من حذفه.", "error")
+        return redirect(f"/employees/{emp_id}/edit")
+    if confirm_no.strip() != emp.employee_no:
+        flash(request, "لم يُحذف الموظف: للتأكيد اكتب رقمه الوظيفي كما هو.", "error")
+        return redirect(f"/employees/{emp_id}/edit")
+    name, no = emp.full_name, emp.employee_no
+    delete_employee(db, emp)
+    audit(db, user, "employee_deleted", "employee", emp_id, ip=client_ip(request), name=name, employee=no)
+    db.commit()
+    flash(request, f"حُذف الموظف «{name}» ({no}) وحسابه.")
+    return redirect("/employees")
 
 
 @router.post("/employees/{emp_id}/account")

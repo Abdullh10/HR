@@ -4,7 +4,7 @@
 {% block heading %}طلب معالجة غياب{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>{{ ico('request', 'h-ico') }} طلب معالجة غياب</h1>
-  <p>حدّد مدة الغياب المراد معالجتها، ويُخصم من رصيدك بالأيام بعد اعتماد مسؤول شؤون الموظفين.</p></div>
+  <p>حدّد مدة الغياب المراد معالجتها بالأيام أو بالساعات، وتُخصم من رصيدك بعد اعتماد مسؤول شؤون الموظفين.</p></div>
 </div>
 {% if info %}{{ balance_line(info) }}{% endif %}
 <form method="post" action="/requests/new" data-keep enctype="multipart/form-data" class="card form-narrow" data-leave-form data-days-preview>
