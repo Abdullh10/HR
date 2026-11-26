@@ -90,8 +90,10 @@ def nav_counts(db: Session, user: User | None) -> dict:
     unread = db.scalar(select(func.count(Message.id)).where(Message.recipient_id == user.id,
                                                             Message.read_at.is_(None))) or 0
     pending = 0
+    from .models import Recommendation
     if user.role == "admin":
         pending = db.scalar(select(func.count(LeaveRequest.id)).where(LeaveRequest.status == "pending")) or 0
+        pending += db.scalar(select(func.count(Recommendation.id)).where(Recommendation.status == "pending")) or 0
     delegation_badge, delegated_teams = None, []
     if user.role == "officer" and user.employee_id:
         from .services import delegated_from
@@ -99,6 +101,9 @@ def nav_counts(db: Session, user: User | None) -> dict:
         pending = db.scalar(select(func.count(LeaveRequest.id)).join(Employee, Employee.id == LeaveRequest.employee_id)
                             .where(LeaveRequest.status == "pending", Employee.manager_id.in_(owners),
                                    Employee.id != user.employee_id)) or 0
+        pending += db.scalar(select(func.count(Recommendation.id)).join(Employee, Employee.id == Recommendation.employee_id)
+                             .where(Recommendation.status == "pending", Employee.manager_id.in_(owners),
+                                    Employee.id != user.employee_id)) or 0
         delegation_badge = "مفوَّض" if len(owners) > 1 else None
         if len(owners) > 1:
             from datetime import date as _d

@@ -64,7 +64,8 @@
         {% if u.role == 'officer' %}<details class="assign-wrap"{% if not team_count.get(u.employee_id) %} open{% endif %}><summary>الموظفون المسندون ({{ team_count.get(u.employee_id, 0) }})</summary>{{ assign_box(u.employee_id, True) }}</details>
         {% endif %}
       </form></td>
-    <td colspan="2"><form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إعادة تعيين كلمة مرور {{ u.username }}؟">إعادة تعيين كلمة المرور</button></form></td></tr>
+    <td colspan="2"><form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="إعادة تعيين كلمة مرور {{ u.username }}؟">إعادة تعيين كلمة المرور</button></form>
+      {% if u.employee and u.id != user.id and u.role != 'admin' %}<form method="post" action="/employees/{{ u.employee_id }}/delete" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="confirm_no" value="{{ u.employee.employee_no }}"><input type="hidden" name="next" value="/admin/users"><button class="btn sm danger" data-confirm="حذف الموظف «{{ u.employee.full_name }}» وحسابه نهائياً؟ يُسمح بذلك لمن أُدخل بالخطأ ولا سجلات له؛ ومن له سجلات أوقفه بدلاً من حذفه." title="حذف موظف أُدخل بالخطأ">حذف</button></form>{% endif %}</td></tr>
   {% endfor %}
   </tbody></table></div></div>
 {% endblock %}

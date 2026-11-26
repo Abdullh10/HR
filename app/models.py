@@ -276,7 +276,7 @@ class Recommendation(Base):
     rec_date: Mapped[date] = mapped_column(Date)
     ref_no: Mapped[str] = mapped_column(String(64), default="")
     subject: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(String(16), default="active")  # active | cancelled
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | pending | rejected | cancelled
     attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id"))
     entered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     cancelled_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
@@ -288,6 +288,9 @@ class Recommendation(Base):
     task_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     assigned_by: Mapped[str] = mapped_column(String(160), default="")
     batch: Mapped[str] = mapped_column(String(40), default="")  # توصيات رُفعت معاً بخطاب واحد
+    # توصية رفعها الموظف بنفسه: تبقى «بانتظار الاعتماد» ولا تُحتسب في الرصيد حتى يعتمدها مسؤول شؤون الموظفين
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     employee: Mapped[Employee] = relationship()
@@ -302,7 +305,7 @@ class Recommendation(Base):
 
     @property
     def status_label(self) -> str:
-        return "سارية" if self.status == "active" else "ملغاة"
+        return {"active": "سارية", "pending": "بانتظار الاعتماد", "rejected": "مرفوضة"}.get(self.status, "ملغاة")
 
 
 class LeaveRequest(Base):

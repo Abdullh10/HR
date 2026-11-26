@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ico, balance_line %}
+{% set is_days = kind == 'days' %}
+{% block title %}رفع توصية ممنوحة لي{% endblock %}
+{% block heading %}رفع توصية ممنوحة لي{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ico('upload', 'h-ico') }} رفع توصية ممنوحة لي</h1>
+  <p>ارفع خطاب التوصية الذي مُنحت فيه بدل راحة (بالأيام أو بالساعات)، فيصل إلى {{ emp.manager.full_name if emp.manager else 'مدير النظام' }} لاعتماده، وتُضاف القيمة إلى رصيدك بعد الاعتماد.</p></div>
+  <div class="seg" role="tablist" aria-label="نوع التوصية"><a href="/recommendations/submit?kind=days" class="{{ 'on' if is_days }}" aria-current="{{ 'page' if is_days else 'false' }}">بالأيام</a><a href="/recommendations/submit?kind=hours" class="{{ 'on' if not is_days }}" aria-current="{{ 'page' if not is_days else 'false' }}">بالساعات</a></div>
+</div>
+<form method="post" action="/recommendations/submit" data-keep enctype="multipart/form-data" class="card form-narrow">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="kind" value="{{ kind }}">
+  <div class="alert info" role="note">{{ ico('hourglass', 'sm-ico') }} تبقى التوصية «بانتظار الاعتماد» ولا تُحتسب في رصيدك حتى يعتمدها مسؤول شؤون الموظفين بعد مراجعة الخطاب. الحد الأقصى السنوي {{ days_ar(sel_year.base_days) }}، والمتاح للمنح حالياً {% if is_days %}{{ (info.cap_left_hours / info.hours_per_day)|round(2)|n }} يوم{% else %}{{ info.cap_left_hours|n }} ساعة{% endif %}.</div>
+  <div class="form-grid">
+    <div class="field"><label for="am">{{ 'عدد الأيام الممنوحة' if is_days else 'عدد الساعات الممنوحة' }} *</label><input id="am" name="amount" type="number" required min="{{ 1 if is_days else 0.25 }}" step="{{ 1 if is_days else 0.25 }}" inputmode="decimal"></div>
+    <div class="field"><label for="dt">تاريخ التوصية (الخطاب) *</label><input id="dt" name="rec_date" type="date" required></div>
+    <div class="field"><label for="rf">رقم الخطاب</label><input id="rf" name="ref_no" type="text" maxlength="64"></div>
+  </div>
+  <div class="field"><label for="sb">موضوع التكليف *</label><input id="sb" name="subject" type="text" required placeholder="مثال: المراقبة في الاختبارات النهائية"></div>
+  <div class="form-grid">
+    <div class="field"><label for="ab">جهة التكليف</label><input id="ab" name="assigned_by" type="text" maxlength="160" placeholder="مثال: وكالة الكلية للشؤون الأكاديمية"></div>
+    <div class="field"><label for="tf">فترة التكليف: من</label><input id="tf" name="task_from" type="date"></div>
+    <div class="field"><label for="tt">إلى</label><input id="tt" name="task_to" type="date"></div>
+  </div>
+  <div class="field"><label for="fl">خطاب التوصية (PDF) *</label><input id="fl" name="file" type="file" accept="application/pdf,.pdf" required><span class="hint">الحد الأقصى 5 ميجابايت.</span></div>
+  <div class="actions"><button class="btn primary" type="submit">رفع التوصية للاعتماد</button><a class="btn" href="/me">إلغاء</a></div>
+</form>
+{% endblock %}

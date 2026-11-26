@@ -16,17 +16,16 @@
 <div class="alert warn" role="status">{{ ico('calendar', 'sm-ico') }} لديك <b>{{ days_ar(info.bookable_days) }}</b> متاحة للطلب تسقط في <bdi class="d">{{ sel_year.end_date|d }}</bdi>، لأن رصيد بدل الراحة لا يُرحَّل إلى السنة التالية.{% if sel_year.employee_can_request %} <a href="/requests/new">قدّم طلباً الآن</a>.{% endif %}</div>
 {% endif %}
 {{ balance_board(info, big=True) }}
-{% if sel_year.employee_can_request %}
 <nav class="action-tiles" aria-label="طلبات">
-  <a class="tile days" href="/requests/new">{{ ico('request') }}<span><b>طلب معالجة غياب</b><small>استخدام رصيد بدل الراحة في تاريخ تختاره</small></span></a>
+  {% if sel_year.employee_can_request %}<a class="tile days" href="/requests/new">{{ ico('request') }}<span><b>طلب معالجة غياب</b><small>استخدام رصيد بدل الراحة في تاريخ تختاره</small></span></a>{% endif %}
+  <a class="tile hours" href="/recommendations/submit">{{ ico('upload') }}<span><b>رفع توصية ممنوحة لي</b><small>بالأيام أو بالساعات مع خطابها، للاعتماد</small></span></a>
   <a class="tile msg" href="/messages/new">{{ ico('send') }}<span><b>مراسلة شؤون الموظفين</b><small>استفسار أو متابعة</small></span></a>
 </nav>
-{% endif %}
 <section class="card flush">
     <div class="ledger-head"><span class="ledger-sign plus" aria-hidden="true">+</span><div><h2>ما أُضيف إلى رصيدك (التوصيات)</h2><p class="hint">بدل راحة مُنح لك بتوصية عن تكليف أنجزته، فزاد رصيدك.</p></div></div>
     <div class="table-wrap"><table class="responsive">
       <thead><tr><th>التاريخ</th><th>النوع</th><th>القيمة</th><th>الموضوع</th><th></th></tr></thead><tbody>
-      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ"><bdi class="d">{{ r.rec_date|d }}</bdi></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell"><a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
+      {% for r in recs %}<tr class="{{ 'muted-row' if r.status != 'active' }}"><td data-label="التاريخ"><bdi class="d">{{ r.rec_date|d }}</bdi></td><td data-label="النوع">{{ kind_badge(r.kind) }}</td><td data-label="القيمة">{{ rec_amount(r) }}{% if r.status == 'pending' %} <span class="badge warn">بانتظار الاعتماد</span>{% elif r.status == 'rejected' %} <span class="badge err" title="{{ r.cancel_note }}">مرفوضة</span>{% elif r.status != 'active' %} <span class="badge muted">ملغاة</span>{% endif %}{% if r.status == 'rejected' and r.cancel_note %}<small class="muted d-block">السبب: {{ r.cancel_note }}</small>{% endif %}</td><td data-label="الموضوع">{{ r.subject }}</td><td class="actions-cell">{% if r.status == 'active' %}<a class="btn sm" href="/recommendations/{{ r.id }}/print" target="_blank" rel="noopener">خطاب المنح</a>{% elif r.status == 'pending' %}<form method="post" action="/recommendations/{{ r.id }}/withdraw" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn sm" data-confirm="سحب التوصية قبل اعتمادها؟">سحب</button></form>{% endif %}{% if r.attachment_id %} <a class="btn sm" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">PDF</a>{% endif %}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">لا توجد توصيات بعد.</td></tr>{% endfor %}
       </tbody></table></div>
   </section>

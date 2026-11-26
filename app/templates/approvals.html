@@ -3,11 +3,27 @@
 {% block title %}الاعتمادات{% endblock %}
 {% block heading %}{{ 'الاعتمادات' if user.role == 'admin' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
-{{ request_tabs('pending', rows|length, user.role == 'admin') }}
+{{ request_tabs('pending', rows|length + pend_recs|length, user.role == 'admin') }}
 <div class="page-head"><div><h1>{{ ico('stamp', 'h-ico') }} {{ 'الاعتمادات' if user.role == 'admin' else 'بانتظار قراري' }}</h1>
   <p>{{ count_ar(rows|length, 'req') }} بانتظار الاعتماد{% if rows %} · أقدمها منذ {{ days_ar(oldest) if oldest else 'اليوم' }}{% endif %}{% if late %} · <b>المتأخرة (تجاوزت {{ days_ar(LATE_DAYS) }}): {{ count_ar(late, 'req') }}</b>{% endif %}. يُخصم الرصيد عند الاعتماد، ويُعاد عند الرفض أو الإلغاء.</p></div></div>
 {% if user.role == 'admin' and rows|selectattr('0.on_behalf')|list %}
 <div class="alert info" role="note">الطلبات المعلَّمة «بالنيابة» تخص موظفين مسندين لمسؤولي شؤون موظفين آخرين؛ قرارك فيها يُسجَّل بالنيابة ويُشعَر المسؤول الأصلي.</div>
+{% endif %}
+{% if pend_recs %}
+<section class="card flush" id="recs">
+  <h2>{{ ico('cal-check', 'sm-ico') }} توصيات مرفوعة من الموظفين <span class="badge warn">{{ count_ar(pend_recs|length, 'rec') }}</span></h2>
+  <p class="hint pad">راجع خطاب التوصية المرفق، ثم اعتمدها لتُضاف إلى رصيد الموظف أو ارفضها مع ذكر السبب.</p>
+  <div class="table-wrap"><table class="responsive"><caption class="sr-only">توصيات مرفوعة من الموظفين بانتظار الاعتماد</caption>
+    <thead><tr><th>الموظف</th><th>القيمة</th><th>الخطاب</th><th>موضوع التكليف</th><th>منذ</th><th></th></tr></thead><tbody>
+    {% for r in pend_recs %}<tr>
+      <td data-label="الموظف"><a href="/employees/{{ r.employee_id }}">{{ r.employee.full_name }}</a>{% if user.role == 'admin' %}<br><small class="muted">{{ r.employee.manager.full_name if r.employee.manager else 'غير مُسند' }}</small>{% endif %}</td>
+      <td data-label="القيمة"><b>{{ days_ar(r.amount) if r.kind == 'days' else hours_ar(r.amount) }}</b></td>
+      <td data-label="الخطاب">{{ r.ref_no or '—' }} · <bdi class="d">{{ r.rec_date|d }}</bdi>{% if r.attachment_id %}<br><a class="badge info" href="/files/{{ r.attachment_id }}" target="_blank" rel="noopener">عرض الخطاب PDF</a>{% endif %}</td>
+      <td data-label="موضوع التكليف">{{ r.subject }}{% if r.assigned_by or r.task_from %}<small class="muted d-block">{{ r.assigned_by }}{% if r.task_from %}{{ ' · ' if r.assigned_by }}<bdi class="d">{{ r.task_from|d }}</bdi>{% if r.task_to and r.task_to != r.task_from %} ← <bdi class="d">{{ r.task_to|d }}</bdi>{% endif %}{% endif %}</small>{% endif %}</td>
+      <td data-label="منذ" class="age-col">{{ age_badge(r.age_days) }}</td>
+      <td class="actions-cell"><form method="post" action="/recommendations/{{ r.id }}/decide" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="note"><button class="btn sm ok" name="action" value="approve" data-confirm="اعتماد التوصية وإضافة القيمة إلى رصيد {{ r.employee.full_name }}؟">اعتماد</button><button class="btn sm danger" name="action" value="reject" data-need-note>رفض</button></form></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
 {% endif %}
 {% if rows %}
 <form method="post" action="/approvals/bulk" class="card flush">
@@ -27,5 +43,5 @@
     </tbody></table></div>
   <div class="actions pad"><button class="btn ok" name="action" value="approve" data-confirm="اعتماد الطلبات المحددة؟">اعتماد المحدد</button><button class="btn danger" name="action" value="reject" data-need-note data-note-prompt="سبب الرفض (سيُطبَّق السبب نفسه على جميع الطلبات المحددة ويصل لكل موظف)">رفض المحدد</button></div>
 </form>
-{% else %}<div class="card empty">لا توجد طلبات بانتظار الاعتماد.</div>{% endif %}
+{% elif not pend_recs %}<div class="card empty">لا توجد طلبات أو توصيات بانتظار الاعتماد.</div>{% endif %}
 {% endblock %}

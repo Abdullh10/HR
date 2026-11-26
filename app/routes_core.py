@@ -436,29 +436,30 @@ def employee_save(request: Request, emp_id: str = Form(""), employee_no: str = F
 
 
 @router.post("/employees/{emp_id}/delete")
-def employee_delete(request: Request, emp_id: int, confirm_no: str = Form(""), user: User = Depends(require("admin")),
-                    db: Session = Depends(get_db)):
+def employee_delete(request: Request, emp_id: int, confirm_no: str = Form(""), next: str = Form(""),
+                    user: User = Depends(require("admin")), db: Session = Depends(get_db)):
     """حذف موظف أُدخل بالخطأ (لمدير النظام فقط، ولمن لا سجلات له). من له سجلات يُوقف بدلاً من حذفه."""
     from .services import delete_employee, employee_delete_blockers
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(404, "الموظف غير موجود.")
+    back_to = next if next in ("/admin/users",) else f"/employees/{emp_id}/edit"
     if user.employee_id == emp.id:
         flash(request, "لا يمكنك حذف سجلك المرتبط بحسابك.", "error")
-        return redirect(f"/employees/{emp_id}/edit")
+        return redirect(back_to)
     blockers = employee_delete_blockers(db, emp)
     if blockers:
         flash(request, f"لا يمكن حذف «{emp.full_name}»: {'، و'.join(blockers)}. للحفاظ على السجلات أوقفه بإلغاء «على رأس العمل (نشط)» بدلاً من حذفه.", "error")
-        return redirect(f"/employees/{emp_id}/edit")
+        return redirect(back_to)
     if confirm_no.strip() != emp.employee_no:
         flash(request, "لم يُحذف الموظف: للتأكيد اكتب رقمه الوظيفي كما هو.", "error")
-        return redirect(f"/employees/{emp_id}/edit")
+        return redirect(back_to)
     name, no = emp.full_name, emp.employee_no
     delete_employee(db, emp)
     audit(db, user, "employee_deleted", "employee", emp_id, ip=client_ip(request), name=name, employee=no)
     db.commit()
     flash(request, f"حُذف الموظف «{name}» ({no}) وحسابه.")
-    return redirect("/employees")
+    return redirect("/admin/users" if next == "/admin/users" else "/employees")
 
 
 @router.post("/employees/{emp_id}/account")
@@ -584,6 +585,127 @@ async def recommendation_create(request: Request, user: User = Depends(require(*
     return redirect("/recommendations")
 
 
+# ---------------------------------------------------------------- توصية يرفعها الموظف بنفسه للاعتماد
+@router.get("/recommendations/submit")
+def recommendation_submit_form(request: Request, kind: str = "days", user: User = Depends(current_user),
+                               db: Session = Depends(get_db)):
+    if not user.employee_id:
+        raise HTTPException(404, "حسابك غير مرتبط بسجل موظف.")
+    emp = db.get(Employee, user.employee_id)
+    year = pick_year(db, None)
+    return render(request, db, "recommendation_submit.html", user=user, kind=kind if kind in REC_KINDS else "days", emp=emp,
+                  sel_year=year, info=compute_balance(db, emp.id, year))
+
+
+@router.post("/recommendations/submit")
+async def recommendation_submit(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """يرفع الموظف توصية ممنوحة له (بالأيام أو الساعات) مع خطابها، فتبقى بانتظار اعتماد مسؤول شؤون الموظفين."""
+    form = await request.form()
+    kind = str(form.get("kind") or "days")
+    back_url = f"/recommendations/submit?kind={kind}"
+    try:
+        emp = db.get(Employee, user.employee_id or 0)
+        if not emp:
+            raise RuleError("حسابك غير مرتبط بسجل موظف.")
+        amount = parse_float(str(form.get("amount") or ""))
+        rec_date = parse_date(str(form.get("rec_date") or ""))
+        if not rec_date:
+            raise RuleError("أدخل تاريخ التوصية كما في الخطاب.")
+        task_from = parse_date(str(form.get("task_from") or ""))
+        task_to = parse_date(str(form.get("task_to") or "")) or task_from
+        if task_from and task_to and task_to < task_from:
+            raise RuleError("فترة التكليف غير صحيحة: تاريخ النهاية قبل تاريخ البداية.")
+        ref_no = str(form.get("ref_no") or "").strip()[:64]
+        subject = str(form.get("subject") or "").strip()
+        if not subject:
+            raise RuleError("اكتب موضوع التكليف كما في الخطاب.")
+        upload = form.get("file")
+        if not getattr(upload, "filename", ""):
+            raise RuleError("أرفق خطاب التوصية (PDF)؛ هو مستند الاعتماد.")
+        year = validate_recommendation(db, emp, kind, amount, rec_date, True)
+        if ref_no and db.scalar(select(Recommendation.id).where(
+                Recommendation.employee_id == emp.id, Recommendation.status.in_(("active", "pending")),
+                func.lower(Recommendation.ref_no) == ref_no.lower())):
+            raise RuleError(f"رقم الخطاب «{ref_no}» مرفوع سابقاً في توصية سارية أو بانتظار الاعتماد.")
+        att = await save_pdf(db, upload, user)
+    except (RuleError, ValueError) as e:
+        flash(request, str(e), "error")
+        return redirect(back_url)
+    rec = Recommendation(employee_id=emp.id, fiscal_year_id=year.id, kind=kind, amount=amount, rec_date=rec_date,
+                         ref_no=ref_no, subject=subject, assigned_by=str(form.get("assigned_by") or "").strip()[:160],
+                         task_from=task_from, task_to=task_to, attachment_id=att.id, status="pending",
+                         entered_by=user.id, created_at=datetime.now())
+    db.add(rec)
+    db.flush()
+    amount_txt = days_ar(amount) if kind == "days" else hours_ar(amount)
+    audit(db, user, "recommendation_submitted", "recommendation", rec.id, ip=client_ip(request),
+          employee=emp.full_name, kind=kind, amount=amount)
+    for o in officer_users_for(db, emp) or list(db.scalars(select(User).where(User.role == "admin", User.is_active.is_(True)))):
+        if o.id != user.id:
+            notify(db, o, f"توصية مرفوعة من {emp.full_name} بانتظار اعتمادك",
+                   f"رفع {emp.full_name} توصية ممنوحة له ({amount_txt}) بشأن: {subject}"
+                   f"{' — خطاب رقم ' + ref_no if ref_no else ''}. راجع الخطاب المرفق واعتمدها أو ارفضها.", "/approvals", sender=user)
+    db.commit()
+    flash(request, f"رُفعت التوصية ({amount_txt}) وهي بانتظار اعتماد مسؤول شؤون الموظفين؛ تُضاف إلى رصيدك بعد اعتمادها.")
+    return redirect("/me")
+
+
+@router.post("/recommendations/{rec_id}/decide")
+def recommendation_decide(request: Request, rec_id: int, action: str = Form(...), note: str = Form(""),
+                          user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+    rec = db.get(Recommendation, rec_id)
+    if not rec:
+        raise HTTPException(404, "التوصية غير موجودة.")
+    emp = rec.employee
+    try:
+        if rec.status != "pending":
+            raise RuleError("التوصية ليست بانتظار الاعتماد.")
+        if not can_manage(user, emp):
+            raise RuleError("لا يمكنك البت في هذه التوصية.")
+        amount_txt = days_ar(rec.amount) if rec.kind == "days" else hours_ar(rec.amount)
+        if action == "approve":
+            year = validate_recommendation(db, emp, rec.kind, rec.amount, rec.rec_date, True)
+            before_alerts = alert_keys(compute_balance(db, emp.id, year))
+            rec.status, rec.approved_by, rec.approved_at, rec.fiscal_year_id = "active", user.id, datetime.now(), year.id
+            assign_ref(db, rec, "REC")
+            audit(db, user, "recommendation_approved", "recommendation", rec.id, ip=client_ip(request), employee=emp.full_name,
+                  amount=rec.amount, delegated=is_delegated(user, emp) or None)
+            notify(db, employee_user(db, emp), f"اعتُمدت توصيتك: {amount_txt}",
+                   f"اعتُمدت التوصية التي رفعتها ({rec.subject}) وأُضيف {amount_txt} إلى رصيدك.", "/me", sender=user)
+            db.flush()
+            notify_balance_alerts(db, emp, year, before_alerts, sender=user)
+            msg = f"اعتُمدت التوصية وأُضيف {amount_txt} إلى رصيد {emp.full_name}."
+        elif action == "reject":
+            if not note.strip():
+                raise RuleError("اذكر سبب الرفض.")
+            rec.status, rec.cancel_note, rec.cancelled_by, rec.cancelled_at = "rejected", note.strip(), user.id, datetime.now()
+            audit(db, user, "recommendation_rejected", "recommendation", rec.id, ip=client_ip(request), employee=emp.full_name, note=note.strip())
+            notify(db, employee_user(db, emp), "رُفضت التوصية التي رفعتها",
+                   f"رُفضت التوصية ({amount_txt} بشأن: {rec.subject}). السبب: {note.strip()}", "/me", sender=user)
+            msg = "رُفضت التوصية وأُشعر الموظف بالسبب."
+        else:
+            raise RuleError("إجراء غير معروف.")
+    except RuleError as e:
+        flash(request, str(e), "error")
+        return back(request, "/approvals")
+    db.commit()
+    flash(request, msg)
+    return back(request, "/approvals")
+
+
+@router.post("/recommendations/{rec_id}/withdraw")
+def recommendation_withdraw(request: Request, rec_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    rec = db.get(Recommendation, rec_id)
+    if not rec or rec.employee_id != user.employee_id or rec.status != "pending":
+        flash(request, "لا يمكن سحب هذه التوصية.", "error")
+        return redirect("/me")
+    rec.status, rec.cancel_note, rec.cancelled_by, rec.cancelled_at = "cancelled", "سحبها مقدّمها قبل الاعتماد", user.id, datetime.now()
+    audit(db, user, "recommendation_withdrawn", "recommendation", rec.id, ip=client_ip(request))
+    db.commit()
+    flash(request, "سُحبت التوصية.")
+    return redirect("/me")
+
+
 @router.post("/recommendations/{rec_id}/cancel")
 def recommendation_cancel(request: Request, rec_id: int, note: str = Form(""),
                           user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
@@ -613,6 +735,8 @@ def recommendation_print(request: Request, rec_id: int, user: User = Depends(cur
     rec = db.get(Recommendation, rec_id)
     if not rec or not can_view_employee(user, rec.employee):
         raise HTTPException(404, "التوصية غير موجودة.")
+    if rec.status in ("pending", "rejected"):
+        raise HTTPException(404, "لا يصدر خطاب منح لتوصية لم تُعتمد.")
     year = db.get(FiscalYear, rec.fiscal_year_id)
     return render(request, db, "recommendation_print.html", user=user, rec=rec, sel_year=year,
                   info=compute_balance(db, rec.employee_id, year), ref=rec.ref_code or ref_no("REC", rec.id, rec.created_at))
@@ -905,7 +1029,13 @@ def approvals(request: Request, user: User = Depends(require(*STAFF)), db: Sessi
             r.delegated = is_delegated(user, r.employee)
             rows.append((r, compute_balance(db, r.employee_id, db.get(FiscalYear, r.fiscal_year_id))))
     oldest = max((r.age_days for r, _ in rows), default=0)
-    return render(request, db, "approvals.html", user=user, rows=rows, oldest=oldest,
+    rstmt = select(Recommendation).where(Recommendation.status == "pending").order_by(Recommendation.created_at)
+    if ids is not None:
+        rstmt = rstmt.where(Recommendation.employee_id.in_(ids))
+    pend_recs = [r for r in db.scalars(rstmt) if can_manage(user, r.employee)]
+    for r in pend_recs:
+        r.age_days = (now - r.created_at).days
+    return render(request, db, "approvals.html", user=user, rows=rows, oldest=oldest, pend_recs=pend_recs,
                   late=sum(1 for r, _ in rows if r.age_days >= LATE_DAYS))
 
 

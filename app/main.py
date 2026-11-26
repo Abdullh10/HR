@@ -123,6 +123,8 @@ _NEW_COLUMNS = [
     ("recommendations", "task_to", "DATE"),
     ("recommendations", "assigned_by", "VARCHAR(160) DEFAULT ''"),
     ("recommendations", "batch", "VARCHAR(40) DEFAULT ''"),
+    ("recommendations", "approved_by", "INTEGER"),
+    ("recommendations", "approved_at", "TIMESTAMP"),
 ]
 
 
