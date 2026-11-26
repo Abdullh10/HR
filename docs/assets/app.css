@@ -1228,6 +1228,148 @@ td[data-label="تحديد"] label, th label.chk { display: inline-grid; place-it
 .gauge-in small { font-size: .72rem; line-height: 1.3; }
 .gauge-in small { white-space: normal; }
 
+/* ---------- لوحة الإداري (إشرافي، قراءة فقط) — تُلحق بنهاية app.css
+   ألوان فئوية لثمانية أقسام + «أخرى»: مُتحقَّق منها بأداة فحص عمى الألوان للأزواج المتجاورة (والإغلاق 8↔1)
+   فاتح على #fff وداكن على #0e1d2d: كلها ≥ 3:1، ΔE(CVD) ≥ 8.2 فاتح / 9.6 داكن، ΔE(عادي) ≥ 20.5.
+   الترتيب جزء من السلامة: الأول أزرق الهوية، ولا يُعاد ترتيبها. «أخرى» رمادية مخطّطة (تمييز بغير اللون). */
+:root {
+  --cat-1: #0b72c4; --cat-2: #e5762a; --cat-3: #0f9d8f; --cat-4: #7b55d6;
+  --cat-5: #b98900; --cat-6: #d1477e; --cat-7: #3c8f2f; --cat-8: #a33e8f; --cat-other: #8494a6;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --cat-1: #3d93e6; --cat-2: #e07a35; --cat-3: #17a898; --cat-4: #9a80f0;
+  --cat-5: #b8890c; --cat-6: #e0659a; --cat-7: #4fa63f; --cat-8: #c060ae; --cat-other: #5f7389; } }
+:root[data-theme="dark"] {
+  --cat-1: #3d93e6; --cat-2: #e07a35; --cat-3: #17a898; --cat-4: #9a80f0;
+  --cat-5: #b8890c; --cat-6: #e0659a; --cat-7: #4fa63f; --cat-8: #c060ae; --cat-other: #5f7389;
+}
+.sv-c1 { --c: var(--cat-1); } .sv-c2 { --c: var(--cat-2); } .sv-c3 { --c: var(--cat-3); } .sv-c4 { --c: var(--cat-4); }
+.sv-c5 { --c: var(--cat-5); } .sv-c6 { --c: var(--cat-6); } .sv-c7 { --c: var(--cat-7); } .sv-c8 { --c: var(--cat-8); }
+.sv-c-other { --c: var(--cat-other); }
+/* حالات الطلبات: نفس متغيرات --st-* الحالية (مُتحقق منها سابقاً) */
+.sv-st-approved { --c: var(--st-approved); } .sv-st-pending { --c: var(--st-pending); }
+.sv-st-rejected { --c: var(--st-rejected); } .sv-st-cancelled { --c: var(--st-cancelled); }
+
+/* رأس الصفحة والفلاتر */
+.sv-head h1 .sv-ro { vertical-align: middle; font-size: .74rem; margin-inline-start: .35rem; }
+.sv-ro .i3d { width: 18px; height: 18px; }
+.sv-filters .field { min-width: 180px; }
+
+/* المؤشرات: 6 على الكمبيوتر الواسع، 3×2 على الكمبيوتر/التابلت، 2×3 على الجوال */
+.grid.kpis.sv-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1280px) { .grid.kpis.sv-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 768px) { .grid.kpis.sv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+a.kpi { display: block; color: inherit; text-decoration: none; }
+a.kpi .s { text-decoration: underline; text-underline-offset: 3px; }
+
+/* الشبكة: 3 أعمدة ≥ 1101px، عمودان 769–1100، عمود واحد ≤ 768 */
+.sv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(.65rem, .4rem + .8vw, 1.1rem); align-items: start; }
+.sv-grid > .card { margin: 0; min-width: 0; container-type: inline-size; }
+.sv-span-2 { grid-column: span 2; }
+.sv-span-3 { grid-column: 1 / -1; }
+@media (max-width: 1100px) {
+  .sv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sv-span-2, .sv-span-3 { grid-column: 1 / -1; }
+  .sv-grid > .sv-mb-card { order: 1; } .sv-grid > .sv-rank-card { order: 2; } /* الحالات والمتأخرات متجاورتان */
+}
+@media (max-width: 768px) {
+  .sv-grid { grid-template-columns: minmax(0, 1fr); }
+  .sv-grid > .sv-mb-card, .sv-grid > .sv-rank-card { order: 0; }
+}
+
+/* الحلقة التفاعلية */
+.sv-donut { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+.sv-ring { display: block; width: 100%; height: auto; overflow: visible; }
+.sv-track { fill: none; stroke: var(--pie-track); stroke-width: 5.2; }
+.sv-seg { fill: none; stroke: var(--c); stroke-width: 5.2; cursor: pointer; transition: stroke-width .15s, opacity .15s; }
+.sv-hatch-bg { fill: var(--cat-other); }
+.sv-hatch-ln { fill: color-mix(in srgb, var(--surface) 60%, transparent); }
+.sv-donut.has-active .sv-seg { opacity: .25; }
+.sv-donut.has-active .sv-seg.on, .sv-seg:hover { opacity: 1; stroke-width: 6.6; }
+.sv-ring text { font-family: var(--font); text-anchor: middle; }
+.sv-c-num { font-size: 7px; font-weight: 800; fill: var(--brand-ink); }
+.sv-c-cap { font-size: 2.7px; fill: var(--muted); }
+.sv-n { font-size: 2.5px; font-weight: 700; fill: var(--muted); dominant-baseline: central; }
+.sv-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.sv-lg { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 2.8rem; align-items: center; gap: .5rem; padding: .38rem .6rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); transition: border-color .15s, background .15s, opacity .15s; }
+.sv-lg[role="button"] { cursor: pointer; user-select: none; }
+.sv-lg[role="button"]:hover, .sv-lg.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 9%, var(--surface)); box-shadow: 0 0 0 1px var(--c); }
+.sv-lg[aria-pressed="true"] .lbl { font-weight: 700; }
+.sv-donut.has-active .sv-lg:not(.on) { opacity: .6; }
+.sv-lg .lbl { font-size: .88rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-lg b { font-size: 1rem; color: var(--text); }
+.sv-lg .pct { color: var(--muted); font-size: .82rem; text-align: end; }
+.sv-sw { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--c);
+  color: #fff; font-style: normal; font-size: .68rem; font-weight: 800; line-height: 1; }
+.sv-sw.hatch, .sv-dot.sv-c-other { background: repeating-linear-gradient(45deg, var(--cat-other) 0 3px, color-mix(in srgb, var(--cat-other) 55%, var(--surface)) 3px 5px); }
+.sv-sw.sm { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+@container (min-width: 780px) { .sv-donut .sv-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 470px) {
+  .sv-donut { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .sv-ring { max-width: 220px; }
+  .sv-legend { width: 100%; }
+}
+
+/* الأعمدة الشهرية: نفس .mbars الحالية، وتتسع 12 شهراً على الجوال دون تمرير أفقي */
+.sv-mbars { overflow: visible; padding-top: 1.7rem; }
+.sv-mbars .m-short { display: none; }
+@media (max-width: 560px) {
+  .sv-mbars { gap: 3px; overflow: visible; height: 200px; padding-top: .8rem; }
+  .sv-mbars .mcol { flex: 1 1 0; min-width: 0; }
+  .sv-mbars .mb { width: 44%; }
+  .sv-mbars .mb em { display: none; }
+  .sv-mbars .m-full { display: none; } .sv-mbars .m-short { display: inline; }
+}
+
+/* المتأخرات */
+.sv-late-list { list-style: none; margin: .5rem 0 0; padding: 0; }
+.sv-late-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: .65rem; padding: .6rem 1.25rem; border-top: 1px solid var(--border); }
+.sv-late-list li:hover { background: var(--surface-2); }
+.sv-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.sv-late-list .who { min-width: 0; }
+.sv-late-list .who a { font-weight: 700; }
+.sv-late-list .who small { display: block; color: var(--muted); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-late-list .meta { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; }
+.sv-late-list .amt { font-size: .8rem; color: var(--muted); }
+
+/* ترتيب الأقسام */
+.sv-sub { padding-top: .25rem; padding-bottom: .6rem; }
+.sv-rk { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 8px; background: var(--brand-soft); color: var(--brand-ink); font-size: .82rem; }
+.sv-dname { display: inline-flex; align-items: center; gap: .5rem; }
+.sv-rate { display: inline-flex; align-items: center; gap: .5rem; }
+.sv-rate .ubar { width: 90px; }
+.sv-rank tr.sv-sel td { background: var(--brand-soft); }
+.sv-sort { color: inherit; text-decoration: none; }
+.sv-sort:hover { color: var(--brand-2); text-decoration: underline; }
+.sv-rank th[aria-sort] { color: var(--brand-ink); }
+
+.sv-rk-m { display: none; }
+@media (max-width: 768px) { /* بطاقة مدمجة لكل قسم: الاسم بعرض كامل، ثم الأرقام في 3 أعمدة (التسمية فوق القيمة)، ثم شريط الاستخدام */
+  table.responsive.sv-rank tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  table.responsive.sv-rank td.n { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
+  table.responsive.sv-rank td.n::before { margin: 0; padding: 0; font-size: .74rem; }
+  table.responsive.sv-rank td:nth-child(6) { grid-column: 1; } /* الممنوح يبدأ صفاً جديداً */
+  table.responsive.sv-rank td:first-child { display: none; }
+  table.responsive.sv-rank td.sv-dcell, .sv-rank td:last-child { grid-column: 1 / -1; }
+  table.responsive.sv-rank td.sv-dcell::before { display: none; }
+  table.responsive.sv-rank td.sv-dcell { font-weight: 700; border-top: 0; }
+  table.responsive.sv-rank td + td { border-top: 0; }
+  table.responsive.sv-rank td:last-child { border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); }
+  .sv-rk-m { display: inline-grid; }
+}
+@media (forced-colors: active) {
+  .sv-seg { stroke: CanvasText; } .sv-seg.on { stroke: Highlight; }
+  .sv-sw, .sv-dot { forced-color-adjust: none; }
+}
+@media print { .sv-grid { grid-template-columns: minmax(0, 1fr); } .sv-span-2, .sv-span-3 { grid-column: auto; } }
+.sv-facts { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .6rem; }
+.sv-facts li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .15rem .5rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.sv-facts li span { font-size: .86rem; color: var(--muted); }
+.sv-facts li b { font-size: 1.2rem; color: var(--text); }
+.sv-facts li small { grid-column: 2 / -1; color: var(--muted); font-size: .76rem; }
+.sv-late-list .who b { font-weight: 700; direction: ltr; unicode-bidi: isolate; }
+
 /* ---------- نسخة العرض */
 .demo-banner .banner-x { margin-inline-start: auto; background: none; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; width: 2rem; height: 2rem; border-radius: 8px; cursor: pointer; }
 .demo-banner .banner-x:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }

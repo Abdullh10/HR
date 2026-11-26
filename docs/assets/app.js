@@ -7,7 +7,7 @@
   const CREDIT = "تصميم وتطوير: مريم حمدي";
   const TAGLINE = "إدارة أيام بدل الراحة";
   const $app = document.getElementById("app");
-  const ROLES = { admin: "مدير النظام", officer: "شؤون الموظفين", employee: "موظف" };
+  const ROLES = { admin: "مدير النظام", officer: "شؤون الموظفين", employee: "موظف", supervisor: "متابع إداري" };
   const ASSIGNABLE = ["employee", "officer"];
   const WD = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   const REQ_ST = { pending: "بانتظار الاعتماد", approved: "معتمد", rejected: "مرفوض", cancelled: "ملغى" };
@@ -78,6 +78,7 @@
     people.forEach(([no, , , mgr]) => { if (mgr) byNo[no].mgr = byNo[mgr].id; });
     const addU = (username, role, emp) => { const u = { id: nid(), username, pw, role, emp: emp ? emp.id : null, active: true, mustChange: false, last: null }; db.users.push(u); return u; };
     const admin = addU("admin", "admin", null);
+    addU("supervisor", "supervisor", null).name = "المتابع الإداري";
     const off = addU("officer", "officer", byNo["100100"]);
     const off2 = addU("officer2", "officer", byNo["100200"]);
     const emp = addU("emp", "employee", byNo["100101"]);
@@ -315,7 +316,7 @@
   function layout(u, title, body) {
     const y = activeYear();
     const sg = parts().seg, qs = location.hash.split("?")[1] || "";
-    const here = "#/" + (!sg.length || sg[0] === "login" ? (u.role === "employee" ? "me" : "dashboard") : sg.join("/")) + (qs ? "?" + qs : "");
+    const here = "#/" + (!sg.length || sg[0] === "login" ? (u.role === "employee" ? "me" : u.role === "supervisor" ? "oversight" : "dashboard") : sg.join("/")) + (qs ? "?" + qs : "");
     const unread = DB.msgs.filter((m) => m.to === u.id && !m.read).length;
     const pend = DB.leaves.filter((r) => r.status === "pending" && canManage(u, byId("emps", r.emp))).length + DB.recs.filter((r) => r.status === "pending" && canManage(u, byId("emps", r.emp))).length;
     const item = (href, label, icon, badge, seg0) => `<li><a href="${href}" title="${label}" ${here === href || (seg0 && sg[0] === seg0) || (href === "#/employees" && sg[0] === "employee") ? 'aria-current="page"' : ""}>${ico(icon)}<span class="lbl">${label}</span>${badge ? `<span class="badge count">${badge}</span>` : ""}</a></li>`;
@@ -328,13 +329,14 @@
       ${group("records", "السجلات", "open", inRecords, item("#/recs", "سجل التوصيات", "cal-check", 0, "recs") + item("#/requests", "طلبات معالجة الغياب", "inbox", 0, "requests") + item("#/messages", "المراسلات", "mail", unread, "messages"), unread)}
       ${group("admin", "الإدارة", "open", inAdmin, `<li><a href="#/admin/users" title="المستخدمون والصلاحيات" ${inAdmin && ["users", "cards", "teams"].includes(sg[1]) ? 'aria-current="page"' : ""}>${ico("userkey")}<span class="lbl">المستخدمون والصلاحيات</span></a></li>`
         + `<li><a href="#/admin/years" title="الإعدادات" ${inSettings ? 'aria-current="page"' : ""}>${ico("gear")}<span class="lbl">الإعدادات</span></a></li>` + item("#/admin/data", "النسخ الاحتياطي والبيانات", "backup") + item("#/admin/audit", "سجل التدقيق", "audit"))}
-      <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}
+      <li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/oversight", "لوحة المتابعة الإدارية", "pie")}${item("#/archive", "الأرشيف", "archive")}
       <li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "idcard")}`;
     const nav = u.role === "admin" ? adminNav : [
+      u.role === "supervisor" ? `<li class="sep">المتابعة</li>${item("#/oversight", "لوحة المتابعة", "dashboard")}${u.emp ? "" : `<li class="sep">حسابي</li>${item("#/profile", "الملف الشخصي", "idcard")}`}` : "",
       STAFF.includes(u.role) ? `<li class="sep">المتابعة</li>${item("#/dashboard", "لوحة المؤشرات", "dashboard")}${item("#/employees", u.role === "admin" ? "الموظفون" : "قائمة الموظفين", "users")}<li><a href="#/approvals" title="طلبات الموظفين" ${sg[0] === "approvals" || (sg[0] === "requests" && sg[1] !== "new") ? 'aria-current="page"' : ""}>${ico("stamp")}<span class="lbl">طلبات الموظفين</span>${pend ? `<span class="badge count">${pend}</span>` : ""}</a></li>${u.role === "officer" ? item("#/delegation", "التفويض", "swap", delegatedFrom(u).length ? "مفوَّض" : 0) : ""}
         <li class="sep">التوصيات</li><li><a href="#/recs/new" title="توصية جديدة" ${sg[0] === "recs" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("calendar-plus")}<span class="lbl">توصية جديدة</span></a></li><li><a href="#/recs" title="سجل التوصيات" ${sg[0] === "recs" && sg[1] !== "new" ? 'aria-current="page"' : ""}>${ico("cal-check")}<span class="lbl">سجل التوصيات</span></a></li>` : "",
       u.emp ? `<li class="sep">${u.role === "employee" ? "رصيدي وطلباتي" : "حسابي"}</li>${item("#/me", "رصيدي", "pie")}${u.role === "employee" ? item("#/requests", "طلباتي", "inbox") : ""}${y.empCanSubmitRec !== false ? `<li><a href="#/recs/submit" title="رفع توصية ممنوحة لي" ${sg[0] === "recs" && sg[1] === "submit" ? 'aria-current="page"' : ""}>${ico("upload")}<span class="lbl">رفع توصية ممنوحة لي</span></a></li>` : ""}${y.empCanRequest ? `<li><a href="#/requests/new" title="طلب معالجة غياب" ${sg[0] === "requests" && sg[1] === "new" ? 'aria-current="page"' : ""}>${ico("request")}<span class="lbl">${u.role === "employee" ? "طلب معالجة غياب" : "طلب معالجة غياب لي"}</span></a></li>` : ""}${item("#/profile", "الملف الشخصي", "idcard")}` : "",
-      `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}${u.role === "employee" ? item("#/faq", "الأسئلة الشائعة", "shield") : ""}`,
+      `<li class="sep">التواصل</li>${item("#/messages", "المراسلات", "mail", unread)}${item("#/messages/new", "رسالة جديدة", "send")}${["employee", "supervisor"].includes(u.role) ? item("#/faq", "الأسئلة الشائعة", "shield") : ""}`,
       u.role === "officer" ? `<li class="sep">التقارير والأرشيف</li>${item("#/reports", "التقارير", "reports")}${item("#/archive", "الأرشيف", "archive")}${item("#/faq", "الأسئلة الشائعة", "shield")}` : "",
     ].join("");
     const fl = flashQ.map(([k, m]) => `<div class="alert ${k}" role="${k === "error" ? "alert" : "status"}">${h(m)}</div>`).join("");
@@ -351,7 +353,7 @@
     <header class="topbar">
       <button class="btn ghost menu-btn icon-btn" type="button" data-menu aria-controls="sidebar" aria-expanded="false">☰ <span class="sr-only">القائمة</span></button>
       <a class="t-logo" href="#/" title="الصفحة الرئيسية" aria-label="الصفحة الرئيسية"><img src="assets/logo.svg?v=${ASSET_V}" alt="" width="30" height="30"><b>${h(s.system_title)}</b></a>
-      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", employees: "المتابعة", delegation: "المتابعة", employee: "المتابعة", approvals: "المتابعة", faq: "المساعدة" }[sg[0]] || "";
+      ${(() => { const sec = { admin: "الإدارة", recs: u.role === "admin" ? "السجلات" : "التوصيات", requests: u.role === "admin" ? "السجلات" : "الطلبات", messages: "التواصل", reports: "التقارير والأرشيف", archive: "التقارير والأرشيف", profile: "حسابي", me: "حسابي", password: "حسابي", dashboard: "المتابعة", oversight: "المتابعة", employees: "المتابعة", delegation: "المتابعة", employee: "المتابعة", approvals: "المتابعة", faq: "المساعدة" }[sg[0]] || "";
         return `<nav class="title crumbs" aria-label="مسار التنقل">${sec ? `<span class="crumb">${sec}</span><span class="crumb-sep" aria-hidden="true">‹</span>` : ""}<span aria-current="page">${h(title)}</span></nav>`; })()}<span class="spacer"></span>
       <span class="badge muted">السنة ${h(y.name)}${y.locked ? " · مقفلة" : ""}</span>
       <button class="btn ghost icon-btn theme-top" type="button" data-theme-toggle aria-label="تبديل الوضع الداكن" title="الوضع الداكن/الفاتح">${ico("moon", "theme-moon")}${ico("sun", "theme-sun")}<span class="sr-only">الوضع</span></button>
@@ -414,7 +416,7 @@
 
   V.login = () => {
     const s = DB.settings;
-    const accts = [["admin", "مدير النظام"], ["officer", "شؤون الموظفين"], ["emp", "موظف"]];
+    const accts = [["admin", "مدير النظام"], ["officer", "شؤون الموظفين"], ["emp", "موظف"], ["supervisor", "متابع إداري"]];
     const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
     return `<div class="gate">
   <div class="gate-strip" aria-hidden="true"></div>
@@ -1670,6 +1672,7 @@
   <h3>عام</h3>
   <details class="faq-item"><summary>ما نظام «${h(s.system_title)}»؟</summary><p>نظام إلكتروني لإدارة أيام بدل الراحة في ${h(s.college)}: يرفع فيه مسؤول شؤون الموظفين التوصيات بالأيام أو الساعات، ويتابع الموظف رصيده ويقدّم طلبات معالجة الغياب، وتُعتمد الطلبات إلكترونياً مع أرشفة كاملة.</p></details>
   <details class="faq-item"><summary>من يستطيع الدخول إلى النظام؟</summary><p>منسوبو الجهة المصرّح لهم فقط، بحساب يُنشئه مدير النظام. لا يوجد تسجيل ذاتي، ولكل مستخدم دور يحدّد ما يراه: الموظف يرى رصيده وطلباته فقط، ومسؤول شؤون الموظفين يرى الموظفين المسندين إليه فقط، ومدير النظام يدير المنصة.</p></details>
+  <details class="faq-item"><summary>ما حساب «المتابع الإداري»؟</summary><p>حساب إشرافي للقراءة فقط، يُنشئه مدير النظام لمن يتابع سير العمل من القيادات. يعرض مؤشرات مجمّعة: أعداد الموظفين وتوزيعهم على الأقسام، والطلبات والتوصيات وحالاتها، والمتأخر منها عن مدة الاعتماد، ومتوسط مدة القرار لكل جهة معتمِدة. لا يعرض أسماء الموظفين ولا مرفقاتهم، ولا يملك صلاحية الاعتماد أو الرفض أو إصدار التوصيات أو تعديل البيانات.</p></details>
   <details class="faq-item"><summary>كيف أحصل على اسم المستخدم وكلمة المرور؟</summary><p>يسلّمك مدير النظام بطاقة دخول فيها اسم المستخدم (غالباً رقمك الوظيفي) وكلمة المرور. يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي».</p></details>
   <details class="faq-item"><summary>نسيت كلمة المرور، ماذا أفعل؟</summary><p>تواصل مع مدير النظام في الجهة، فيعيد تعيينها ويسلّمك بطاقة دخول جديدة. لا يستطيع أحد — حتى مدير النظام — الاطلاع على كلمة المرور التي اخترتها بنفسك.</p></details>
   <h3>الرصيد والطلبات</h3>
@@ -1808,6 +1811,122 @@
     ${rows.map(([k, d]) => `<tr><td data-label="${first}">${h(k)}</td><td class="n" data-label="الموظفون">${d.count}</td><td class="n" data-label="الممنوح">${n(round2(d.granted))}</td><td class="n" data-label="المستخدم">${n(round2(d.used))}</td><td class="n" data-label="المتاح">${n(d.left)}</td>
       <td data-label="نسبة الاستخدام"><span class="ubar" aria-hidden="true"><i style="width:${Math.min(100, d.util)}%"></i></span> ${d.util}%</td><td class="n" data-label="معلّقة">${d.nPending || "—"}</td>
       ${lead ? `<td class="n" data-label="متوسط مدة القرار">${d.avgLead != null ? n(d.avgLead) + " يوم" + (d.avgLead >= 3 ? ' <span class="badge warn">بطيء</span>' : "") : "—"}</td>` : ""}</tr>`).join("") || `<tr><td colspan="${lead ? 8 : 7}" class="empty">لا توجد بيانات.</td></tr>`}</tbody></table></div>`;
+
+  // ------------------------------------------------ لوحة المتابعة الإدارية (حساب «متابع إداري»: قراءة فقط، بلا أسماء موظفين)
+  function svParts(rows, otherLabel) {
+    const own = rows.filter((r) => r.cls), rest = rows.filter((r) => !r.cls);
+    if (rest.length) own.push({ key: "other", label: otherLabel || "أخرى", value: rest.reduce((a, r) => a + r.value, 0), cls: "sv-c-other", hatch: true });
+    const total = own.reduce((a, r) => a + r.value, 0), raw = own.map((r) => (total ? (r.value * 100) / total : 0)), pc = raw.map(Math.floor);
+    raw.map((x, i) => [x - pc[i], i]).sort((a, b) => b[0] - a[0]).slice(0, total ? 100 - pc.reduce((a, b) => a + b, 0) : 0).forEach(([, i]) => pc[i]++);
+    const gap = own.filter((r) => r.value > 0).length > 1 ? 0.8 : 0; let cum = 0;
+    return { total, parts: own.map((r, i) => { const len = total ? (r.value / total) * 100 : 0, dash = Math.max(len - gap, 0.01), mid = ((cum + len / 2) / 100) * 2 * Math.PI;
+      const o = { ...r, pct: pc[i], n: i + 1, dash: dash.toFixed(3), rest: (100 - dash).toFixed(3), off: (25 - cum).toFixed(3), lx: (24 - 21.6 * Math.sin(mid)).toFixed(2), ly: (24 - 21.6 * Math.cos(mid)).toFixed(2), showN: len >= 5 }; cum += len; return o; }) };
+  }
+  function svDonut(d, uid, title, unit, cap, active, numerals = true) {
+    const ap = active ? d.parts.find((p) => p.key === active) : null;
+    return `<div class="sv-donut${ap ? " has-active" : ""}" data-sv-donut data-unit="${unit}" data-total="${d.total}" data-cap="${cap}"${ap ? ` data-active="${ap.key}"` : ""}>
+      <svg class="sv-ring" viewBox="0 0 48 48" role="img" aria-labelledby="${uid}-t"><title id="${uid}-t">${h(title)}: ${d.parts.map((p) => h(p.label) + " " + p.value + " (" + p.pct + "٪)").join("، ")}</title>
+        <defs><pattern id="${uid}-hatch" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="1.6" class="sv-hatch-bg"/><rect width=".55" height="1.6" class="sv-hatch-ln"/></pattern></defs>
+        ${d.total ? "" : '<circle class="sv-track" cx="24" cy="24" r="15.9155"/>'}
+        <g transform="translate(48 0) scale(-1 1)">${d.parts.filter((p) => p.value > 0).map((p) => `<circle class="sv-seg ${p.cls}${ap && ap.key === p.key ? " on" : ""}" data-k="${p.key}" cx="24" cy="24" r="15.9155" stroke-dasharray="${p.dash} ${p.rest}" stroke-dashoffset="${p.off}"${p.hatch ? ` stroke="url(#${uid}-hatch)"` : ""}><title>${h(p.label)}: ${p.value} (${p.pct}٪)</title></circle>`).join("")}</g>
+        ${numerals ? d.parts.filter((p) => p.showN).map((p) => `<text class="sv-n" x="${p.lx}" y="${p.ly}" aria-hidden="true">${p.n}</text>`).join("") : ""}
+        <text class="sv-c-num" x="24" y="23.4" data-c-num>${ap ? ap.value : d.total}</text><text class="sv-c-cap" x="24" y="28.4" data-c-cap>${ap ? ap.pct + "٪ · " + h(ap.label.length > 14 ? ap.label.slice(0, 13) + "…" : ap.label) : cap}</text></svg>
+      <ul class="sv-legend" aria-label="مفتاح ${h(title)}">${d.parts.map((p) => `<li><span class="sv-lg ${p.cls}${ap && ap.key === p.key ? " on" : ""}" data-k="${p.key}"><i class="sv-sw${p.hatch ? " hatch" : ""}" aria-hidden="true">${numerals ? p.n : ""}</i><span class="lbl">${h(p.label)}</span><b class="num">${p.value}</b><span class="pct num">${p.pct}٪</span></span></li>`).join("")}</ul>
+      <p class="sr-only" aria-live="polite" data-live></p>
+      <table class="sr-only"><caption>${h(title)}</caption><thead><tr><th scope="col">الفئة</th><th scope="col">العدد</th><th scope="col">النسبة</th></tr></thead><tbody>${d.parts.map((p) => `<tr><th scope="row">${h(p.label)}</th><td>${p.value}</td><td>${p.pct}٪</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  function svInit(root) {
+    root.querySelectorAll("[data-sv-donut]").forEach((w) => {
+      const items = [...w.querySelectorAll(".sv-lg")], segs = w.querySelectorAll(".sv-seg"), num = w.querySelector("[data-c-num]"), cap = w.querySelector("[data-c-cap]"), live = w.querySelector("[data-live]");
+      let pinned = w.getAttribute("data-active") || null;
+      const show = (k, say) => { let cur = null; w.classList.toggle("has-active", !!k); segs.forEach((s0) => s0.classList.toggle("on", s0.getAttribute("data-k") === k));
+        items.forEach((it) => { const on = it.getAttribute("data-k") === k; it.classList.toggle("on", on); it.setAttribute("aria-pressed", String(!!pinned && it.getAttribute("data-k") === pinned)); if (on) cur = it; });
+        const l = cur && cur.querySelector(".lbl").textContent; num.textContent = cur ? cur.querySelector("b").textContent : w.dataset.total;
+        cap.textContent = cur ? cur.querySelector(".pct").textContent + " · " + (l.length > 14 ? l.slice(0, 13) + "…" : l) : w.dataset.cap;
+        if (say && cur) live.textContent = l + ": " + cur.querySelector("b").textContent + " (" + cur.querySelector(".pct").textContent + " من " + w.dataset.unit + ")"; };
+      const keyOf = (ev) => { const t = ev.target.closest && ev.target.closest("[data-k]"); return t && w.contains(t) ? t.getAttribute("data-k") : null; };
+      items.forEach((it, i) => { it.setAttribute("role", "button"); it.tabIndex = i ? -1 : 0; });
+      w.addEventListener("mouseover", (ev) => { const k = keyOf(ev); if (k) show(k); });
+      w.addEventListener("mouseleave", () => show(pinned));
+      w.addEventListener("focusin", (ev) => { const k = keyOf(ev); if (k) show(k, true); });
+      w.addEventListener("focusout", (ev) => { if (!w.contains(ev.relatedTarget)) show(pinned); });
+      w.addEventListener("click", (ev) => { const k = keyOf(ev); if (!k) return; pinned = pinned === k ? null : k; show(pinned || k, true); });
+      w.addEventListener("keydown", (ev) => { const i = items.indexOf(ev.target); if (i < 0) return; const step = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 }[ev.key];
+        const j = step ? (i + step + items.length) % items.length : ev.key === "Home" ? 0 : ev.key === "End" ? items.length - 1 : -1;
+        if (j >= 0) { ev.preventDefault(); items[i].tabIndex = -1; items[j].tabIndex = 0; items[j].focus(); } else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ev.target.click(); } else if (ev.key === "Escape") { pinned = null; show(null); live.textContent = "أُلغي الإبراز"; } });
+      show(pinned);
+    });
+  }
+  const svKpi = (label, value, icon, tone, sub, href) => `<${href ? `a href="${href}"` : "div"} class="kpi ${tone || ""}">${ico(icon)}<div class="l">${label}</div><div class="v">${value}</div>${sub ? `<div class="s">${sub}</div>` : ""}</${href ? "a" : "div"}>`;
+  V.oversight = (u, q) => {
+    need(u, ["supervisor", "admin"]);
+    const y = pickYear(q), lock = u.role === "supervisor" && u.dept ? u.dept : 0, dept = lock || Number(q.get("dept")) || 0, sort = q.get("sort") || "late";
+    const all = DB.emps.filter((e) => !dept || e.dept === dept), act = all.filter((e) => e.active), ids = new Set(all.map((e) => e.id));
+    const D = reportData({ role: "admin", emp: null }, y, dept, 0), st = D.stats, nowT = Date.now();
+    const sizes = {}; DB.emps.filter((e) => e.active && e.dept).forEach((e) => (sizes[e.dept] = (sizes[e.dept] || 0) + 1));
+    const slots = Object.fromEntries(Object.entries(sizes).sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 8).map(([d], i) => [Number(d), "sv-c" + (i + 1)]));
+    const byD = {}; act.forEach((e) => { const k = e.dept || 0; byD[k] = byD[k] || { name: deptName(e) || "— بلا قسم —", v: 0 }; byD[k].v++; });
+    const slotN = (k) => (slots[k] ? Number(slots[k].slice(4)) : 99);
+    const deptD = svParts(Object.entries(byD).map(([k, x]) => ({ key: String(k), label: x.name, value: x.v, cls: slots[Number(k)] })).sort((a, b) => slotN(Number(a.key)) - slotN(Number(b.key)) || b.value - a.value), "أقسام أخرى");
+    const stD = svParts([["approved", "معتمدة"], ["pending", "بانتظار الاعتماد"], ["rejected", "مرفوضة"], ["cancelled", "ملغاة"]].map(([k, l]) => ({ key: k, label: l, value: (D.pie.find((x) => x.key === k) || {}).value || 0, cls: "sv-st-" + k })));
+    const age = (r) => Math.floor((nowT - new Date(String(r.created).replace(" ", "T"))) / 864e5);
+    const pReq = DB.leaves.filter((r) => r.status === "pending" && ids.has(r.emp)), pRec = DB.recs.filter((r) => r.status === "pending" && ids.has(r.emp));
+    const late = [...pReq.map((r) => [r, "طلب معالجة غياب", leaveAmount(r)]), ...pRec.map((r) => [r, "توصية مرفوعة من الموظف", r.kind === "days" ? daysAr(r.amount) : hoursAr(r.amount)])]
+      .map(([r, kind, amt]) => { const e = byId("emps", r.emp); return { ref: r.ref || "#" + r.id, kind, amt, age: age(r), dept: deptName(e) || "— بلا قسم —", off: mgrName(e) || "— غير مُسند (مدير النظام) —", cls: slots[e.dept] || "sv-c-other" }; })
+      .filter((x) => x.age >= LATE_DAYS).sort((a, b) => b.age - a.age);
+    const lateBy = {}; late.forEach((x) => (lateBy[x.dept] = (lateBy[x.dept] || 0) + 1));
+    let rank = D.byDept.map(([name, d]) => { const e = act.find((x) => (deptName(x) || "— بلا قسم —") === name); const small = d.count < 3;
+      return { id: e ? e.dept : 0, name, cls: (e && slots[e.dept]) || "sv-c-other", emp: d.count, pending: d.nPending, late: lateBy[name] || 0, small, granted: small ? null : round2(d.granted), used: small ? null : round2(d.used), rate: small ? null : d.util }; });
+    rank.sort((a, b) => b.late - a.late || b.pending - a.pending);
+    const kf = { emp: (r) => -r.emp, pending: (r) => -r.pending, granted: (r) => -(r.granted ?? -1), used: (r) => -(r.used ?? -1), rate: (r) => -(r.rate ?? -1) };
+    if (kf[sort]) rank.sort((a, b) => kf[sort](a) - kf[sort](b));
+    const months = D.months.map((m) => ({ label: m.label, year: m.year, k: m.k, req: 0, rec: 0 })), mi = Object.fromEntries(months.map((m) => [m.k, m]));
+    DB.leaves.filter((r) => r.year === y.id && ids.has(r.emp)).forEach((r) => { const m = mi[String(r.created).slice(0, 7)]; if (m) m.req++; });
+    DB.recs.filter((r) => r.year === y.id && ids.has(r.emp) && ["active", "pending"].includes(r.status)).forEach((r) => { const m = mi[String(r.date).slice(0, 7)]; if (m) m.rec++; });
+    const top = Math.max(1, ...months.map((m) => Math.max(m.req, m.rec)));
+    let atCap = 0, nearCap = 0, noRec = 0; act.forEach((e) => { const b = balance(e.id, y); if (b.capPct >= 100) atCap++; else if (b.capPct >= 80) nearCap++; if (!b.grantedEq) noRec++; });
+    const unassigned = act.filter((e) => !e.mgr).length, nDepts = Object.keys(byD).filter((k) => k !== "0").length;
+    const oldestBy = {}; [...pReq, ...pRec].forEach((r) => { const k = mgrName(byId("emps", r.emp)) || "— غير مُسند —"; oldestBy[k] = Math.max(oldestBy[k] || 0, age(r)); });
+    const qs = "year=" + y.id + (dept && !lock ? "&dept=" + dept : "");
+    const sth = (key, label, cls = "n") => `<th scope="col" class="${cls}"${sort === key ? ' aria-sort="descending"' : ""}><a class="sv-sort" href="#/oversight?${qs}&sort=${key}">${label}${sort === key ? '<span aria-hidden="true"> ▾</span>' : ""}</a></th>`;
+    const lockD = lock ? byId("depts", lock) : null, selD = dept ? byId("depts", dept) : null;
+    const html = `${u.role === "supervisor" ? welcomeBanner(u) : ""}<div class="page-head sv-head"><div><h1>${ico("dashboard", "h-ico")} لوحة المتابعة الإدارية <span class="badge muted sv-ro" title="يتيح هذا الحساب الاطلاع على المؤشرات فقط؛ الاعتماد والرفض وإصدار التوصيات من صلاحية شؤون الموظفين ومدير النظام.">${ico("shield", "sm")}حساب متابعة — قراءة فقط</span></h1>
+      <p>${selD ? "قسم " + h(selD.name) : "جميع الأقسام"} · السنة ${h(y.name)} · مؤشرات مجمّعة دون بيانات الموظفين الفردية.</p></div>
+      <form class="filters sv-filters" data-form="filter" data-route="oversight">${yearSelect(y)}${lockD ? "" : `<div class="field"><label for="od">القسم</label><select id="od" name="dept" data-autosubmit><option value="">جميع الأقسام</option>${DB.depts.slice().sort((a, b) => a.name.localeCompare(b.name, "ar")).map((d) => `<option value="${d.id}" ${d.id === dept ? "selected" : ""}>${h(d.name)}</option>`).join("")}</select></div>`}</form></div>
+    <section class="grid kpis sv-kpis" aria-label="المؤشرات الرئيسية">
+      ${svKpi("الموظفون", act.length, "users", "brand", noRec + " بلا توصيات بعد")}
+      ${svKpi("الأقسام", nDepts, "building", "accent", unassigned ? "غير مُسندين لمسؤول: " + unassigned : "كل الموظفين مُسندون")}
+      ${svKpi("بانتظار الاعتماد", pReq.length + pRec.length, "hourglass", "warn", cnt(pReq.length, "req") + " و" + cnt(pRec.length, "rec"))}
+      ${svKpi("متأخرة عن الاعتماد", late.length, "stamp", late.length ? "err" : "ok", late.length ? "تجاوزت " + daysAr(LATE_DAYS) + " · أقدمها " + daysAr(late[0].age) : "كلها في حدود " + daysAr(LATE_DAYS), "#late")}
+      ${svKpi("متوسط مدة الاعتماد", n(st.avgLead) + " يوم", "calendar", "", "من التقديم إلى القرار")}
+      ${svKpi("نسبة الاستخدام", st.util + "٪", "pie", "ok", "المستخدم " + n(st.usedEq) + " من " + n(st.grantedEq) + " يوماً")}
+    </section>
+    <div class="sv-grid">
+      <section class="card sv-span-2"><h2>توزيع الموظفين على الأقسام</h2><p class="hint chart-sub">مرّر أو انقر على قسم في المفتاح لإبرازه · لون كل قسم ثابت طوال السنة</p>${deptD.total ? svDonut(deptD, "dd", "توزيع الموظفين على الأقسام", "الموظفين", "موظفاً", dept ? String(dept) : null) : '<p class="empty">لا يوجد موظفون في هذا النطاق.</p>'}</section>
+      <section class="card"><h2>الطلبات حسب الحالة</h2><p class="hint chart-sub">طلبات معالجة الغياب في السنة ${h(y.name)}</p>${stD.total ? svDonut(stD, "sd", "الطلبات حسب الحالة", "الطلبات", "طلباً", null, false) : '<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>'}</section>
+      <section class="card sv-span-2 sv-mb-card"><h2>الطلبات والتوصيات شهرياً</h2><p class="hint chart-sub">عدد طلبات معالجة الغياب المقدَّمة والتوصيات المرفوعة في كل شهر من السنة</p>
+        <div class="mbars sv-mbars" role="img" aria-label="الطلبات والتوصيات شهرياً — التفاصيل في الجدول التالي">${months.map((m) => `<div class="mcol" title="${m.label} ${m.year}: الطلبات ${m.req} · التوصيات ${m.rec}"><div class="mpair"><span class="mb u" style="height:${((m.req / top) * 100).toFixed(1)}%">${m.req ? `<em>${m.req}</em>` : ""}</span><span class="mb g" style="height:${((m.rec / top) * 100).toFixed(1)}%">${m.rec ? `<em>${m.rec}</em>` : ""}</span></div><small><span class="m-full">${m.label}</span><span class="m-short" aria-hidden="true">${Number(m.k.slice(5))}</span></small></div>`).join("")}</div>
+        <div class="legend mlegend"><span><i class="sw u"></i>الطلبات</span><span><i class="sw g"></i>التوصيات</span></div>
+        <table class="sr-only"><caption>الطلبات والتوصيات شهرياً</caption><thead><tr><th>الشهر</th><th>الطلبات</th><th>التوصيات</th></tr></thead><tbody>${months.map((m) => `<tr><th scope="row">${m.label} ${m.year}</th><td>${m.req}</td><td>${m.rec}</td></tr>`).join("")}</tbody></table></section>
+      <section class="card flush sv-late" id="late"><h2 class="pad">متأخرات تحتاج متابعة ${late.length ? `<span class="badge err">${late.length}</span>` : ""}</h2>
+        ${late.length ? `<ol class="sv-late-list">${late.slice(0, 8).map((r) => `<li><span class="sv-dot ${r.cls}" aria-hidden="true"></span><div class="who"><b class="num">${h(r.ref)}</b><small>${r.kind} · ${h(r.dept)} · ${h(r.off)}</small></div><div class="meta"><span class="amt">${r.amt}</span>${ageBadge(r.age)}</div></li>`).join("")}</ol>${late.length > 8 ? `<p class="hint pad">و${late.length - 8} أخرى.</p>` : ""}` : '<p class="empty">لا توجد طلبات متأخرة عن الاعتماد. جميع الطلبات في حدود المدة المعتمدة.</p>'}</section>
+      <section class="card flush sv-span-3 sv-rank-card"><h2 class="pad">ترتيب الأقسام</h2><p class="hint pad sv-sub">مرتّبة حسب المتأخرات ثم المعلّقة — انقر عنوان عمود لتغيير الترتيب. أرصدة الأقسام التي فيها أقل من 3 موظفين لا تظهر حفاظاً على الخصوصية.</p>
+        <div class="table-wrap"><table class="responsive sv-rank"><caption class="sr-only">ترتيب الأقسام</caption><thead><tr><th scope="col" class="n">#</th><th scope="col">القسم</th>${sth("emp", "الموظفون")}${sth("pending", "معلّقة")}${sth("late", "متأخرة")}${sth("granted", "الممنوح (يوم)")}${sth("used", "المستخدم")}${sth("rate", "نسبة الاستخدام", "sv-rate-h")}</tr></thead><tbody>
+        ${rank.map((r, i) => `<tr${dept && r.id === dept ? ' class="sv-sel" aria-current="true"' : ""}><td class="n" data-label="الترتيب"><b class="sv-rk">${i + 1}</b></td><td data-label="القسم" class="sv-dcell"><span class="sv-dname"><b class="sv-rk sv-rk-m" aria-hidden="true">${i + 1}</b><i class="sv-sw sm ${r.cls}${r.cls === "sv-c-other" ? " hatch" : ""}" aria-hidden="true"></i>${r.id && !lock ? `<a href="#/oversight?year=${y.id}&dept=${r.id}">${h(r.name)}</a>` : h(r.name)}</span></td>
+          <td class="n" data-label="الموظفون">${r.emp}</td><td class="n" data-label="معلّقة">${r.pending || "—"}</td><td class="n" data-label="متأخرة">${r.late ? `<span class="badge err late">${r.late}</span>` : "—"}</td>
+          ${r.small ? '<td class="n" data-label="الممنوح">—</td><td class="n" data-label="المستخدم">—</td><td data-label="نسبة الاستخدام"><span class="muted">لا تُعرض (أقل من 3 موظفين)</span></td>' : `<td class="n" data-label="الممنوح">${n(r.granted)}</td><td class="n" data-label="المستخدم">${n(r.used)}</td><td data-label="نسبة الاستخدام"><span class="sv-rate"><span class="ubar" aria-hidden="true"><i style="width:${Math.min(100, r.rate)}%"></i></span><b class="num">${r.rate}٪</b></span></td>`}</tr>`).join("") || '<tr><td colspan="8" class="muted">لم تُسجَّل أقسام بعد.</td></tr>'}</tbody></table></div></section>
+      <section class="card flush sv-span-3"><h2 class="pad">أداء الجهات المعتمِدة</h2><p class="hint pad sv-sub">متوسط المدة من تقديم الطلب إلى القرار لكل مسؤول شؤون موظفين؛ يُوسم «بطيء» إذا بلغ ${daysAr(LATE_DAYS)} فأكثر.</p>
+        <div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">الموظفون</th><th class="n">معتمدة</th><th class="n">مرفوضة</th><th class="n">معلّقة</th><th class="n">متوسط مدة القرار</th><th class="n">أقدم معلّق</th></tr></thead><tbody>
+        ${D.byOff.map(([k, d]) => `<tr><td data-label="المسؤول">${h(k)}</td><td class="n" data-label="الموظفون">${d.count}</td><td class="n" data-label="معتمدة">${d.approved}</td><td class="n" data-label="مرفوضة">${d.rejected}</td><td class="n" data-label="معلّقة">${d.nPending || "—"}</td><td class="n" data-label="متوسط المدة">${d.avgLead != null ? n(d.avgLead) + " يوم" + (d.avgLead >= LATE_DAYS ? ' <span class="badge warn">بطيء</span>' : "") : "—"}</td><td class="n" data-label="أقدم معلّق">${oldestBy[k] ? ageBadge(oldestBy[k]) : "—"}</td></tr>`).join("") || '<tr><td colspan="7" class="muted">لا توجد قرارات اعتماد في هذه السنة.</td></tr>'}</tbody></table></div></section>
+      <section class="card sv-span-3"><h2>مؤشرات إضافية</h2><ul class="sv-facts">
+        <li>${ico("cal-check", "sm-ico")}<span>التوصيات السارية</span><b class="num">${st.recs}</b><small>أيام ${n(st.recDays)} · ساعات ${n(st.recHours)}</small></li>
+        <li>${ico("clock", "sm-ico")}<span>بلغوا الحد الأقصى</span><b class="num">${atCap}</b><small>وقاربه ${nearCap}</small></li>
+        <li>${ico("stamp", "sm-ico")}<span>نسبة الرفض</span><b class="num">${st.approved + st.rejected ? Math.round((st.rejected / (st.approved + st.rejected)) * 100) : 0}٪</b><small>${st.rejected} من ${st.approved + st.rejected} قرار</small></li>
+        <li>${ico("upload", "sm-ico")}<span>توصيات سارية بلا مرفق</span><b class="num">${st.noAtt}</b><small>اكتمال التوثيق</small></li></ul></section>
+    </div>`;
+    setTimeout(() => svInit($app), 0);
+    return layout(u, "لوحة المتابعة", html);
+  };
   V.reports = (u, q) => {
     need(u, STAFF);
     const y = pickYear(q), dept = Number(q.get("dept")) || 0, off = Number(q.get("officer")) || 0, admin = u.role === "admin";
@@ -2245,8 +2364,10 @@
       if (!u) { html = V.login(); if (seg[0] !== "login" && seg.length) history.replaceState(null, "", "#/login"); }
       else if (u.mustChange && seg[0] !== "password") { go("#/password"); return; }
       else {
-        let r = seg[0] || (u.role === "employee" ? "me" : "dashboard");
-        if (r === "login") r = u.role === "employee" ? "me" : "dashboard";
+        const home = u.role === "employee" ? "me" : u.role === "supervisor" ? "oversight" : "dashboard";
+        let r = seg[0] || home;
+        if (r === "login") r = home;
+        if (r === "dashboard" && u.role === "supervisor") r = "oversight";
         const view = V[r];
         if (!view) throw new Forbidden("الصفحة غير موجودة.");
         html = view(u, q, seg.length ? seg : [r]);
@@ -2281,6 +2402,7 @@
     try { localStorage.removeItem("hr_demo_v1"); localStorage.removeItem("hr_demo_v2"); localStorage.removeItem("hr_demo_v3"); } catch (e) {}
     // ترقية بيانات العرض القديمة إلى هوية «إتمام»
     DB.delegations = DB.delegations || [];
+    if (!DB.users.some((x) => x.username === "supervisor")) DB.users.push({ id: Math.max(0, ...DB.users.map((x) => x.id)) + 1000, username: "supervisor", pw: (DB.users.find((x) => x.username === "admin") || {}).pw, role: "supervisor", name: "المتابع الإداري", emp: null, active: true, mustChange: false, last: null });
     { const names = new Set(DB.users.map((x) => String(x.username).toLowerCase())); DB.cards = (DB.cards || []).filter((c) => c.user != null || names.has(String(c.username || "").toLowerCase())); } // بطاقات بلا حساب
     if (DB.settings.system_title === "إدارة أيام بدل الراحة للموظفين") DB.settings.system_title = "إتمام";
     if (DB.settings.tagline == null || DB.settings.tagline === "إدارة أيام بدل الراحة بكفاءة واحتراف") DB.settings.tagline = TAGLINE;
