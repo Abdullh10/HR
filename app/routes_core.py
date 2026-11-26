@@ -118,6 +118,8 @@ def ref_no(prefix: str, obj_id: int, d: date | datetime) -> str:
 @router.get("/dashboard")
 def dashboard(request: Request, year_id: int | None = None, user: User = Depends(current_user),
               db: Session = Depends(get_db)):
+    if user.role == "supervisor":  # حساب المتابعة: لوحته الخاصة، ولا يمر بالتصعيد (لا يكتب شيئاً)
+        return redirect("/oversight")
     try:
         if escalate_overdue(db):
             db.commit()
@@ -1149,10 +1151,13 @@ def file_download(att_id: int, user: User = Depends(current_user), db: Session =
 MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 
 
-def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, officer: int | None) -> dict:
-    """بيانات التقارير مع التصفية حسب القسم ومسؤول شؤون الموظفين (للأدمن). يُستخدم للصفحة وللتصدير."""
+def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, officer: int | None,
+                 emps: list[Employee] | None = None) -> dict:
+    """بيانات التقارير مع التصفية حسب القسم ومسؤول شؤون الموظفين (للأدمن). يُستخدم للصفحة وللتصدير.
+    emps: نطاق جاهز من الموظفين (لوحة المتابعة الإدارية) بدل نطاق المستخدم."""
     hpd = year.hours_per_day or 7
-    emps = list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True)))
+    if emps is None:
+        emps = list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True)))
     if dept:
         emps = [e for e in emps if e.department_id == dept]
     if officer and user.role == "admin":

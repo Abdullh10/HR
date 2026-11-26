@@ -63,10 +63,16 @@
           </ul></li>
         <li class="sep">التقارير والأرشيف</li>
         {{ item('/reports', 'التقارير', 'reports') }}
+        {{ item('/oversight', 'لوحة المتابعة الإدارية', 'pie', prefix='/oversight') }}
         {{ item('/archive', 'الأرشيف', 'archive') }}
         <li class="sep">حسابي</li>
         {{ item('/profile', 'الملف الشخصي', 'idcard') }}
       {% else %}
+      {% if user.role == 'supervisor' %}
+        <li class="sep">المتابعة</li>
+        {{ item('/oversight', 'لوحة المتابعة', 'dashboard', prefix='/oversight') }}
+        {% if not user.employee_id %}<li class="sep">حسابي</li>{{ item('/profile', 'الملف الشخصي', 'idcard') }}{% endif %}
+      {% endif %}
       {% if user.role == 'officer' %}
         <li class="sep">المتابعة</li>
         {{ item('/dashboard', 'لوحة المؤشرات', 'dashboard') }}
@@ -91,7 +97,7 @@
       <li class="sep">التواصل</li>
       {{ item('/messages', 'المراسلات', 'mail', unread) }}
       {{ item('/messages/new', 'رسالة جديدة', 'send') }}
-      {% if user.role == 'employee' %}{{ item('/faq', 'الأسئلة الشائعة', 'shield') }}{% endif %}
+      {% if user.role in ('employee', 'supervisor') %}{{ item('/faq', 'الأسئلة الشائعة', 'shield') }}{% endif %}
       {% if user.role == 'officer' %}
         <li class="sep">التقارير والأرشيف</li>
         {{ item('/reports', 'التقارير', 'reports') }}
@@ -108,7 +114,7 @@
       {% set p0 = path.split('/')[1] if path.count('/') else '' %}
       {% set section = {'admin': 'الإدارة', 'recommendations': 'السجلات' if user.role == 'admin' else 'التوصيات', 'requests': 'السجلات' if user.role == 'admin' else 'الطلبات',
                         'messages': 'التواصل', 'reports': 'التقارير والأرشيف', 'archive': 'التقارير والأرشيف', 'profile': 'حسابي', 'me': 'حسابي',
-                        'dashboard': 'المتابعة', 'employees': 'المتابعة', 'delegation': 'المتابعة', 'faq': 'المساعدة', 'approvals': 'المتابعة', 'change-password': 'حسابي'}.get(p0, '') %}
+                        'dashboard': 'المتابعة', 'oversight': 'المتابعة', 'employees': 'المتابعة', 'delegation': 'المتابعة', 'faq': 'المساعدة', 'approvals': 'المتابعة', 'change-password': 'حسابي'}.get(p0, '') %}
       <nav class="title crumbs" aria-label="مسار التنقل">{% if section %}<span class="crumb">{{ section }}</span><span class="crumb-sep" aria-hidden="true">‹</span>{% endif %}<span aria-current="page">{% block heading %}{% endblock %}</span></nav>
       <span class="spacer"></span>
       {% if year %}<span class="badge muted" title="السنة النشطة">السنة {{ year.name }}{% if year.is_locked %} · مقفلة{% endif %}</span>{% endif %}

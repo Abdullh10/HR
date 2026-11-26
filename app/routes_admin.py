@@ -40,14 +40,16 @@ def users(request: Request, user: User = Depends(admin_only), db: Session = Depe
         if e.manager_id:
             team_count[e.manager_id] = team_count.get(e.manager_id, 0) + 1
     no_account = [e for e in emps if e.id not in linked and not e.is_temp_no]
+    depts = list(db.scalars(select(Department).order_by(Department.name)))
     return render(request, db, "admin_users.html", user=user, rows=rows, emps=emps, linked=linked,
-                  team_count=team_count, no_account=no_account)
+                  team_count=team_count, no_account=no_account, depts=depts)
 
 
 @router.post("/users/save")
 def user_save(request: Request, user_id: str = Form(""), username: str = Form(...), role: str = Form(...),
               employee_id: str = Form(""), password: str = Form(""), is_active: str = Form(""),
-              assign: list[int] = Form([]), assign_present: str = Form(""),
+              assign: list[int] = Form([]), assign_present: str = Form(""), scope_dept: str = Form(""),
+              scope_present: str = Form(""),
               user: User = Depends(admin_only), db: Session = Depends(get_db)):
     user_id, employee_id = opt_int(user_id), opt_int(employee_id)
     username = username.strip().lower()
@@ -82,6 +84,9 @@ def user_save(request: Request, user_id: str = Form(""), username: str = Form(..
     prev_role, prev_emp = (u.role, u.employee_id) if user_id else (None, None)
     u.username, u.role, u.employee_id = username, role, employee_id or None
     u.is_active = bool(is_active) if user_id else True
+    if role == "supervisor" and scope_present:  # نطاق المتابع الإداري: قسم واحد أو الجهة كلها
+        sd = opt_int(scope_dept)
+        u.department_id = sd if sd and db.get(Department, sd) else None
     db.flush()
     # إسناد الموظفين لمسؤول شؤون الموظفين (اختيار متعدد)
     moved = 0

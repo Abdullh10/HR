@@ -80,7 +80,7 @@ FIELDS = {
 
 VALUES = {True: "نعم", False: "لا", "approved": "معتمد", "pending": "بانتظار الاعتماد", "rejected": "مرفوض",
           "cancelled": "ملغى", "days": "أيام", "hours": "ساعات", "use": "معالجة غياب", "employee": "موظف",
-          "officer": "شؤون الموظفين", "admin": "مدير النظام", "wrong_password": "كلمة مرور خاطئة"}
+          "officer": "شؤون الموظفين", "admin": "مدير النظام", "supervisor": "متابع إداري", "wrong_password": "كلمة مرور خاطئة"}
 
 
 def action_label(code: str) -> str:

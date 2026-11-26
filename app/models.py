@@ -23,6 +23,7 @@ ROLES = {
     "admin": "مدير النظام",
     "officer": "شؤون الموظفين",
     "employee": "موظف",
+    "supervisor": "متابع إداري",
 }
 # أدوار قديمة تُرحَّل تلقائياً إلى «شؤون الموظفين»
 LEGACY_ROLES = ("manager", "viewer")

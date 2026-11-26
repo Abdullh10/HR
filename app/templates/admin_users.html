@@ -17,6 +17,14 @@
     <span class="hint">اختيار موظف مسند لمسؤول شؤون موظفين آخر ينقله إلى هذا المسؤول.</span>
   </div>
 {% endmacro %}
+{% macro scope_box(u) %}
+  <div class="assign-box scope-box" data-role-dep="supervisor"{% if not u %} hidden{% endif %}>
+    <input type="hidden" name="scope_present" value="1">
+    <label for="sd{{ u.id if u else 'n' }}"><b>نطاق المتابعة</b></label>
+    <select id="sd{{ u.id if u else 'n' }}" name="scope_dept"><option value="">الجهة كلها (كل الأقسام)</option>{% for d in depts %}<option value="{{ d.id }}" {% if u and u.department_id == d.id %}selected{% endif %}>قسم {{ d.name }} فقط</option>{% endfor %}</select>
+    <span class="hint">حساب قراءة فقط: يرى مؤشرات مجمّعة دون أسماء الموظفين، ولا يعتمد ولا يرفض ولا يعدّل.</span>
+  </div>
+{% endmacro %}
 {% block content %}
 {{ account_tabs('users') }}
 <div class="page-head"><div><h1>{{ ico('userkey', 'h-ico') }} المستخدمون والصلاحيات</h1><p>{{ rows|length }} حساب</p></div>
@@ -30,6 +38,7 @@
     <li><b>مدير النظام:</b> إدارة المنصة: المستخدمون والصلاحيات، إسناد الموظفين لمسؤولي شؤون الموظفين، السنة وقواعد الرصيد، المؤشرات والاعتمادات، الإعدادات وسجل التدقيق.</li>
     <li><b>شؤون الموظفين:</b> يُسند له موظفون؛ يرفع التوصيات (بالأيام أو بالساعات) بملف PDF في حساب الموظف، ويعتمد طلبات معالجة الغياب، ويراسل موظفيه ومدير النظام.</li>
     <li><b>موظف:</b> يتابع رصيده من الأيام والساعات، ويرفع طلبات معالجة الغياب، ويراسل مسؤول شؤون الموظفين.</li>
+    <li><b>متابع إداري:</b> حساب إشرافي للقراءة فقط: لوحة مؤشرات مجمّعة لسير العمل (الموظفون والأقسام والطلبات والمتأخرات ومدة الاعتماد) دون أسماء الموظفين، ولا يعتمد ولا يرفض ولا يُصدر توصيات. لا يلزم ربطه بسجل موظف، ويمكن قصره على قسم واحد.</li>
   </ul>
   <p class="hint">لا يبتّ أحد في طلب يخصّه. عند اختيار دور «شؤون الموظفين» تظهر قائمة لاختيار الموظفين المسندين إليه (أكثر من موظف)، ويمكن أيضاً الإسناد من بطاقة الموظف أو ملف الاستيراد.</p>
 </section>
@@ -44,6 +53,7 @@
       <div class="field"><label for="pw">كلمة مرور أولية <span class="hint">(فارغ = توليد تلقائي)</span></label><input id="pw" name="password" type="text" autocomplete="off"></div>
     </div>
     {{ assign_box(None) }}
+    {{ scope_box(None) }}
     <button class="btn primary">إنشاء الحساب</button>
   </form>
 </section>
@@ -61,6 +71,7 @@
         <label class="check" style="margin:0"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> نشط</label>
         <span class="hint">{{ u.last_login|d if u.last_login else 'لم يدخل' }}{% if u.must_change_password %} · بانتظار تغيير كلمة المرور{% endif %}</span>
         <button class="btn sm">حفظ</button>
+        {% if u.role == 'supervisor' %}{{ scope_box(u) }}{% endif %}
         {% if u.role == 'officer' %}<details class="assign-wrap"{% if not team_count.get(u.employee_id) %} open{% endif %}><summary>الموظفون المسندون ({{ team_count.get(u.employee_id, 0) }})</summary>{{ assign_box(u.employee_id, True) }}</details>
         {% endif %}
       </form></td>

@@ -24,6 +24,8 @@ router = APIRouter()
 def home(user: User = Depends(current_user)):
     if user.role == "employee":
         return redirect("/me")
+    if user.role == "supervisor":
+        return redirect("/oversight")
     return redirect("/dashboard")
 
 
