@@ -608,3 +608,47 @@
   }, true);
   document.addEventListener("DOMContentLoaded", function () { document.querySelectorAll("[data-pick-box]").forEach(sync); });
 })();
+
+// لوحة الإداري: إبراز شريحة الحلقة من المفتاح أو الرسم (تمرير/نقر/لوحة مفاتيح). المحتوى كامل دون JS.
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll("[data-sv-donut]").forEach(function (w) {
+    var items = [].slice.call(w.querySelectorAll(".sv-lg")), segs = w.querySelectorAll(".sv-seg");
+    var num = w.querySelector("[data-c-num]"), cap = w.querySelector("[data-c-cap]"), live = w.querySelector("[data-live]");
+    var pinned = w.getAttribute("data-active") || null;
+    function txt(it, sel) { return it.querySelector(sel).textContent; }
+    function show(k, say) {
+      var cur = null;
+      w.classList.toggle("has-active", !!k);
+      segs.forEach(function (s) { s.classList.toggle("on", s.getAttribute("data-k") === k); });
+      items.forEach(function (it) {
+        var on = it.getAttribute("data-k") === k;
+        it.classList.toggle("on", on);
+        it.setAttribute("aria-pressed", String(!!pinned && it.getAttribute("data-k") === pinned));
+        if (on) cur = it;
+      });
+      var l = cur && txt(cur, ".lbl");
+      num.textContent = cur ? txt(cur, "b") : w.dataset.total;
+      cap.textContent = cur ? txt(cur, ".pct") + " · " + (l.length > 14 ? l.slice(0, 13) + "…" : l) : w.dataset.cap;
+      if (say && cur) live.textContent = l + ": " + txt(cur, "b") + " (" + txt(cur, ".pct") + " من " + w.dataset.unit + ")";
+    }
+    function keyOf(ev) { var t = ev.target.closest && ev.target.closest("[data-k]"); return t && w.contains(t) ? t.getAttribute("data-k") : null; }
+    items.forEach(function (it, i) { it.setAttribute("role", "button"); it.tabIndex = i ? -1 : 0; });
+    w.addEventListener("mouseover", function (ev) { var k = keyOf(ev); if (k) show(k); });
+    w.addEventListener("mouseleave", function () { show(pinned); });
+    w.addEventListener("focusin", function (ev) { var k = keyOf(ev); if (k) show(k, true); });
+    w.addEventListener("focusout", function (ev) { if (!w.contains(ev.relatedTarget)) show(pinned); });
+    w.addEventListener("click", function (ev) {
+      var k = keyOf(ev); if (!k) return;
+      pinned = pinned === k ? null : k; show(pinned || k, true);
+    });
+    w.addEventListener("keydown", function (ev) {
+      var i = items.indexOf(ev.target); if (i < 0) return;
+      var step = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 }[ev.key]; // RTL: اليسار = التالي
+      var j = step ? (i + step + items.length) % items.length : ev.key === "Home" ? 0 : ev.key === "End" ? items.length - 1 : -1;
+      if (j >= 0) { ev.preventDefault(); items[i].tabIndex = -1; items[j].tabIndex = 0; items[j].focus(); }
+      else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ev.target.click(); }
+      else if (ev.key === "Escape") { pinned = null; show(null); live.textContent = "أُلغي الإبراز"; }
+    });
+    show(pinned);
+  });
+});

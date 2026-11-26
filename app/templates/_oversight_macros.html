@@ -1,0 +1,65 @@
+{# ماكرو لوحة المتابعة الإدارية (قراءة فقط)
+   تعتمد على ico من _macros.html وعلى الأجزاء المحسوبة في الخادم (donut_parts / month_series في app/charts.py) #}
+{% from "_macros.html" import ico %}
+
+{# ---- بطاقة مؤشر: tone ∈ brand|accent|ok|warn|err|'' ؛ href اختياري (رابط لقائمة للعرض فقط) #}
+{% macro kpi(label, value, icon, tone='', sub='', href=None) -%}
+{%- set tag = 'a' if href else 'div' -%}
+<{{ tag }} class="kpi {{ tone }}"{% if href %} href="{{ href }}"{% endif %}>{{ ico(icon) }}<div class="l">{{ label }}</div><div class="v">{{ value }}</div>{% if sub %}<div class="s">{{ sub }}</div>{% endif %}</{{ tag }}>
+{%- endmacro %}
+
+{# ---- حلقة تفاعلية
+   d      : ناتج donut_parts(): d.parts (key, label, value, pct, dash, gap_rest, off, cls, n, lx, ly, show_n, hatch)، d.total
+   uid    : معرّف فريد في الصفحة (للنقش ولقارئ الشاشة)
+   title  : عنوان الرسم (يدخل في aria-label وفي caption الجدول البديل)
+   unit   : المجموع بصيغة «من …» للإعلان والجدول ('الموظفين' / 'الطلبات')
+   cap    : نص تحت الرقم في المركز
+   active : مفتاح يُبرز مسبقاً (مثلاً القسم المختار في الفلتر) — يعمل دون JS #}
+{% macro donut(d, uid, title, unit, cap, active=None, numerals=True) -%}
+<div class="sv-donut{{ ' has-active' if active }}" data-sv-donut data-unit="{{ unit }}" data-total="{{ d.total }}" data-cap="{{ cap }}"{% if active %} data-active="{{ active }}"{% endif %}>
+  <svg class="sv-ring" viewBox="0 0 48 48" role="img" aria-labelledby="{{ uid }}-t">
+    <title id="{{ uid }}-t">{{ title }}: {% for p in d.parts %}{{ p.label }} {{ p.value }} ({{ p.pct }}٪){{ '، ' if not loop.last }}{% endfor %}</title>
+    <defs><pattern id="{{ uid }}-hatch" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="1.6" height="1.6" class="sv-hatch-bg"/><rect width=".55" height="1.6" class="sv-hatch-ln"/></pattern></defs>
+    {% if not d.total %}<circle class="sv-track" cx="24" cy="24" r="15.9155"/>{% endif %}
+    {# المرآة الأفقية: الحلقة تبدأ من الساعة 12 وتسير يساراً (اتجاه القراءة العربية)، كالحلقة الحالية في لوحة المؤشرات #}
+    <g transform="translate(48 0) scale(-1 1)">
+      {% for p in d.parts if p.value > 0 %}
+      <circle class="sv-seg {{ p.cls }}{{ ' on' if active == p.key }}" data-k="{{ p.key }}" cx="24" cy="24" r="15.9155"
+        stroke-dasharray="{{ p.dash }} {{ p.gap_rest }}" stroke-dashoffset="{{ p.off }}"{% if p.hatch %} stroke="url(#{{ uid }}-hatch)"{% endif %}><title>{{ p.label }}: {{ p.value }} ({{ p.pct }}٪)</title></circle>
+      {% endfor %}
+    </g>
+    {% if numerals %}{% for p in d.parts if p.show_n %}<text class="sv-n" x="{{ p.lx }}" y="{{ p.ly }}" aria-hidden="true">{{ p.n }}</text>{% endfor %}{% endif %}
+    {% set ap = (d.parts|selectattr('key', 'equalto', active)|first) if active else None %}
+    <text class="sv-c-num" x="24" y="23.4" data-c-num>{{ ap.value if ap else d.total }}</text>
+    <text class="sv-c-cap" x="24" y="28.4" data-c-cap>{{ (ap.pct ~ '٪ · ' ~ ap.label|truncate(14, True, '…', 0)) if ap else cap }}</text>
+  </svg>
+  <ul class="sv-legend" aria-label="مفتاح {{ title }}">
+    {% for p in d.parts %}<li><span class="sv-lg {{ p.cls }}{{ ' on' if active == p.key }}" data-k="{{ p.key }}">
+      <i class="sv-sw{{ ' hatch' if p.hatch }}" aria-hidden="true">{% if numerals %}{{ p.n }}{% endif %}</i><span class="lbl">{{ p.label }}</span><b class="num">{{ p.value }}</b><span class="pct num">{{ p.pct }}٪</span></span></li>{% endfor %}
+  </ul>
+  <p class="sr-only" aria-live="polite" data-live></p>
+  <table class="sr-only"><caption>{{ title }}</caption><thead><tr><th scope="col">الفئة</th><th scope="col">العدد</th><th scope="col">النسبة</th></tr></thead><tbody>
+    {% for p in d.parts %}<tr><th scope="row">{{ p.label }}</th><td>{{ p.value }}</td><td>{{ p.pct }}٪</td></tr>{% endfor %}
+    <tr><th scope="row">الإجمالي</th><td>{{ d.total }}</td><td>100٪</td></tr></tbody></table>
+</div>
+{%- endmacro %}
+
+{# ---- أعمدة شهرية متعددة السلاسل (محور واحد، وحدة واحدة) — تعميم month_bars الحالي بنفس فئات CSS
+   months : [{label, short, year, vals: {key: n}, pct: {key: 0..100}}]
+   series : [(key, css_cls, label)] مثل [('req','u','الطلبات'), ('rec','g','التوصيات')] #}
+{% macro month_bars_multi(months, series, title) -%}
+<div class="mbars sv-mbars" role="img" aria-label="{{ title }} — التفاصيل في الجدول التالي">
+  {% for m in months %}<div class="mcol" title="{{ m.label }} {{ m.year }}: {% for k, c, l in series %}{{ l }} {{ m.vals[k] }}{{ ' · ' if not loop.last }}{% endfor %}">
+    <div class="mpair">{% for k, c, l in series %}<span class="mb {{ c }}" style="height:{{ m.pct[k] }}%">{% if m.vals[k] %}<em>{{ m.vals[k] }}</em>{% endif %}</span>{% endfor %}</div>
+    <small><span class="m-full">{{ m.label }}</span><span class="m-short" aria-hidden="true">{{ m.short }}</span></small></div>{% endfor %}
+</div>
+<div class="legend mlegend">{% for k, c, l in series %}<span><i class="sw {{ c }}"></i>{{ l }}</span>{% endfor %}</div>
+<table class="sr-only"><caption>{{ title }}</caption><thead><tr><th scope="col">الشهر</th>{% for k, c, l in series %}<th scope="col">{{ l }}</th>{% endfor %}</tr></thead><tbody>
+{% for m in months %}<tr><th scope="row">{{ m.label }} {{ m.year }}</th>{% for k, c, l in series %}<td>{{ m.vals[k] }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+{%- endmacro %}
+
+{# ---- رأس عمود قابل للفرز دون JS (روابط GET) مع aria-sort #}
+{% macro sort_th(key, label, sort, qs, cls='n') -%}
+<th scope="col" class="{{ cls }}"{% if sort == key %} aria-sort="descending"{% endif %}><a class="sv-sort" href="?{{ qs }}&amp;sort={{ key }}">{{ label }}{% if sort == key %}<span aria-hidden="true"> ▾</span>{% endif %}</a></th>
+{%- endmacro %}

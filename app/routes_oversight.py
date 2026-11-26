@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import Department, Employee, LeaveRequest, Recommendation, User
 from .routes_core import _report_data, _sheet, _xlsx_response, pick_year, years
+from .charts import dept_slots, donut_parts, month_series
 from .services import LATE_DAYS, audit, compute_balance
 from .web import client_ip, render, require
 
@@ -41,7 +42,7 @@ def _pct(v: float, tot: float) -> int:
     return round(v / tot * 100) if tot else 0
 
 
-def oversight_data(db: Session, user: User, year, dept: int | None) -> dict:
+def oversight_data(db: Session, user: User, year, dept: int | None, sort: str = "late") -> dict:
     emps, dept, locked = _scope(db, user, dept)
     active = [e for e in emps if e.is_active]
     ids = [e.id for e in emps] or [0]
@@ -49,6 +50,21 @@ def oversight_data(db: Session, user: User, year, dept: int | None) -> dict:
     now = datetime.now()
     rep = _report_data(db, user, year, None, None, emps=emps)
     st = rep["stats"]
+
+    # --- ألوان الأقسام ثابتة على مستوى الجهة (أكبر 8 أقسام) فلا تتغير بالفلترة
+    sizes = db.execute(select(Employee.department_id, func.count(Employee.id)).where(
+        Employee.is_active.is_(True), Employee.department_id.is_not(None)).group_by(Employee.department_id)).all()
+    slots = dept_slots([d for d, _ in sorted(sizes, key=lambda x: (-x[1], x[0]))])
+    by_d: dict = {}
+    for e in active:
+        by_d.setdefault(e.department_id, [e.department.name if e.department else NO_DEPT, 0])[1] += 1
+    rows = sorted(by_d.items(), key=lambda kv: (int(slots[kv[0]][4:]) if kv[0] in slots else 99, -kv[1][1]))
+    dept_donut = donut_parts([dict(key=str(k or 0), label=n, value=v, cls=slots.get(k)) for k, (n, v) in rows],
+                             other_label=OTHER)
+    status_donut = donut_parts([dict(key=k, label=l, value=next((x["value"] for x in rep["st_pie"] if x["key"] == k), 0),
+                                     cls=f"sv-st-{k}")
+                                for k, l in (("approved", "معتمدة"), ("pending", "بانتظار الاعتماد"),
+                                             ("rejected", "مرفوضة"), ("cancelled", "ملغاة"))])
 
     # --- توزيع الموظفين على الأقسام (دائرة): أكبر الأقسام ثم «أقسام أخرى»
     counts: dict[str, int] = defaultdict(int)
@@ -86,7 +102,7 @@ def oversight_data(db: Session, user: User, year, dept: int | None) -> dict:
             age = (now - r.created_at).days
             if age >= LATE_DAYS:
                 e = r.employee
-                late.append(dict(ref=r.ref_code or f"#{r.id}", kind=kind,
+                late.append(dict(cls=slots.get(e.department_id, "sv-c-other"), ref=r.ref_code or f"#{r.id}", kind=kind,
                                  amount=r.amount_label if kind.startswith("طلب") else (f"{r.amount:g} " + ("يوم" if r.kind == "days" else "ساعة")),
                                  dept=e.department.name if e.department else NO_DEPT,
                                  officer=e.manager.full_name if e.manager else "— غير مُسند (مدير النظام) —",
@@ -109,6 +125,41 @@ def oversight_data(db: Session, user: User, year, dept: int | None) -> dict:
         if lapse_window and b.bookable_days > 0:
             lapse_n += 1
             lapse_days += b.bookable_days
+
+    # --- الطلبات والتوصيات شهرياً (بالعدد، حسب تاريخ التقديم)
+    req_m = db.execute(select(LeaveRequest.created_at).where(LeaveRequest.fiscal_year_id == year.id,
+                                                             LeaveRequest.employee_id.in_(ids))).scalars().all()
+    rec_m = db.execute(select(Recommendation.rec_date).where(Recommendation.fiscal_year_id == year.id,
+                                                             Recommendation.status.in_(("active", "pending")),
+                                                             Recommendation.employee_id.in_(ids))).scalars().all()
+    mrows = [dict(label=m["label"], short=str(m["key"][1]), year=m["year"], key=m["key"], vals={"req": 0, "rec": 0})
+             for m in rep["months"]]
+    mi = {m["key"]: m for m in mrows}
+    for d0 in req_m:
+        if (m := mi.get((d0.year, d0.month))):
+            m["vals"]["req"] += 1
+    for d0 in rec_m:
+        if (m := mi.get((d0.year, d0.month))):
+            m["vals"]["rec"] += 1
+    months = month_series(mrows, ["req", "rec"])
+
+    # --- ترتيب الأقسام: المتأخرات ثم المعلّقة (الأرصدة تُخفى للأقسام الصغيرة)
+    late_by: dict[str, int] = defaultdict(int)
+    for x in late:
+        late_by[x["dept"]] += 1
+    rank = []
+    for name, d in rep["by_dept"]:
+        did = next((e.department_id for e in active if (e.department.name if e.department else NO_DEPT) == name), None)
+        small_g = d["count"] < MIN_GROUP
+        rank.append(dict(id=did, name=name, cls=slots.get(did, "sv-c-other"), emp=d["count"], pending=d["n_pending"],
+                         late=late_by.get(name, 0), small=small_g,
+                         granted=None if small_g else round(d["granted"], 1), used=None if small_g else round(d["used"], 1),
+                         rate=None if small_g else d["util"], avg_lead=d["avg_lead"]))
+    keyf = {"emp": lambda r: -r["emp"], "pending": lambda r: -r["pending"], "granted": lambda r: -(r["granted"] or -1),
+            "used": lambda r: -(r["used"] or -1), "rate": lambda r: -(r["rate"] if r["rate"] is not None else -1)}
+    rank.sort(key=lambda r: (-r["late"], -r["pending"], r["name"]))
+    if sort in keyf:
+        rank.sort(key=keyf[sort])
 
     # --- أداء الأقسام مع حماية الأعداد الصغيرة
     by_dept, small = [], dict(count=0, granted=0.0, used=0.0, pending=0.0, n_pending=0, approved=0, rejected=0, lead=[], n=0)
@@ -146,22 +197,23 @@ def oversight_data(db: Session, user: User, year, dept: int | None) -> dict:
         at_cap=at_cap, near_cap=near_cap, no_attachment=st["no_attachment"],
         lapse=lapse_n, lapse_days=round(lapse_days, 1), lapse_window=lapse_window,
     )
-    return dict(kpi=kpi, dept=dept, locked=locked, dept_pie=dept_pie, st_pie=rep["st_pie"], st_total=rep["st_total"],
+    return dict(kpi_data=kpi, dept=dept, locked=locked, dept_pie=dept_pie, dept_donut=dept_donut, status_donut=status_donut,
+                rank=rank, sort=sort if sort in keyf else "late", months_n=months, st_pie=rep["st_pie"], st_total=rep["st_total"],
                 rec_pie=rec_pie, rec_total=rec_tot, months=rep["months"], by_dept=by_dept, by_officer=by_officer,
                 late=late, hpd=hpd)
 
 
 @router.get("/oversight")
-def oversight(request: Request, year_id: int | None = None, dept: str = "", user: User = Depends(require(*VIEWERS)),
-              db: Session = Depends(get_db)):
+def oversight(request: Request, year_id: int | None = None, dept: str = "", sort: str = "late",
+              user: User = Depends(require(*VIEWERS)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
-    try:
-        dept_id = int(dept) if dept else None
-    except ValueError:
-        dept_id = None
-    data = oversight_data(db, user, year, dept_id)
+    dept_id = int(dept) if dept.isdigit() else None
+    data = oversight_data(db, user, year, dept_id, sort)
     depts = list(db.scalars(select(Department).order_by(Department.name)))
-    return render(request, db, "oversight.html", user=user, sel_year=year, years=years(db), depts=depts, **data)
+    sel_dept = db.get(Department, data["dept"]) if data["dept"] else None
+    qs = f"year_id={year.id}" + (f"&dept={data['dept']}" if data["dept"] and not data["locked"] else "")
+    return render(request, db, "oversight.html", user=user, sel_year=year, years=years(db), depts=depts,
+                  sel_dept=sel_dept, qs=qs, updated_at=datetime.now().strftime("%H:%M"), **data)
 
 
 @router.get("/oversight/export.xlsx")
@@ -174,7 +226,7 @@ def oversight_export(request: Request, year_id: int | None = None, dept: str = "
     d = oversight_data(db, user, year, int(dept) if dept.isdigit() else None)
     wb = Workbook()
     wb.remove(wb.active)
-    k = d["kpi"]
+    k = d["kpi_data"]
     _sheet(wb, "المؤشرات", ["المؤشر", "القيمة"], [
         ["الموظفون النشطون", k["employees"]], ["الأقسام", k["departments"]],
         ["طلبات بانتظار الاعتماد", k["pending_reqs"]], ["توصيات بانتظار الاعتماد", k["pending_recs"]],

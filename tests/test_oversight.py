@@ -80,7 +80,7 @@ def test_department_scope_and_small_groups(world):
         d2id = d2.id
     c = _sup(world)
     r = c.get("/oversight")
-    assert "أقسام أخرى" in r.text  # قسمان بأقل من 3 موظفين يُدمجان في جدول الأداء
+    assert "لا تُعرض (أقل من 3 موظفين)" in r.text  # أرصدة الأقسام الصغيرة مخفية
     scoped = _sup(world, dept=d2id, name="sup2")
     r = scoped.get(f"/oversight?dept={world['dept']}")  # نطاق الحساب يتقدم على الفلتر
     assert "قسم صغير" in r.text and "وحدة الشؤون الإدارية" not in r.text

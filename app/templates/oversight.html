@@ -1,43 +1,104 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ico, donut, month_bars %}
+{# لوحة «المتابع الإداري»: قراءة فقط، أرقام مجمّعة بلا أسماء موظفين #}
+{% from "_macros.html" import ico, welcome_banner, age_badge %}
+{% from "_oversight_macros.html" import kpi, donut, month_bars_multi, sort_th %}
 {% block title %}لوحة المتابعة الإدارية{% endblock %}
 {% block heading %}لوحة المتابعة{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ ico('pie', 'h-ico') }} لوحة المتابعة الإدارية</h1>
-  <p>مؤشرات مجمّعة عن بدل الراحة ومعالجة الغياب للسنة {{ sel_year.name }}{% if locked %} في قسم {{ locked.name }}{% endif %}، لمتابعة سير الاعتماد والأرصدة دون الاطلاع على بيانات الموظفين الفردية.</p></div>
-  <span class="badge info" title="يتيح هذا الحساب الاطلاع على المؤشرات فقط؛ الاعتماد والرفض وإصدار التوصيات من صلاحية شؤون الموظفين ومدير النظام.">{{ ico('shield', 'sm-ico') }} حساب متابعة — قراءة فقط</span></div>
-<form method="get" class="filters card">
-  <div class="field"><label for="oy">السنة</label><select id="oy" name="year_id" data-autosubmit>{% for y in years %}<option value="{{ y.id }}" {% if y.id == sel_year.id %}selected{% endif %}>{{ y.name }}</option>{% endfor %}</select></div>
-  {% if not locked %}<div class="field"><label for="od">القسم</label><select id="od" name="dept" data-autosubmit><option value="">كل الأقسام</option>{% for d in depts %}<option value="{{ d.id }}" {% if d.id == dept %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>{% endif %}
-  <a class="btn" href="/oversight/export.xlsx?year_id={{ sel_year.id }}{% if dept %}&dept={{ dept }}{% endif %}">{{ ico('download', 'sm-ico') }}تصدير الملخص</a>
-</form>
-{% set k = kpi %}
-<div class="stats">
-  <a class="stat {{ 'err' if k.late else 'ok' }}" href="#late"><div class="l">طلبات متأخرة عن الاعتماد</div><div class="v">{{ k.late }}</div><div class="s">{% if k.late %}أقدمها منذ {{ days_ar(k.oldest) }}{% else %}كلها في حدود {{ days_ar(LATE_DAYS) }}{% endif %}</div></a>
-  <div class="stat"><div class="l">بانتظار الاعتماد</div><div class="v">{{ k.pending_reqs + k.pending_recs }}</div><div class="s">{{ count_ar(k.pending_reqs, 'req') }} و{{ count_ar(k.pending_recs, 'rec') }}</div></div>
-  <div class="stat"><div class="l">متوسط مدة الاعتماد</div><div class="v">{{ k.avg_lead|n }}</div><div class="s">يوم من التقديم إلى القرار</div></div>
-  <div class="stat"><div class="l">الموظفون</div><div class="v">{{ k.employees }}</div><div class="s">في {{ k.departments }} قسم · {{ k.no_rec }} بلا توصيات بعد</div></div>
-  <div class="stat"><div class="l">الممنوح بالتوصيات</div><div class="v">{{ k.granted_eq|n }}</div><div class="s">يوماً معادلاً · {{ count_ar(k.recs, 'rec') }}</div></div>
-  <div class="stat"><div class="l">نسبة الاستخدام</div><div class="v">{{ k.util }}%</div><div class="s">المستخدم {{ k.used_eq|n }} من {{ k.granted_eq|n }} يوماً</div></div>
-  <div class="stat"><div class="l">بلغوا الحد الأقصى</div><div class="v">{{ k.at_cap }}</div><div class="s">وقاربه {{ k.near_cap }}</div></div>
-  <div class="stat"><div class="l">غير مُسندين لمسؤول</div><div class="v">{{ k.unassigned }}</div><div class="s">يعتمد طلباتهم مدير النظام</div></div>
+{% if user.role == 'supervisor' %}{{ welcome_banner(user) }}{% endif %}
+{% set k = kpi_data %}
+<div class="page-head sv-head">
+  <div><h1>{{ ico('dashboard', 'h-ico') }} لوحة المتابعة الإدارية <span class="badge muted sv-ro" title="يتيح هذا الحساب الاطلاع على المؤشرات فقط؛ الاعتماد والرفض وإصدار التوصيات من صلاحية شؤون الموظفين ومدير النظام.">{{ ico('shield', 'sm') }}حساب متابعة — قراءة فقط</span></h1>
+    <p>{{ ('قسم ' ~ sel_dept.name) if sel_dept else 'جميع الأقسام' }} · السنة {{ sel_year.name }} · آخر تحديث {{ updated_at }} · مؤشرات مجمّعة دون بيانات الموظفين الفردية.</p></div>
+  <form method="get" class="filters no-print sv-filters" aria-label="تصفية اللوحة">
+    <div class="field"><label for="year_id">السنة</label>
+      <select id="year_id" name="year_id" data-autosubmit title="الأرصدة سنوية ولا تُرحَّل؛ اختر السنة لعرض مؤشراتها.">{% for y in years %}<option value="{{ y.id }}"{% if y.id == sel_year.id %} selected{% endif %}>{{ y.name }}{% if y.is_active %} (النشطة){% endif %}</option>{% endfor %}</select></div>
+    {% if not locked %}<div class="field"><label for="dept">القسم</label>
+      <select id="dept" name="dept" data-autosubmit title="اقصر المؤشرات على قسم واحد، أو اختر «جميع الأقسام».">{{ '' }}<option value="">جميع الأقسام</option>{% for dp in depts %}<option value="{{ dp.id }}"{% if sel_dept and dp.id == sel_dept.id %} selected{% endif %}>{{ dp.name }}</option>{% endfor %}</select></div>{% endif %}
+    <a class="btn" href="/oversight/export.xlsx?{{ qs }}">{{ ico('download', 'sm-ico') }}تصدير الملخص</a>
+  </form>
 </div>
-<div class="grid two">
-  <section class="card"><h2>توزيع الموظفين على الأقسام</h2>
-    {% if kpi.employees %}{{ donut(dept_pie, kpi.employees, unit='موظف', title='توزيع الموظفين على الأقسام', cap='موظف') }}{% else %}<p class="muted">لا يوجد موظفون في هذا النطاق.</p>{% endif %}</section>
-  <section class="card"><h2>الطلبات حسب الحالة</h2>
-    {% if st_total %}{{ donut(st_pie, st_total, unit='طلب', title='الطلبات حسب الحالة', cap='طلب') }}{% else %}<p class="muted">لا توجد طلبات في هذه السنة بعد.</p>{% endif %}</section>
+
+<section class="grid kpis sv-kpis" aria-label="المؤشرات الرئيسية">
+  {{ kpi('الموظفون', k.employees, 'users', 'brand', k.no_rec ~ ' بلا توصيات بعد') }}
+  {{ kpi('الأقسام', k.departments, 'building', 'accent', ('غير مُسندين لمسؤول: ' ~ k.unassigned) if k.unassigned else 'كل الموظفين مُسندون') }}
+  {{ kpi('بانتظار الاعتماد', k.pending_reqs + k.pending_recs, 'hourglass', 'warn', count_ar(k.pending_reqs, 'req') ~ ' و' ~ count_ar(k.pending_recs, 'rec')) }}
+  {{ kpi('متأخرة عن الاعتماد', k.late, 'stamp', 'err' if k.late else 'ok', ('تجاوزت ' ~ days_ar(LATE_DAYS) ~ ' · أقدمها ' ~ days_ar(k.oldest)) if k.late else 'كلها في حدود ' ~ days_ar(LATE_DAYS), href='#late') }}
+  {{ kpi('متوسط مدة الاعتماد', (k.avg_lead|n) ~ ' يوم', 'calendar', '', 'من التقديم إلى القرار') }}
+  {{ kpi('نسبة الاستخدام', k.util ~ '٪', 'pie', 'ok', 'المستخدم ' ~ (k.used_eq|n) ~ ' من ' ~ (k.granted_eq|n) ~ ' يوماً') }}
+</section>
+
+<div class="sv-grid">
+  <section class="card sv-span-2" aria-labelledby="c-dept-h">
+    <h2 id="c-dept-h">توزيع الموظفين على الأقسام</h2>
+    <p class="hint chart-sub">مرّر أو انقر على قسم في المفتاح لإبرازه · لون كل قسم ثابت طوال السنة</p>
+    {% if dept_donut.total %}{{ donut(dept_donut, 'dd', 'توزيع الموظفين على الأقسام', 'الموظفين', 'موظفاً', active=(sel_dept.id|string if sel_dept else None)) }}
+    {% else %}<p class="empty">لا يوجد موظفون في هذا النطاق.</p>{% endif %}
+  </section>
+  <section class="card" aria-labelledby="c-st-h">
+    <h2 id="c-st-h">الطلبات حسب الحالة</h2>
+    <p class="hint chart-sub">طلبات معالجة الغياب في السنة {{ sel_year.name }}</p>
+    {% if status_donut.total %}{{ donut(status_donut, 'sd', 'الطلبات حسب الحالة', 'الطلبات', 'طلباً', numerals=False) }}
+    {% else %}<p class="empty">لا توجد طلبات في هذه السنة بعد.</p>{% endif %}
+  </section>
+
+  <section class="card sv-span-2 sv-mb-card" aria-labelledby="c-m-h">
+    <h2 id="c-m-h">الطلبات والتوصيات شهرياً</h2>
+    <p class="hint chart-sub">عدد طلبات معالجة الغياب المقدَّمة والتوصيات المرفوعة في كل شهر من السنة</p>
+    {{ month_bars_multi(months_n, [('req','u','الطلبات'),('rec','g','التوصيات')], 'الطلبات والتوصيات شهرياً') }}
+  </section>
+  <section class="card flush sv-late" id="late" aria-labelledby="c-l-h">
+    <h2 id="c-l-h" class="pad">متأخرات تحتاج متابعة {% if late %}<span class="badge err">{{ late|length }}</span>{% endif %}</h2>
+    {% if late %}<ol class="sv-late-list">
+      {% for r in late[:8] %}<li>
+        <span class="sv-dot {{ r.cls }}" aria-hidden="true"></span>
+        <div class="who"><b class="num">{{ r.ref }}</b><small>{{ r.kind }} · {{ r.dept }} · {{ r.officer }}</small></div>
+        <div class="meta"><span class="amt">{{ r.amount }}</span>{{ age_badge(r.age) }}</div></li>{% endfor %}
+    </ol>
+    {% if late|length > 8 %}<p class="hint pad">و{{ late|length - 8 }} أخرى في ملف «تصدير الملخص».</p>{% endif %}
+    {% else %}<p class="empty">لا توجد طلبات متأخرة عن الاعتماد. جميع الطلبات في حدود المدة المعتمدة.</p>{% endif %}
+  </section>
+
+  <section class="card flush sv-span-3 sv-rank-card" aria-labelledby="c-r-h">
+    <h2 id="c-r-h" class="pad">ترتيب الأقسام</h2>
+    <p class="hint pad sv-sub">مرتّبة حسب المتأخرات ثم المعلّقة — انقر عنوان عمود لتغيير الترتيب. أرصدة الأقسام التي فيها أقل من 3 موظفين لا تظهر حفاظاً على الخصوصية.</p>
+    <div class="table-wrap"><table class="responsive sv-rank"><caption class="sr-only">ترتيب الأقسام حسب المتأخرات</caption>
+      <thead><tr><th scope="col" class="n">#</th><th scope="col">القسم</th>
+        {{ sort_th('emp', 'الموظفون', sort, qs) }}{{ sort_th('pending', 'معلّقة', sort, qs) }}{{ sort_th('late', 'متأخرة', sort, qs) }}
+        {{ sort_th('granted', 'الممنوح (يوم)', sort, qs) }}{{ sort_th('used', 'المستخدم', sort, qs) }}{{ sort_th('rate', 'نسبة الاستخدام', sort, qs, 'sv-rate-h') }}</tr></thead><tbody>
+      {% for r in rank %}<tr{% if sel_dept and r.id == sel_dept.id %} class="sv-sel" aria-current="true"{% endif %}>
+        <td class="n" data-label="الترتيب"><b class="sv-rk">{{ loop.index }}</b></td>
+        <td data-label="القسم" class="sv-dcell"><span class="sv-dname"><b class="sv-rk sv-rk-m" aria-hidden="true">{{ loop.index }}</b><i class="sv-sw sm {{ r.cls }}{{ ' hatch' if r.cls == 'sv-c-other' }}" aria-hidden="true"></i>{% if r.id and not locked %}<a href="?year_id={{ sel_year.id }}&amp;dept={{ r.id }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</span></td>
+        <td class="n" data-label="الموظفون">{{ r.emp }}</td>
+        <td class="n" data-label="معلّقة">{{ r.pending or '—' }}</td>
+        <td class="n" data-label="متأخرة">{% if r.late %}<span class="badge err late">{{ r.late }}</span>{% else %}—{% endif %}</td>
+        {% if r.small %}<td class="n" data-label="الممنوح" title="أقل من 3 موظفين">—</td><td class="n" data-label="المستخدم" title="أقل من 3 موظفين">—</td><td data-label="نسبة الاستخدام"><span class="muted">لا تُعرض (أقل من 3 موظفين)</span></td>
+        {% else %}<td class="n" data-label="الممنوح">{{ r.granted|n }}</td>
+        <td class="n" data-label="المستخدم">{{ r.used|n }}</td>
+        <td data-label="نسبة الاستخدام"><span class="sv-rate"><span class="ubar" aria-hidden="true"><i style="width:{{ [r.rate, 100]|min }}%"></i></span><b class="num">{{ r.rate }}٪</b></span></td>{% endif %}</tr>
+      {% else %}<tr><td colspan="8" class="muted">لم تُسجَّل أقسام بعد.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="card flush sv-span-3" aria-labelledby="c-o-h">
+    <h2 id="c-o-h" class="pad">أداء الجهات المعتمِدة</h2>
+    <p class="hint pad sv-sub">متوسط المدة من تقديم الطلب إلى القرار لكل مسؤول شؤون موظفين؛ يُوسم «بطيء» إذا بلغ {{ days_ar(LATE_DAYS) }} فأكثر.</p>
+    <div class="table-wrap"><table class="responsive"><caption class="sr-only">أداء الجهات المعتمِدة</caption>
+      <thead><tr><th scope="col">مسؤول شؤون الموظفين</th><th scope="col" class="n">الموظفون</th><th scope="col" class="n">معتمدة</th><th scope="col" class="n">مرفوضة</th><th scope="col" class="n">معلّقة</th><th scope="col" class="n">متوسط مدة القرار</th><th scope="col" class="n">أقدم معلّق</th></tr></thead><tbody>
+      {% for n, x, old in by_officer %}<tr><td data-label="المسؤول">{{ n }}</td><td class="n" data-label="الموظفون">{{ x.count }}</td><td class="n" data-label="معتمدة">{{ x.approved }}</td><td class="n" data-label="مرفوضة">{{ x.rejected }}</td><td class="n" data-label="معلّقة">{{ x.n_pending or '—' }}</td>
+        <td class="n" data-label="متوسط المدة">{% if x.avg_lead is not none %}{{ x.avg_lead|n }} يوم{% if x.avg_lead >= LATE_DAYS %} <span class="badge warn">بطيء</span>{% endif %}{% else %}—{% endif %}</td>
+        <td class="n" data-label="أقدم معلّق">{% if old %}{{ age_badge(old) }}{% else %}—{% endif %}</td></tr>
+      {% else %}<tr><td colspan="7" class="muted">لا توجد قرارات اعتماد في هذه السنة لحساب متوسط المدة.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="card sv-span-3" aria-labelledby="c-x-h">
+    <h2 id="c-x-h">مؤشرات إضافية</h2>
+    <ul class="sv-facts">
+      <li>{{ ico('cal-check', 'sm-ico') }}<span>التوصيات السارية</span><b class="num">{{ k.recs }}</b><small>أيام {{ k.rec_days|n }} · ساعات {{ k.rec_hours|n }}</small></li>
+      <li>{{ ico('clock', 'sm-ico') }}<span>بلغوا الحد الأقصى</span><b class="num">{{ k.at_cap }}</b><small>وقاربه {{ k.near_cap }}</small></li>
+      <li>{{ ico('calendar', 'sm-ico') }}<span>أرصدة تسقط بنهاية السنة</span><b class="num">{{ k.lapse if k.lapse_window else '—' }}</b><small>{% if k.lapse_window %}{{ days_ar(k.lapse_days) }} إجمالاً{% else %}تظهر في آخر 90 يوماً من السنة{% endif %}</small></li>
+      <li>{{ ico('stamp', 'sm-ico') }}<span>نسبة الرفض</span><b class="num">{{ k.reject_rate }}٪</b><small>{{ k.rejected }} من {{ k.approved + k.rejected }} قرار</small></li>
+      <li>{{ ico('upload', 'sm-ico') }}<span>توصيات سارية بلا مرفق</span><b class="num">{{ k.no_attachment }}</b><small>اكتمال التوثيق</small></li>
+    </ul>
+  </section>
 </div>
-<section class="card"><h2>الممنوح والمستخدم شهرياً</h2>{{ month_bars(months) }}</section>
-<section class="card flush" id="late"><h2 class="pad">الطلبات المتأخرة عن الاعتماد</h2>
-  {% if late %}<div class="table-wrap"><table class="responsive"><thead><tr><th>الرقم المرجعي</th><th>النوع</th><th>المدة</th><th>القسم</th><th>الجهة المعتمِدة</th><th>تاريخ التقديم</th><th class="n">العمر</th></tr></thead><tbody>
-  {% for x in late %}<tr><td data-label="الرقم">{{ x.ref }}</td><td data-label="النوع">{{ x.kind }}</td><td data-label="المدة">{{ x.amount }}</td><td data-label="القسم">{{ x.dept }}</td><td data-label="الجهة">{{ x.officer }}</td><td data-label="التقديم">{{ x.created.strftime('%Y-%m-%d') }}</td><td class="n" data-label="العمر">{{ days_ar(x.age) }}</td></tr>{% endfor %}
-  </tbody></table></div>{% else %}<p class="pad muted">لا توجد طلبات متأخرة عن الاعتماد. جميع الطلبات في حدود المدة المعتمدة.</p>{% endif %}</section>
-<section class="card flush"><h2 class="pad">أداء الجهات المعتمِدة</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>مسؤول شؤون الموظفين</th><th class="n">الموظفون</th><th class="n">معتمدة</th><th class="n">مرفوضة</th><th class="n">معلّقة</th><th class="n">متوسط مدة القرار</th><th class="n">أقدم معلّق</th></tr></thead><tbody>
-  {% for n, x, old in by_officer %}<tr><td data-label="المسؤول">{{ n }}</td><td class="n" data-label="الموظفون">{{ x.count }}</td><td class="n" data-label="معتمدة">{{ x.approved }}</td><td class="n" data-label="مرفوضة">{{ x.rejected }}</td><td class="n" data-label="معلّقة">{{ x.n_pending }}</td><td class="n" data-label="المتوسط">{{ (x.avg_lead|n ~ ' يوم') if x.avg_lead is not none else '—' }}</td><td class="n" data-label="أقدم معلّق">{{ days_ar(old) if old else '—' }}</td></tr>
-  {% else %}<tr><td colspan="7" class="muted">لا توجد قرارات اعتماد في هذه السنة.</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="card flush"><h2 class="pad">أداء الأقسام</h2><div class="table-wrap"><table class="responsive"><thead><tr><th>القسم</th><th class="n">الموظفون</th><th class="n">الممنوح</th><th class="n">المستخدم</th><th class="n">المتاح</th><th class="n">الاستخدام</th><th class="n">معلّقة</th></tr></thead><tbody>
-  {% for n, x, merged in by_dept %}<tr><td data-label="القسم">{{ n }}</td><td class="n" data-label="الموظفون">{{ x.count }}</td><td class="n" data-label="الممنوح">{{ x.granted|round(1)|n }}</td><td class="n" data-label="المستخدم">{{ x.used|round(1)|n }}</td><td class="n" data-label="المتاح">{{ x.left|n }}</td><td class="n" data-label="الاستخدام">{{ x.util }}%</td><td class="n" data-label="معلّقة">{{ x.n_pending }}</td></tr>
-  {% else %}<tr><td colspan="7" class="muted">لا توجد أقسام في هذا النطاق.</td></tr>{% endfor %}</tbody></table></div>
-  <p class="hint pad">تُدمج أرقام الأقسام التي فيها أقل من 3 موظفين ضمن «أقسام أخرى» حفاظاً على خصوصية الموظفين.</p></section>
 {% endblock %}
