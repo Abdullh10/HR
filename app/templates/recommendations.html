@@ -6,6 +6,7 @@
 <div class="page-head">
   <div><h1>{{ ico('cal-check', 'h-ico') }} سجل التوصيات</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'rec') }}</p></div>
   <div class="actions">
+    {% if user.role == 'supervisor' %}<a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>{% endif %}
     {% if user.role in ('admin','officer') %}<a class="btn" href="/export/recommendations.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>
     <a class="btn primary" href="/recommendations/new?kind=days">+ توصية بالأيام</a><a class="btn primary" href="/recommendations/new?kind=hours">+ توصية بالساعات</a>{% endif %}
   </div>

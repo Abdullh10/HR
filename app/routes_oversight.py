@@ -1,6 +1,6 @@
 """لوحة المتابعة الإدارية: حساب «متابع إداري» للقراءة فقط.
 
-مؤشرات مجمّعة عن سير العمل دون أسماء الموظفين أو مرفقاتهم. لا يكتب هذا المسار شيئاً في قاعدة البيانات
+مؤشرات مجمّعة عن سير العمل، مع روابط للاطلاع على تفاصيل الموظفين وطلباتهم دون أي إجراء. لا يكتب هذا المسار شيئاً في قاعدة البيانات
 (عدا سجل التدقيق عند التصدير)، ولا يستدعي التصعيد.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from .web import client_ip, render, require
 
 router = APIRouter()
 VIEWERS = ("supervisor", "admin")  # الأدمن يستطيع معاينة اللوحة كما يراها المتابع
-MIN_GROUP = 3  # أقل عدد موظفين لعرض أرصدة قسم منفرداً (حماية الأعداد الصغيرة)
+MIN_GROUP = 0  # المتابع يطّلع على أرصدة الأفراد، فلا حاجة لدمج الأقسام الصغيرة
 TOP_DEPTS = 7
 OTHER = "أقسام أخرى"
 NO_DEPT = "— بلا قسم —"
@@ -102,7 +102,8 @@ def oversight_data(db: Session, user: User, year, dept: int | None, sort: str = 
             age = (now - r.created_at).days
             if age >= LATE_DAYS:
                 e = r.employee
-                late.append(dict(cls=slots.get(e.department_id, "sv-c-other"), ref=r.ref_code or f"#{r.id}", kind=kind,
+                late.append(dict(cls=slots.get(e.department_id, "sv-c-other"), employee=e.full_name,
+                                 href=f"/requests/{r.id}" if kind.startswith("طلب") else f"/employees/{e.id}", ref=r.ref_code or f"#{r.id}", kind=kind,
                                  amount=r.amount_label if kind.startswith("طلب") else (f"{r.amount:g} " + ("يوم" if r.kind == "days" else "ساعة")),
                                  dept=e.department.name if e.department else NO_DEPT,
                                  officer=e.manager.full_name if e.manager else "— غير مُسند (مدير النظام) —",
@@ -245,8 +246,8 @@ def oversight_export(request: Request, year_id: int | None = None, dept: str = "
                                    "متوسط مدة القرار (يوم)", "أقدم معلّق (يوم)"],
            [[n, x["count"], x["approved"], x["rejected"], x["n_pending"],
              x["avg_lead"] if x["avg_lead"] is not None else "", old] for n, x, old in d["by_officer"]])
-    _sheet(wb, "المتأخرات", ["الرقم المرجعي", "النوع", "المدة", "القسم", "الجهة المعتمدة", "تاريخ التقديم", "العمر (يوم)"],
-           [[x["ref"], x["kind"], x["amount"], x["dept"], x["officer"], x["created"].strftime("%Y-%m-%d"), x["age"]]
+    _sheet(wb, "المتأخرات", ["الرقم المرجعي", "الموظف", "النوع", "المدة", "القسم", "الجهة المعتمدة", "تاريخ التقديم", "العمر (يوم)"],
+           [[x["ref"], x["employee"], x["kind"], x["amount"], x["dept"], x["officer"], x["created"].strftime("%Y-%m-%d"), x["age"]]
             for x in d["late"]])
     _sheet(wb, "شهرياً", ["الشهر", "السنة", "الممنوح (يوم معادل)", "المستخدم (يوم معادل)"],
            [[m["label"], m["year"], m["granted"], m["used"]] for m in d["months"]])

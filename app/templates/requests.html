@@ -3,11 +3,11 @@
 {% block title %}الطلبات{% endblock %}
 {% block heading %}{{ 'طلباتي' if user.role == 'employee' else 'طلبات الموظفين' }}{% endblock %}
 {% block content %}
-{% if user.role != 'employee' %}{{ request_tabs('all', pending_approvals, user.role == 'admin') }}{% endif %}
+{% if user.role in ('admin', 'officer') %}{{ request_tabs('all', pending_approvals, user.role == 'admin') }}{% endif %}
 <div class="page-head">
   <div><h1>{{ ico('inbox', 'h-ico') }} {{ 'طلباتي' if user.role == 'employee' else 'طلبات معالجة الغياب' }}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'req') }}</p></div>
   <div class="actions">
-    {% if user.role in ('admin','officer') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>{% endif %}
+    {% if user.role in ('admin','officer','supervisor') %}<a class="btn" href="/export/requests.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>{% endif %}
     {% if user.employee_id or user.role in ('admin','officer') %}<a class="btn primary" href="/requests/new">+ طلب معالجة غياب</a>{% endif %}
   </div>
 </div>

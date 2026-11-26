@@ -67,6 +67,7 @@ from .web import (
 
 router = APIRouter()
 STAFF = ("admin", "officer")
+READERS = ("admin", "officer", "supervisor")  # صفحات الاطلاع؛ المتابع الإداري لا يملك أي إجراء
 
 
 def pick_year(db: Session, year_id: int | None) -> FiscalYear:
@@ -303,7 +304,7 @@ def employee_statement(request: Request, emp_id: int, year_id: int | None = None
 @router.get("/employees")
 def employees(request: Request, q: str = "", dept: int | None = None, officer: int | None = None,
               state: str = "", year_id: int | None = None,
-              user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+              user: User = Depends(require(*READERS)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     stmt = scoped_employees(db, user, include_inactive=(state == "inactive"), managed_only=True)
     if state == "inactive":
@@ -1160,7 +1161,7 @@ def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, of
         emps = list(db.scalars(scoped_employees(db, user, include_inactive=True, managed_only=True)))
     if dept:
         emps = [e for e in emps if e.department_id == dept]
-    if officer and user.role == "admin":
+    if officer and user.role in ("admin", "supervisor"):
         emps = [e for e in emps if (e.manager_id or -1) == officer]
     ids = [e.id for e in emps]
     reqs = list(db.scalars(select(LeaveRequest).where(LeaveRequest.fiscal_year_id == year.id,
@@ -1250,12 +1251,12 @@ def _report_data(db: Session, user: User, year: FiscalYear, dept: int | None, of
 
 @router.get("/reports")
 def reports(request: Request, year_id: int | None = None, dept: int | None = None, officer: int | None = None,
-            user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+            user: User = Depends(require(*READERS)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     data = _report_data(db, user, year, dept, officer)
     depts = list(db.scalars(select(Department).order_by(Department.name)))
     return render(request, db, "reports.html", user=user, sel_year=year, years=years(db), depts=depts, dept=dept,
-                  officer=officer, officer_list=officers(db) if user.role == "admin" else [], **data)
+                  officer=officer, officer_list=officers(db) if user.role in ("admin", "supervisor") else [], **data)
 
 
 def _xlsx_response(wb, filename: str) -> StreamingResponse:
@@ -1289,7 +1290,7 @@ def _sheet(wb, title: str, headers: list[str], rows: list[list]):
 
 
 @router.get("/export/{kind}.xlsx")
-def export(kind: str, year_id: int | None = None, user: User = Depends(require(*STAFF)),
+def export(kind: str, year_id: int | None = None, user: User = Depends(require(*READERS)),
            db: Session = Depends(get_db)):
     from openpyxl import Workbook
 
@@ -1338,7 +1339,7 @@ def export(kind: str, year_id: int | None = None, user: User = Depends(require(*
                      d["approved"], d["rejected"], d["n_pending"], d["avg_lead"] if d["avg_lead"] is not None else ""]
                     for n, d in lst]
         _sheet(wb, "حسب القسم", ["القسم", *cols], rows_of(data["by_dept"]))
-        if user.role == "admin":
+        if user.role in ("admin", "supervisor"):
             _sheet(wb, "حسب المسؤول", ["مسؤول شؤون الموظفين", *cols], rows_of(data["by_officer"]))
         _sheet(wb, "شهرياً", ["الشهر", "السنة", "الممنوح (يوم معادل)", "المستخدم (يوم معادل)"],
                [[m["label"], m["year"], m["granted"], m["used"]] for m in data["months"]])
@@ -1394,7 +1395,7 @@ def _archive_rows(db: Session, user: User, year: FiscalYear, emp: int | None, ki
 
 @router.get("/archive")
 def archive(request: Request, year_id: int | None = None, emp: int | None = None, kind: str = "", q: str = "",
-            status: str = "", user: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+            status: str = "", user: User = Depends(require(*READERS)), db: Session = Depends(get_db)):
     year = pick_year(db, year_id)
     ids, recs, reqs = _archive_rows(db, user, year, emp, kind, q, status)
     msgs = [] if kind else list(db.scalars(select(Message).where(
@@ -1408,7 +1409,7 @@ def archive(request: Request, year_id: int | None = None, emp: int | None = None
 
 
 @router.get("/archive/export.zip")
-def archive_export(request: Request, year_id: int | None = None, user: User = Depends(require(*STAFF)),
+def archive_export(request: Request, year_id: int | None = None, user: User = Depends(require(*READERS)),
                    db: Session = Depends(get_db)):
     """حزمة أرشيف للسنة: ملف Excel فهرس (التوصيات، الطلبات، الأرصدة) + ملفات PDF المرفقة."""
     import zipfile

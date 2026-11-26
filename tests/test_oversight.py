@@ -1,4 +1,4 @@
-"""حساب «متابع إداري»: لوحة مؤشرات للقراءة فقط، بلا أسماء موظفين، وبلا أي صلاحية تنفيذية."""
+"""حساب «متابع إداري»: لوحة مؤشرات واطلاع على الموظفين وسجلاتهم، بلا أي صلاحية تنفيذية."""
 from datetime import datetime, timedelta
 
 from app.db import SessionLocal
@@ -28,7 +28,7 @@ def _seed(world):
         db.commit()
 
 
-def test_supervisor_lands_on_oversight_and_sees_no_names(world):
+def test_supervisor_lands_on_oversight_with_names(world):
     _seed(world)
     c = _sup(world)
     r = c.get("/", follow_redirects=False)
@@ -37,11 +37,29 @@ def test_supervisor_lands_on_oversight_and_sees_no_names(world):
     r = c.get("/oversight")
     assert r.status_code == 200
     assert "لوحة المتابعة الإدارية" in r.text and "قراءة فقط" in r.text
-    assert "REQ-2027-00001" in r.text  # المتأخرات مجهّلة بالرقم المرجعي
-    for name in ("موظف أول", "موظف آخر", "1002", "1003"):
-        assert name not in r.text
-    assert "الإداري المسؤول" in r.text  # اسم الجهة المعتمِدة مسموح
+    assert "REQ-2027-00001" in r.text and "موظف أول" in r.text  # المتأخر باسمه ورابطه
+    assert "الإداري المسؤول" in r.text
     assert c.get("/oversight/export.xlsx").status_code == 200
+
+
+def test_supervisor_reads_employees_records_and_balances(world):
+    _seed(world)
+    c = _sup(world)
+    with SessionLocal() as db:
+        req = db.query(LeaveRequest).one()
+        from app.models import Recommendation
+        rid = db.query(Recommendation).one().id
+    r = c.get("/employees")
+    assert r.status_code == 200 and "موظف أول" in r.text and "موظف آخر" in r.text
+    assert "/recommendations/new" not in r.text  # لا أزرار إجراء
+    r = c.get(f"/employees/{world['e']}")
+    assert r.status_code == 200 and "رفع توصية" not in r.text and "/decide" not in r.text
+    for url in ("/recommendations", "/requests", f"/requests/{req.id}", f"/recommendations/{rid}/print",
+                "/reports", "/archive", "/export/balances.xlsx", "/export/summary.xlsx"):
+        assert c.get(url, follow_redirects=False).status_code == 200, url
+    page = c.get(f"/requests/{req.id}").text
+    assert "/decide" not in page and "/cancel" not in page
+    assert "/decide" not in c.get("/requests").text
 
 
 def test_supervisor_visit_does_not_escalate(world):
@@ -58,19 +76,19 @@ def test_supervisor_is_forbidden_everywhere_else(world):
     c = _sup(world)
     with SessionLocal() as db:
         req = db.query(LeaveRequest).one()
-    for url in ("/approvals", "/employees", f"/employees/{world['e']}", f"/requests/{req.id}", "/reports",
-                "/archive", "/export/balances.xlsx", "/export/summary.xlsx", "/admin/users", "/admin/audit",
-                "/recommendations/new", "/delegation"):
+    for url in ("/approvals", "/admin/users", "/admin/audit", "/recommendations/new", "/requests/new",
+                "/delegation", f"/employees/{world['e']}/edit", "/employees/new/form"):
         assert c.get(url, follow_redirects=False).status_code in (403, 404), url
     for url, data in ((f"/requests/{req.id}/decide", {"decision": "approve"}), ("/approvals/bulk", {"ids": req.id, "decision": "approve"}),
                       ("/recommendations/new", {"emps": world["e"], "kind": "days", "amount": 1, "rec_date": "2027-02-10"}),
-                      ("/reminders/year-end", {})):
+                      ("/reminders/year-end", {}), (f"/requests/{req.id}/cancel", {"note": "x"}),
+                      (f"/employees/{world['e']}/delete", {"confirm_no": "1002"})):
         assert post(c, url, data).status_code == 403, url
     with SessionLocal() as db:
         assert db.get(LeaveRequest, req.id).status == "pending"
 
 
-def test_department_scope_and_small_groups(world):
+def test_department_scope(world):
     with SessionLocal() as db:
         d2 = Department(name="قسم صغير")
         db.add(d2)
@@ -78,12 +96,12 @@ def test_department_scope_and_small_groups(world):
         db.add(Employee(employee_no="2001", full_name="موظف القسم الصغير", department_id=d2.id))
         db.commit()
         d2id = d2.id
-    c = _sup(world)
-    r = c.get("/oversight")
-    assert "لا تُعرض (أقل من 3 موظفين)" in r.text  # أرصدة الأقسام الصغيرة مخفية
     scoped = _sup(world, dept=d2id, name="sup2")
     r = scoped.get(f"/oversight?dept={world['dept']}")  # نطاق الحساب يتقدم على الفلتر
     assert "قسم صغير" in r.text and "وحدة الشؤون الإدارية" not in r.text
+    assert scoped.get(f"/employees/{world['e']}").status_code in (403, 404)  # خارج نطاقه
+    emps = scoped.get("/employees").text
+    assert "موظف القسم الصغير" in emps and "موظف أول" not in emps
 
 
 def test_admin_creates_supervisor_without_employee(world):

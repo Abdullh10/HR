@@ -9,7 +9,7 @@
 {% set k = kpi_data %}
 <div class="page-head sv-head">
   <div><h1>{{ ico('dashboard', 'h-ico') }} لوحة المتابعة الإدارية <span class="badge muted sv-ro" title="يتيح هذا الحساب الاطلاع على المؤشرات فقط؛ الاعتماد والرفض وإصدار التوصيات من صلاحية شؤون الموظفين ومدير النظام.">{{ ico('shield', 'sm') }}حساب متابعة — قراءة فقط</span></h1>
-    <p>{{ ('قسم ' ~ sel_dept.name) if sel_dept else 'جميع الأقسام' }} · السنة {{ sel_year.name }} · آخر تحديث {{ updated_at }} · مؤشرات مجمّعة دون بيانات الموظفين الفردية.</p></div>
+    <p>{{ ('قسم ' ~ sel_dept.name) if sel_dept else 'جميع الأقسام' }} · السنة {{ sel_year.name }} · آخر تحديث {{ updated_at }} · انقر أي رقم أو اسم للاطلاع على التفاصيل.</p></div>
   <form method="get" class="filters no-print sv-filters" aria-label="تصفية اللوحة">
     <div class="field"><label for="year_id">السنة</label>
       <select id="year_id" name="year_id" data-autosubmit title="الأرصدة سنوية ولا تُرحَّل؛ اختر السنة لعرض مؤشراتها.">{% for y in years %}<option value="{{ y.id }}"{% if y.id == sel_year.id %} selected{% endif %}>{{ y.name }}{% if y.is_active %} (النشطة){% endif %}</option>{% endfor %}</select></div>
@@ -52,7 +52,7 @@
     {% if late %}<ol class="sv-late-list">
       {% for r in late[:8] %}<li>
         <span class="sv-dot {{ r.cls }}" aria-hidden="true"></span>
-        <div class="who"><b class="num">{{ r.ref }}</b><small>{{ r.kind }} · {{ r.dept }} · {{ r.officer }}</small></div>
+        <div class="who"><a href="{{ r.href }}">{{ r.employee }}</a><small><span class="num">{{ r.ref }}</span> · {{ r.kind }} · {{ r.dept }} · {{ r.officer }}</small></div>
         <div class="meta"><span class="amt">{{ r.amount }}</span>{{ age_badge(r.age) }}</div></li>{% endfor %}
     </ol>
     {% if late|length > 8 %}<p class="hint pad">و{{ late|length - 8 }} أخرى في ملف «تصدير الملخص».</p>{% endif %}
@@ -61,7 +61,7 @@
 
   <section class="card flush sv-span-3 sv-rank-card" aria-labelledby="c-r-h">
     <h2 id="c-r-h" class="pad">ترتيب الأقسام</h2>
-    <p class="hint pad sv-sub">مرتّبة حسب المتأخرات ثم المعلّقة — انقر عنوان عمود لتغيير الترتيب. أرصدة الأقسام التي فيها أقل من 3 موظفين لا تظهر حفاظاً على الخصوصية.</p>
+    <p class="hint pad sv-sub">مرتّبة حسب المتأخرات ثم المعلّقة — انقر عنوان عمود لتغيير الترتيب.</p>
     <div class="table-wrap"><table class="responsive sv-rank"><caption class="sr-only">ترتيب الأقسام حسب المتأخرات</caption>
       <thead><tr><th scope="col" class="n">#</th><th scope="col">القسم</th>
         {{ sort_th('emp', 'الموظفون', sort, qs) }}{{ sort_th('pending', 'معلّقة', sort, qs) }}{{ sort_th('late', 'متأخرة', sort, qs) }}

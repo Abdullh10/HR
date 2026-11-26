@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% from "_macros.html" import ico, people_tabs %}
 {% block title %}الموظفون{% endblock %}
-{% block heading %}{{ 'الموظفون والأرصدة' if user.role == 'admin' else 'قائمة الموظفين' }}{% endblock %}
+{% block heading %}{{ 'الموظفون والأرصدة' if user.role in ('admin', 'supervisor') else 'قائمة الموظفين' }}{% endblock %}
 {% block content %}
 {% if user.role == 'admin' %}{{ people_tabs('list') }}{% endif %}
 <div class="page-head">
-  <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role == 'admin' else 'الموظفون المسندون إليّ' }}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'emp') }} · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
+  <div><h1>{{ ico('users', 'h-ico') }} {{ 'الموظفون والأرصدة' if user.role in ('admin', 'supervisor') else 'الموظفون المسندون إليّ' }}{% if user.role == 'supervisor' %} <span class="badge muted">اطلاع فقط</span>{% endif %}</h1><p>السنة {{ sel_year.name }} · {{ count_ar(rows|length, 'emp') }} · الحد الأقصى {{ days_ar(sel_year.base_days) }}</p></div>
   <div class="actions">
     <a class="btn" href="/export/balances.xlsx?year_id={{ sel_year.id }}">{{ ico('download', 'sm-ico') }}تصدير Excel</a>
     {% if user.role == 'admin' %}<a class="btn primary" href="/employees/new/form">+ إضافة موظف</a>{% endif %}
@@ -14,7 +14,7 @@
 <form method="get" class="card filters" role="search" data-autofilter>
   <div class="field grow"><label for="q">بحث بالاسم أو الرقم الوظيفي</label><input id="q" type="search" name="q" value="{{ q }}"></div>
   <div class="field"><label for="dept">القسم{% if user.role == 'admin' %} <a class="hint" href="/admin/departments">إدارة الأقسام</a>{% endif %}</label><select id="dept" name="dept"><option value="">الكل</option>{% for d in depts %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
-  {% if user.role == 'admin' %}<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officers %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
+  {% if user.role in ('admin', 'supervisor') %}<div class="field"><label for="of">مسؤول شؤون الموظفين</label><select id="of" name="officer"><option value="">الكل</option><option value="-1" {% if officer == -1 %}selected{% endif %}>— غير مُسند —</option>{% for o in officers %}<option value="{{ o.id }}" {% if officer == o.id %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label for="state">تصفية</label><select id="state" name="state">
     <option value="">النشطون</option><option value="cap" {% if state=='cap' %}selected{% endif %}>بلغوا الحد الأقصى</option>
     <option value="none" {% if state=='none' %}selected{% endif %}>بلا توصيات</option><option value="inactive" {% if state=='inactive' %}selected{% endif %}>غير النشطين</option></select></div>
@@ -22,18 +22,18 @@
   <button class="btn primary btn-apply" type="submit">عرض</button>{% if request.url.query %}<a class="clear-link" href="{{ path }}">مسح الفلاتر</a>{% endif %}
 </form>
 <div class="card flush"><div class="table-wrap"><table class="responsive">
-  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role == 'admin' %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th class="n">معلّقة</th><th>من الحد الأقصى</th><th></th></tr></thead>
+  <thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>{% if user.role in ('admin', 'supervisor') %}<th>مسؤول شؤون الموظفين</th>{% endif %}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th class="n">معلّقة</th><th>من الحد الأقصى</th>{% if user.role != 'supervisor' %}<th></th>{% endif %}</tr></thead>
   <tbody>
   {% for e, b in rows %}
   <tr><td data-label="م">{{ loop.index }}</td>
     <td data-label="الاسم"><a href="/employees/{{ e.id }}?year_id={{ sel_year.id }}">{{ e.full_name }}</a>{% if user.role == 'officer' and e.manager_id and e.manager_id != user.employee_id and e.id != user.employee_id %} <span class="badge muted" title="فريق {{ e.manager.full_name }}">بالتفويض</span>{% endif %}{% if e.department %}<small class="muted d-block">{{ e.department.name }}</small>{% endif %}</td>
     <td data-label="الرقم" class="num">{{ e.employee_no }}</td>
-    {% if user.role == 'admin' %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
+    {% if user.role in ('admin', 'supervisor') %}<td data-label="مسؤول شؤون الموظفين">{{ e.manager.full_name if e.manager else '—' }}</td>{% endif %}
     <td class="n" data-label="رصيد الأيام">{{ b.days_left|n }}</td><td class="n" data-label="رصيد الساعات">{{ b.hours_left|n }}</td>
     <td class="n" data-label="المتاح للطلب"><b>{{ days_ar(b.bookable_days) }}</b>{% if b.hours_avail_rem %}<small class="muted d-block">و{{ hours_ar(b.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}</td>
     <td class="n" data-label="طلبات معلّقة">{% if pend.get(e.id) %}<a class="badge warn" href="/requests?emp={{ e.id }}&status=pending">{{ pend[e.id] }}</a>{% else %}—{% endif %}</td>
     <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width: {{ b.cap_pct }}%"></span></div><span class="num">{{ b.granted_equiv_days|n }}/{{ b.cap_days|n }}</span></div></td>
-    <td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام" aria-label="توصية بالأيام لـ{{ e.full_name }}">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات" aria-label="توصية بالساعات لـ{{ e.full_name }}">+ ساعات</a></td></tr>
+    {% if user.role != 'supervisor' %}<td class="actions-cell"><a class="btn sm" href="/recommendations/new?kind=days&emp={{ e.id }}" title="توصية بالأيام" aria-label="توصية بالأيام لـ{{ e.full_name }}">+ أيام</a> <a class="btn sm" href="/recommendations/new?kind=hours&emp={{ e.id }}" title="توصية بالساعات" aria-label="توصية بالساعات لـ{{ e.full_name }}">+ ساعات</a></td>{% endif %}</tr>
   {% else %}<tr><td colspan="10" class="empty">لا توجد نتيجة.{% if user.role == 'officer' %} لم يُسند إليك موظفون بعد — تواصل مع مدير النظام.{% endif %}</td></tr>{% endfor %}
   </tbody></table></div></div>
 {% endblock %}

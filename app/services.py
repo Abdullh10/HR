@@ -439,10 +439,15 @@ def is_delegated(user: User, emp: Employee) -> bool:
     return bool(user.role == "officer" and emp.manager_id and emp.manager_id != user.employee_id and is_officer_of(user, emp))
 
 
+def in_supervisor_scope(user: User, emp: Employee) -> bool:
+    """المتابع الإداري: اطلاع فقط على كل الموظفين، أو على قسم واحد إن قُصر نطاقه."""
+    return user.role == "supervisor" and (not user.department_id or emp.department_id == user.department_id)
+
+
 def can_view_employee(user: User, emp: Employee) -> bool:
     if user.role == "admin" or user.employee_id == emp.id:
         return True
-    return is_officer_of(user, emp)
+    return in_supervisor_scope(user, emp) or is_officer_of(user, emp)
 
 
 def can_manage(user: User, emp: Employee) -> bool:
@@ -463,6 +468,13 @@ def visible_employee_ids(db: Session, user: User) -> list[int] | None:
     """None = الكل."""
     if user.role == "admin":
         return None
+    if user.role == "supervisor":  # اطلاع فقط (can_manage يبقى False)
+        if not user.department_id:
+            return None
+        ids = set(db.scalars(select(Employee.id).where(Employee.department_id == user.department_id)))
+        if user.employee_id:
+            ids.add(user.employee_id)
+        return list(ids)
     ids = set(team_ids(db, user))
     if user.employee_id:
         ids.add(user.employee_id)
