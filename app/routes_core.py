@@ -635,7 +635,8 @@ def request_new(request: Request, kind: str = "use", emp: int | None = None, use
 @router.post("/requests/new")
 async def request_create(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     form = await request.form()
-    kind, unit = str(form.get("kind") or "use"), "days"  # الطلبات بالأيام فقط؛ الساعات تُحوَّل إلى أيام
+    kind = str(form.get("kind") or "use")
+    unit = "hours" if str(form.get("unit") or "") == "hours" else "days"  # بالأيام (الافتراضي) أو بالساعات
     try:
         emp_id = int(form.get("emp") or user.employee_id or 0)
         emp = db.get(Employee, emp_id)
@@ -768,7 +769,8 @@ def request_cancel(request: Request, req_id: int, note: str = Form(""), user: Us
 
 
 @router.get("/requests/preview")
-def request_preview(start: str = "", end: str = "", emp: int | None = None, user: User = Depends(current_user),
+def request_preview(start: str = "", end: str = "", emp: int | None = None, unit: str = "days", hours: str = "",
+                    user: User = Depends(current_user),
                     db: Session = Depends(get_db)):
     """معاينة فورية لعدد أيام العمل التي ستُخصم (تستبعد عطلة نهاية الأسبوع والعطل الرسمية) ومقارنتها بالمتاح."""
     from fastapi.responses import JSONResponse
@@ -777,6 +779,18 @@ def request_preview(start: str = "", end: str = "", emp: int | None = None, user
     sd, ed = parse_date(start), parse_date(end) or parse_date(start)
     if not sd or not ed or ed < sd or (ed - sd).days > 120:
         return JSONResponse({"ok": False})
+    if unit == "hours":
+        year = year_for_date(db, sd)
+        if not year:
+            return JSONResponse({"ok": False, "msg": "التاريخ لا يقع ضمن سنة معرّفة في النظام."})
+        if not working_days(db, year, sd, sd):
+            return JSONResponse({"ok": False, "msg": "التاريخ المختار ليس يوم عمل."})
+        h = parse_float(hours) or 0
+        target = db.get(Employee, emp) if emp else (db.get(Employee, user.employee_id) if user.employee_id else None)
+        avail = compute_balance(db, target.id, year).hours_available if target and can_view_employee(user, target) else None
+        return JSONResponse({"ok": True, "days": 0, "label": hours_ar(h) if h else "أدخل عدد الساعات", "unit": "hours",
+                             "avail": hours_ar(max(avail, 0)) if avail is not None else None,
+                             "over": bool(avail is not None and h > avail + 1e-9)})
     year = year_for_date(db, sd)
     if not year:
         return JSONResponse({"ok": False, "msg": "التاريخ لا يقع ضمن سنة معرّفة في النظام."})

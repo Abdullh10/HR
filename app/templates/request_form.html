@@ -14,12 +14,17 @@
     {% if self_emp %}<option value="{{ self_emp.id }}" {% if emp == self_emp.id %}selected{% endif %}>{{ self_emp.full_name }} (أنا)</option>{% endif %}
     {% for e in managed %}<option value="{{ e.id }}" {% if emp == e.id %}selected{% endif %}>{{ e.full_name }} — {{ e.employee_no }}</option>{% endfor %}</select></div>
   {% else %}<input type="hidden" name="emp" value="{{ emp }}">{% endif %}
-  <input type="hidden" name="unit" value="days">
-  <div class="alert info days-only">{{ ico('calendar') }}<div><b>تُعالج الطلبات بالأيام فقط.</b>
-    تُحوَّل ساعات التوصيات إلى أيام تلقائياً: كل {{ sel_year.hours_per_day|n }} ساعات = يوم، وما يتبقى دون ذلك لا يُستخدم حتى يكتمل يوماً بتوصيات لاحقة.</div></div>
+  <fieldset class="field unit-pick"><legend>نوع الطلب *</legend>
+    <div class="seg" role="radiogroup" aria-label="نوع الطلب">
+      <label class="seg-opt"><input type="radio" name="unit" value="days" data-unit checked><span>بالأيام</span></label>
+      <label class="seg-opt"><input type="radio" name="unit" value="hours" data-unit><span>بالساعات</span></label>
+    </div></fieldset>
+  <div class="alert info days-only" data-for-unit="days">{{ ico('calendar') }}<div><b>طلب بالأيام:</b> يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة (كل {{ sel_year.hours_per_day|n }} ساعات = يوم). تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد.</div></div>
+  <div class="alert info days-only" data-for-unit="hours" hidden>{{ ico('clock') }}<div><b>طلب بالساعات:</b> لغياب جزئي في يوم عمل واحد، بحد أقصى {{ hours_ar(sel_year.hours_per_day) }}، ويُخصم من رصيد الساعات الممنوحة بتوصيات الساعات{% if info %} (المتاح: <b>{{ hours_ar(info.hours_available if info.hours_available > 0 else 0) }}</b>){% endif %}.</div></div>
   <div class="form-grid">
-    <div class="field"><label for="sd">من تاريخ *</label><input id="sd" name="start_date" type="date" required></div>
-    <div class="field"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date"><span class="hint">تُستبعد عطلة نهاية الأسبوع والعطل الرسمية من العدد. يُخصم من رصيد الأيام أولاً، ثم من الساعات المحوّلة.</span></div>
+    <div class="field"><label for="sd"><span data-for-unit="days">من تاريخ *</span><span data-for-unit="hours" hidden>التاريخ *</span></label><input id="sd" name="start_date" type="date" required></div>
+    <div class="field" data-for-unit="days"><label for="ed">إلى تاريخ</label><input id="ed" name="end_date" type="date"><span class="hint">اختياري؛ لطلب يوم واحد اتركه فارغاً.</span></div>
+    <div class="field" data-for-unit="hours" hidden><label for="hr">عدد الساعات *</label><input id="hr" name="hours" type="number" min="0.5" max="{{ sel_year.hours_per_day|n }}" step="0.5" inputmode="decimal"></div>
   </div>
   <p class="days-preview" data-days-out role="status" aria-live="polite"></p>
   <div class="field"><label for="rs">سبب الغياب / ملاحظات</label><textarea id="rs" name="reason"></textarea></div>

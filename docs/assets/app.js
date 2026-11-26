@@ -162,7 +162,7 @@
     b.alerts = [];
     if (b.cap > 0 && b.grantedEq >= b.cap - 1e-9) b.alerts.push(["warn", "بلغت الحد الأقصى السنوي (" + b.cap + " يوماً)، فلا تُقبل توصيات جديدة هذه السنة."]);
     else if (b.cap > 0 && b.capPct >= 80) b.alerts.push(["info", "اقتربت من الحد الأقصى السنوي: مُنحت " + n(b.grantedEq) + " من " + b.cap + " يوماً."]);
-    const tail = b.hAvailRem ? " (تبقّت " + hoursAr(b.hAvailRem) + " لا تكفي ليوم كامل)" : "";
+    const tail = b.hAvailRem ? " (تبقّت " + hoursAr(b.hAvailRem) + " لا تكفي ليوم كامل، ويمكن طلبها بالساعات)" : "";
     if (granted > 0 && b.bookable <= 0) b.alerts.push(["warn", "استنفدت رصيدك المتاح من بدل الراحة" + tail + "."]);
     else if (granted > 0 && b.bookable <= 2) b.alerts.push(["warn", "رصيدك المتاح قارب على النفاد: بقي " + daysAr(b.bookable) + tail + "."]);
     return b;
@@ -378,17 +378,17 @@
   const LATE_DAYS = 3; // معيار الخدمة: يُعدّ الطلب متأخراً إذا بقي بلا قرار 3 أيام فأكثر
   const COUNT_FORMS = { emp: ["لا يوجد موظفون", "موظف واحد", "موظفان", "موظفين", "موظفاً"], req: ["لا توجد طلبات", "طلب واحد", "طلبان", "طلبات", "طلباً"], rec: ["لا توجد توصيات", "توصية واحدة", "توصيتان", "توصيات", "توصية"], msg: ["لا توجد رسائل", "رسالة واحدة", "رسالتان", "رسائل", "رسالة"], acc: ["لا توجد حسابات", "حساب واحد", "حسابان", "حسابات", "حساباً"] };
   const cnt = (v, k) => { const x = Math.trunc(Number(v) || 0), f = COUNT_FORMS[k]; return x === 0 ? f[0] : x === 1 ? f[1] : x === 2 ? f[2] : x <= 10 ? x + " " + f[3] : x + " " + f[4]; };
-  const balanceLine = (b) => `<div class="bal-line" role="status">${ico("pie", "sm-ico")}<span>المتاح للطلب: <b class="big">${daysAr(b.bookable)}</b></span>${b.pDays ? `<span class="muted">معلّق بانتظار الاعتماد: ${daysAr(b.pDays)}</span>` : ""}${b.hAvailRem ? `<span class="muted">${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</span>` : ""}</div>`;
+  const balanceLine = (b) => `<div class="bal-line" role="status">${ico("pie", "sm-ico")}<span>المتاح للطلب: <b class="big">${daysAr(b.bookable)}</b></span>${b.pDays ? `<span class="muted">معلّق بانتظار الاعتماد: ${daysAr(b.pDays)}</span>` : ""}${b.hAvailRem ? `<span class="muted">${hoursAr(b.hAvailRem)} لا تكفي ليوم، ويمكن طلبها بالساعات</span>` : ""}</div>`;
   const pdfChip = (name) => (name ? `<span class="badge muted" title="نسخة العرض لا تحفظ محتوى الملفات">📎 ${h(name)}</span>` : "");
   const months = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "يول", "أغس", "سبت", "أكت", "نوف", "ديس"];
 
   function board(b, big) {
     return `${(b.alerts || []).map(([k, t]) => `<div class="alert ${k} balance-alert" role="status">⚠ ${h(t)}</div>`).join("")}<section class="board${big ? " big" : ""}">
   <div class="gauge" style="--p: ${b.leftPct}" role="img" aria-label="المتاح للطلب ${daysAr(b.bookable)}">
-    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</div></div>
+    <div class="gauge-in"><b class="num">${b.bookable}</b><span>${b.bookable === 1 ? "يوم متاح للطلب" : b.bookable === 2 ? "يومان متاحان للطلب" : b.bookable > 10 ? "يوماً متاحاً للطلب" : "أيام متاحة للطلب"}</span>${b.pDays || b.pHours ? `<small>معلّق: ${[b.pDays ? daysAr(b.pDays) : "", b.pHours ? hoursAr(b.pHours) : ""].filter(Boolean).join(" و")}</small>` : ""}${b.hAvailRem ? `<small>+ ${hoursAr(b.hAvailRem)} تُطلب بالساعات</small>` : ""}</div></div>
   <div class="board-cards">
     <div class="bcard days">${ico("calendar")}<div><span class="l">رصيد الأيام</span><b class="v num">${n(b.daysLeft)}</b><span class="s">ممنوح ${n(b.gDays)} · مستخدم ${b.uDays}${b.pDays ? " · معلّق " + b.pDays : ""}</span><span class="s book">${b.bookable ? `يمكن طلب <b>${daysAr(b.bookable)}</b>${b.bookableFromHours ? " (منها " + b.bookableFromHours + " بتحويل الساعات)" : ""}` : "لا توجد أيام قابلة للطلب حالياً"}</span></div></div>
-    <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم فلا تُستخدم</b>` : ""}</span></div></div>
+    <div class="bcard hours">${ico("clock")}<div><span class="l">رصيد الساعات</span><b class="v num">${n(b.hoursLeft)}</b><span class="s">كل ${n(b.hpd)} ساعات = يوم${b.pHours ? " · معلّق " + n(b.pHours) : ""}${b.hAvailRem ? ` · <b>${hoursAr(b.hAvailRem)} لا تكفي ليوم، ويمكن طلبها بالساعات</b>` : ""}</span></div></div>
     <div class="bcard cap">${ico("pie")}<div><span class="l">من الحد الأقصى السنوي</span><b class="v num">${n(b.grantedEq)} <small class="of">من ${n(b.cap)} يوماً</small></b>
       <div class="progress" role="progressbar" aria-label="الممنوح من الحد الأقصى السنوي" aria-valuenow="${b.capPct}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${b.capPct}%"></span></div></div></div>
   </div></section>`;
@@ -728,7 +728,7 @@
       <div class="card flush"><div class="table-wrap"><table class="responsive"><thead><tr><th>م</th><th>اسم الموظف</th><th>الرقم الوظيفي</th>${admin ? "<th>مسؤول شؤون الموظفين</th>" : ""}<th class="n">رصيد الأيام</th><th class="n">رصيد الساعات</th><th class="n">المتاح للطلب</th><th class="n">معلّقة</th><th>من الحد الأقصى</th><th></th></tr></thead><tbody>
       ${rows.map(([e, b], i) => `<tr><td data-label="م">${i + 1}</td><td data-label="الاسم"><a href="#/employee/${e.id}?year=${y.id}">${h(e.name)}</a>${isDelegated(u, e) ? ` <span class="badge muted" title="فريق ${h(mgrName(e))}">بالتفويض</span>` : ""}${deptName(e) ? `<small class="muted d-block">${h(deptName(e))}</small>` : ""}</td><td data-label="الرقم" class="num">${h(e.no)}</td>
         ${admin ? `<td data-label="مسؤول شؤون الموظفين">${h(mgrName(e) || "—")}</td>` : ""}<td class="n" data-label="رصيد الأيام">${n(b.daysLeft)}</td><td class="n" data-label="رصيد الساعات">${n(b.hoursLeft)}</td>
-        <td class="n" data-label="المتاح للطلب"><b>${daysAr(b.bookable)}</b>${b.hAvailRem ? `<small class="muted d-block">و${hoursAr(b.hAvailRem)} لا تكفي ليوم</small>` : ""}</td>
+        <td class="n" data-label="المتاح للطلب"><b>${daysAr(b.bookable)}</b>${b.hAvailRem ? `<small class="muted d-block">و${hoursAr(b.hAvailRem)} تُطلب بالساعات</small>` : ""}</td>
         <td class="n" data-label="طلبات معلّقة">${(() => { const c = DB.leaves.filter((r) => r.emp === e.id && r.status === "pending").length; return c ? `<a class="badge warn" href="#/requests?emp=${e.id}&status=pending">${c}</a>` : "—"; })()}</td>
         <td data-label="من الحد"><div class="meter"><div class="progress"><span style="width:${b.capPct}%"></span></div><span class="num">${n(b.grantedEq)}/${n(b.cap)}</span></div></td>
         <td class="actions-cell"><a class="btn sm" href="#/recs/new?kind=days&emp=${e.id}" aria-label="توصية بالأيام لـ${h(e.name)}">+ أيام</a> <a class="btn sm" href="#/recs/new?kind=hours&emp=${e.id}" aria-label="توصية بالساعات لـ${h(e.name)}">+ ساعات</a></td></tr>`).join("") || `<tr><td colspan="10" class="empty">لا توجد نتيجة.${u.role === "officer" ? " لم يُسند إليك موظفون بعد — تواصل مع مدير النظام." : ""}</td></tr>`}
@@ -1626,9 +1626,9 @@
   <details class="faq-item"><summary>كيف أحصل على اسم المستخدم وكلمة المرور؟</summary><p>يسلّمك مدير النظام بطاقة دخول فيها اسم المستخدم (غالباً رقمك الوظيفي) وكلمة المرور. يمكنك تغيير كلمة المرور متى شئت من «الملف الشخصي».</p></details>
   <details class="faq-item"><summary>نسيت كلمة المرور، ماذا أفعل؟</summary><p>تواصل مع مدير النظام في الجهة، فيعيد تعيينها ويسلّمك بطاقة دخول جديدة. لا يستطيع أحد — حتى مدير النظام — الاطلاع على كلمة المرور التي اخترتها بنفسك.</p></details>
   <h3>الرصيد والطلبات</h3>
-  <details class="faq-item"><summary>كيف يُحسب رصيدي؟</summary><p>يُمنح الرصيد بالتوصيات التي يرفعها مسؤول شؤون الموظفين (أياماً أو ساعات)، ويُخصم منه ما اعتُمد من طلبات معالجة الغياب. تُحوَّل الساعات إلى أيام وفق عدد ساعات اليوم المعتمد في السنة، والساعات المتبقية التي لا تكمل يوماً لا يمكن طلبها.</p></details>
+  <details class="faq-item"><summary>كيف يُحسب رصيدي؟</summary><p>يُمنح الرصيد بالتوصيات التي يرفعها مسؤول شؤون الموظفين (أياماً أو ساعات)، ويُخصم منه ما اعتُمد من طلبات معالجة الغياب. تُحوَّل الساعات إلى أيام وفق عدد ساعات اليوم المعتمد في السنة، والساعات المتبقية التي لا تكمل يوماً يمكن استخدامها بطلب بالساعات.</p></details>
   <details class="faq-item"><summary>هل يُرحَّل الرصيد غير المستخدم إلى السنة التالية؟</summary><p>لا؛ الرصيد مرتبط بسنته، فاحرص على استخدامه قبل نهايتها، ويُنبَّه مدير النظام قبل نهاية السنة إلى الأرصدة غير المستخدمة.</p></details>
-  <details class="faq-item"><summary>كيف أقدّم طلب معالجة غياب؟</summary><p>من «طلب معالجة غياب» تختار التاريخ أو الفترة، فيحسب النظام أيام العمل تلقائياً مستبعداً عطلة نهاية الأسبوع والعطل الرسمية، ثم يصل الطلب إلى مسؤول شؤون الموظفين لاعتماده، ويصلك إشعار بالقرار.</p></details>
+  <details class="faq-item"><summary>كيف أقدّم طلب معالجة غياب؟</summary><p>من «طلب معالجة غياب» تختار «بالأيام» وتحدد التاريخ أو الفترة، فيحسب النظام أيام العمل تلقائياً مستبعداً عطلة نهاية الأسبوع والعطل الرسمية؛ أو «بالساعات» لغياب جزئي في يوم عمل واحد فيُخصم من رصيد الساعات. ثم يصل الطلب إلى مسؤول شؤون الموظفين لاعتماده، ويصلك إشعار بالقرار.</p></details>
   <details class="faq-item"><summary>هل يمكن إلغاء طلب بعد اعتماده؟</summary><p>نعم، يستطيع مسؤول شؤون الموظفين أو مدير النظام إلغاء الاعتماد عند الحاجة (كخطأ في التاريخ) مع ذكر السبب، فيعود الرصيد إليك ويصلك إشعار بذلك. ويمكنك إلغاء طلبك بنفسك ما دام بانتظار الاعتماد.</p></details>
   <details class="faq-item"><summary>من يعتمد طلبي إذا كان مسؤولي في إجازة؟</summary><p>يمكن تفويض مسؤول آخر بمتابعة الفريق خلال فترة الغياب، فيعتمد الطلبات بدلاً منه، ويُوثَّق كل قرار «بالتفويض» ويُشعَر به المسؤول الأصلي.</p></details>
   <h3>الأمان وسرية المعلومات</h3>

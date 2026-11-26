@@ -198,7 +198,7 @@ class BalanceInfo:
 
     @property
     def hours_avail_rem(self) -> float:
-        """ساعات متاحة لا تكفي ليوم كامل، فلا يمكن استخدامها حتى تكتمل بتوصيات لاحقة."""
+        """ساعات متاحة لا تكفي ليوم كامل؛ تُستخدم في طلبات الساعات أو تكتمل يوماً بتوصيات لاحقة."""
         return compute_earned(max(self.hours_available, 0), self.hours_per_day)[1]
 
     @property
@@ -215,7 +215,7 @@ class BalanceInfo:
             out.append(("info", f"اقتربت من الحد الأقصى السنوي: مُنحت {self.granted_equiv_days:g} من {self.cap_days:g} يوماً."))
         granted = self.granted_days * self.hours_per_day + self.granted_hours
         bd, rem = self.bookable_days, self.hours_avail_rem
-        tail = f" (تبقّت {hours_ar(rem)} لا تكفي ليوم كامل)" if rem else ""
+        tail = f" (تبقّت {hours_ar(rem)} لا تكفي ليوم كامل، ويمكن طلبها بالساعات)" if rem else ""
         if granted > 0 and bd <= 0:
             out.append(("warn", "استنفدت رصيدك المتاح من بدل الراحة" + tail + "."))
         elif granted > 0 and bd <= 2:
@@ -573,8 +573,6 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
         raise RuleError("الموظف غير نشط.")
     if kind not in ("use", "compensation") or unit not in ("days", "hours"):
         raise RuleError("نوع الطلب غير صحيح.")
-    if unit != "days":
-        raise RuleError("تُعالج الطلبات بالأيام فقط؛ تُحوَّل ساعات التوصيات إلى أيام تلقائياً.")
     if start is None:
         raise RuleError("أدخل التاريخ.")
     year = ensure_year_open(year_for_date(db, start))
@@ -595,7 +593,7 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
             raise RuleError("المدة المختارة لا تتضمن أيام عمل (عطلة نهاية أسبوع أو عطلة رسمية).")
         days = len(wd)
         overlap = db.scalar(select(LeaveRequest.id).where(
-            LeaveRequest.employee_id == emp.id, LeaveRequest.unit == "days",
+            LeaveRequest.employee_id == emp.id,  # يشمل طلبات الساعات في الأيام نفسها
             LeaveRequest.status.in_(("pending", "approved")),
             LeaveRequest.start_date <= end, LeaveRequest.end_date >= start,
             LeaveRequest.id != (exclude_id or 0)))
@@ -605,14 +603,25 @@ def validate_leave(db: Session, emp: Employee, kind: str, unit: str, start: date
             raise RuleError(f"الرصيد المتاح للحجز بالأيام ({days_ar(b.bookable_days)}، شاملاً تحويل الساعات: "
                             f"كل {b.hours_per_day:g} ساعات = يوم) لا يكفي لمدة {days_ar(days)}.")
     else:
+        # طلب بالساعات: ليوم عمل واحد، لا يتجاوز ساعات اليوم، ويُخصم من رصيد الساعات (توصيات الساعات)
         end = start
         if hours is None or hours <= 0:
             raise RuleError("أدخل عدد ساعات أكبر من صفر.")
-        if hours > year.hours_per_day * 5:
-            raise RuleError("عدد الساعات كبير جداً لطلب واحد.")
         hrs = round(float(hours), 2)
+        if hrs > year.hours_per_day + 1e-9:
+            raise RuleError(f"طلب الساعات ليوم واحد لا يتجاوز ساعات اليوم ({hours_ar(year.hours_per_day)})؛ للمدد الأطول اختر «بالأيام».")
+        if not working_days(db, year, start, start):
+            raise RuleError("التاريخ المختار ليس يوم عمل (عطلة نهاية أسبوع أو عطلة رسمية).")
+        same_day = list(db.scalars(select(LeaveRequest).where(
+            LeaveRequest.employee_id == emp.id, LeaveRequest.status.in_(("pending", "approved")),
+            LeaveRequest.start_date <= start, LeaveRequest.end_date >= start, LeaveRequest.id != (exclude_id or 0))))
+        if any(r.unit == "days" for r in same_day):
+            raise RuleError("يوجد طلب فعّال بالأيام يشمل هذا التاريخ.")
+        if sum(r.hours for r in same_day) + hrs > year.hours_per_day + 1e-9:
+            raise RuleError(f"مجموع ساعات الطلبات في هذا اليوم يتجاوز ساعات اليوم ({hours_ar(year.hours_per_day)}).")
         if hrs > b.hours_available + 1e-9:
-            raise RuleError(f"رصيد الساعات المتاح ({hours_ar(max(b.hours_available, 0))}) لا يكفي.")
+            raise RuleError(f"رصيد الساعات المتاح ({hours_ar(max(b.hours_available, 0))}) لا يكفي. "
+                            "تُخصم طلبات الساعات من الساعات الممنوحة بتوصيات الساعات؛ للأيام الممنوحة اختر «بالأيام».")
     return year, days, hrs
 
 

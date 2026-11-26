@@ -33,7 +33,7 @@
     <div class="gauge-in">
       <b class="num">{{ info.bookable_days }}</b>{% set bd = info.bookable_days %}<span>{{ 'يوم متاح للطلب' if bd == 1 else 'يومان متاحان للطلب' if bd == 2 else 'يوماً متاحاً للطلب' if bd > 10 else 'أيام متاحة للطلب' }}</span>
       {% if info.pending_days or info.pending_hours %}<small>معلّق: {{ days_ar(info.pending_days) if info.pending_days else '' }}{% if info.pending_days and info.pending_hours %} و{% endif %}{{ hours_ar(info.pending_hours) if info.pending_hours else '' }}</small>{% endif %}
-      {% if info.hours_avail_rem %}<small>+ {{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم</small>{% endif %}
+      {% if info.hours_avail_rem %}<small>+ {{ hours_ar(info.hours_avail_rem) }} تُطلب بالساعات</small>{% endif %}
     </div>
   </div>
   <div class="board-cards">
@@ -44,7 +44,7 @@
     </div>
     <div class="bcard hours">
       {{ ico('clock') }}
-      <div><span class="l">رصيد الساعات</span><b class="v num">{{ info.hours_left|n }}</b><span class="s">كل {{ info.hours_per_day|n }} ساعات = يوم{% if info.pending_hours %} · معلّق {{ info.pending_hours|n }}{% endif %}{% if info.hours_avail_rem %} · <b>{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم فلا تُستخدم</b>{% endif %}</span></div>
+      <div><span class="l">رصيد الساعات</span><b class="v num">{{ info.hours_left|n }}</b><span class="s">كل {{ info.hours_per_day|n }} ساعات = يوم{% if info.pending_hours %} · معلّق {{ info.pending_hours|n }}{% endif %}{% if info.hours_avail_rem %} · <b>{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم، ويمكن طلبها بالساعات</b>{% endif %}</span></div>
     </div>
     <div class="bcard cap">
       {{ ico('pie') }}
@@ -57,7 +57,7 @@
 {% macro balance_line(info) -%}
 <div class="bal-line" role="status">{{ ico('pie', 'sm-ico') }}<span>المتاح للطلب: <b class="big">{{ days_ar(info.bookable_days) }}</b></span>
   {% if info.pending_days %}<span class="muted">معلّق بانتظار الاعتماد: {{ days_ar(info.pending_days) }}</span>{% endif %}
-  {% if info.hours_avail_rem %}<span class="muted">{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم فلا تُستخدم</span>{% endif %}</div>
+  {% if info.hours_avail_rem %}<span class="muted">{{ hours_ar(info.hours_avail_rem) }} لا تكفي ليوم، ويمكن طلبها بالساعات</span>{% endif %}</div>
 {%- endmacro %}
 {% macro letter_head(title, ref, extra='') -%}
 <header>

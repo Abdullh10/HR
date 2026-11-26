@@ -232,7 +232,7 @@
     form.querySelectorAll("[data-for-unit]").forEach(function (el) {
       var on = el.getAttribute("data-for-unit") === u.value;
       el.hidden = !on;
-      el.querySelectorAll("input").forEach(function (i) { i.required = on && i.name === "hours"; });
+      el.querySelectorAll("input").forEach(function (i) { i.required = on && i.name === "hours"; i.disabled = !on && i.name !== "start_date"; });
     });
   }
   document.addEventListener("change", function (ev) {
@@ -573,18 +573,21 @@
 (function () {
   document.addEventListener("DOMContentLoaded", function () {
     var f = document.querySelector("form[data-days-preview]"); if (!f) return;
-    var out = f.querySelector("[data-days-out]"), sd = f.querySelector('[name="start_date"]'), ed = f.querySelector('[name="end_date"]'), emp = f.querySelector('[name="emp"]');
+    var out = f.querySelector("[data-days-out]"), sd = f.querySelector('[name="start_date"]'), ed = f.querySelector('[name="end_date"]'), emp = f.querySelector('[name="emp"]'), hr = f.querySelector('[name="hours"]');
+    function unit() { var u = f.querySelector('[name="unit"]:checked'); return u ? u.value : "days"; }
     var t;
     function run() {
       if (!sd.value) { out.textContent = ""; return; }
-      var q = "start=" + encodeURIComponent(sd.value) + "&end=" + encodeURIComponent(ed.value || sd.value) + (emp && emp.value ? "&emp=" + encodeURIComponent(emp.value) : "");
+      var q = "start=" + encodeURIComponent(sd.value) + "&end=" + encodeURIComponent(unit() === "hours" ? sd.value : (ed.value || sd.value)) + (emp && emp.value ? "&emp=" + encodeURIComponent(emp.value) : "") + "&unit=" + unit() + (hr && hr.value ? "&hours=" + encodeURIComponent(hr.value) : "");
       fetch("/requests/preview?" + q, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
         if (!d.ok) { out.textContent = d.msg || ""; out.classList.toggle("err", !!d.msg); return; }
         out.classList.toggle("err", !!d.over);
-        out.textContent = d.days ? ("سيُخصم من الرصيد: " + d.label + (d.over ? " — يتجاوز المتاح (" + d.avail + ")" : "")) : d.label;
+        out.textContent = d.unit === "hours" ? (hr && hr.value ? "سيُخصم من رصيد الساعات: " + d.label + (d.over ? " — يتجاوز المتاح (" + d.avail + ")" : "") : d.label)
+          : d.days ? ("سيُخصم من الرصيد: " + d.label + (d.over ? " — يتجاوز المتاح (" + d.avail + ")" : "")) : d.label;
       }).catch(function () { out.textContent = ""; });
     }
-    [sd, ed].forEach(function (el) { if (el) el.addEventListener("change", function () { clearTimeout(t); t = setTimeout(run, 150); }); });
+    [sd, ed, hr].forEach(function (el) { if (el) el.addEventListener(el === hr ? "input" : "change", function () { clearTimeout(t); t = setTimeout(run, 200); }); });
+    f.querySelectorAll('[name="unit"]').forEach(function (r) { r.addEventListener("change", run); });
     run();
   });
 })();
